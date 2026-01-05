@@ -774,26 +774,50 @@ class RailFlawClassifier:
         # 显示图像
         plt.show()
 
+# 导入数据读取模块
+from data_reader import HexDataReader, DataPoint
+
 # 示例用法
 if __name__ == "__main__":
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description="超维计算超声波探伤算法")
+    parser.add_argument('--train_data', type=str, default=None, help='训练数据文件路径（16进制）')
+    parser.add_argument('--train_labels', type=str, default=None, help='训练数据标签文件路径')
+    parser.add_argument('--test_data', type=str, default=None, help='测试数据文件路径（16进制）')
+    parser.add_argument('--use_simulated', action='store_true', help='使用模拟数据')
+    args = parser.parse_args()
+    
     # 创建B显数据处理器
     bscan_processor = BScanDataProcessor()
     
     # 初始化B显矩阵（示例：9个通道，100个编码值）
     bscan_processor.init_bscan_matrix(max_encoding=100)
     
-    # 模拟更新B显数据
-    for channel in range(9):  # 9个通道
-        for encoding in range(50):
-            # 随机生成深度值和dB值
-            depth = random.uniform(0, 100) if channel < 8 else random.uniform(50, 80)  # 通道9深度较深
-            # 根据伤损概率生成不同dB值
-            if random.random() < 0.3:  # 30%概率为伤损
-                db_value = random.uniform(35, 70)  # 伤损信号dB值较高
-            else:  # 70%概率为正常
-                db_value = random.uniform(10, 30)  # 正常信号dB值较低
-            
-            bscan_processor.update_bscan_matrix(channel, encoding, depth, db_value)
+    # 数据点列表
+    data_points = []
+    
+    # 必须提供训练数据文件和标签文件
+    if args.train_data and args.train_labels:
+        # 从文件读取数据
+        print("\n从文件读取训练数据...")
+        reader = HexDataReader()
+        data_points = reader.read_data_file(args.train_data)
+        print(f"读取到 {len(data_points)} 个数据点")
+        
+        # 更新B显矩阵
+        for data_point in data_points:
+            if 0 <= data_point.channel < bscan_processor.max_channels and 0 <= data_point.encoding < bscan_processor.max_encoding:
+                bscan_processor.update_bscan_matrix(
+                    data_point.channel, 
+                    data_point.encoding, 
+                    data_point.depth, 
+                    data_point.db_value
+                )
+    else:
+        print("\n必须提供训练数据文件和标签文件")
+        exit(1)
     
     # 可视化通道配置
     print("\n可视化通道配置...")
@@ -814,135 +838,50 @@ if __name__ == "__main__":
     # 创建钢轨伤损分类器
     flaw_classifier = RailFlawClassifier()
     
-    # 生成模拟训练数据（11种伤损类型+8种正常结构）
-    print("\n生成模拟训练数据...")
+    # 创建钢轨伤损分类器
+    flaw_classifier = RailFlawClassifier()
     
-    training_data = {
-        "轨头外侧核伤": [
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 0.0, 'encoding': 10.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 1.0, 'encoding': 20.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 2.0, 'encoding': 30.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 3.0, 'encoding': 40.0}
-        ],
-        "轨头中心核伤": [
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 4.0, 'encoding': 15.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 5.0, 'encoding': 25.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 4.0, 'encoding': 35.0}
-        ],
-        "轨头内侧核伤": [
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 0.0, 'encoding': 12.0},
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 1.0, 'encoding': 22.0},
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 2.0, 'encoding': 32.0}
-        ],
-        "轨头内、外、中心核伤": [
-            {'depth': random.uniform(25, 55), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 0.0, 'encoding': 11.0},
-            {'depth': random.uniform(25, 55), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 3.0, 'encoding': 21.0},
-            {'depth': random.uniform(25, 55), 'db_value': random.uniform(40, 60), 'binary_value': 1.0, 'channel': 5.0, 'encoding': 31.0}
-        ],
-        "轨头内、中心核伤": [
-            {'depth': random.uniform(30, 50), 'db_value': random.uniform(42, 58), 'binary_value': 1.0, 'channel': 3.0, 'encoding': 13.0},
-            {'depth': random.uniform(30, 50), 'db_value': random.uniform(42, 58), 'binary_value': 1.0, 'channel': 4.0, 'encoding': 23.0},
-            {'depth': random.uniform(30, 50), 'db_value': random.uniform(42, 58), 'binary_value': 1.0, 'channel': 5.0, 'encoding': 33.0}
-        ],
-        "轨头外、中心核伤": [
-            {'depth': random.uniform(35, 55), 'db_value': random.uniform(43, 62), 'binary_value': 1.0, 'channel': 0.0, 'encoding': 14.0},
-            {'depth': random.uniform(35, 55), 'db_value': random.uniform(43, 62), 'binary_value': 1.0, 'channel': 1.0, 'encoding': 24.0},
-            {'depth': random.uniform(35, 55), 'db_value': random.uniform(43, 62), 'binary_value': 1.0, 'channel': 5.0, 'encoding': 34.0}
-        ],
-        "轨头水平分裂": [
-            {'depth': random.uniform(10, 40), 'db_value': random.uniform(30, 50), 'binary_value': 1.0, 'channel': 6.0, 'encoding': 16.0},
-            {'depth': random.uniform(10, 40), 'db_value': random.uniform(30, 50), 'binary_value': 1.0, 'channel': 7.0, 'encoding': 26.0},
-            {'depth': random.uniform(10, 40), 'db_value': random.uniform(30, 50), 'binary_value': 1.0, 'channel': 6.0, 'encoding': 36.0}
-        ],
-        "轨头、轨腰分裂": [
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 6.0, 'encoding': 17.0},
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 7.0, 'encoding': 27.0},
-            {'depth': random.uniform(20, 50), 'db_value': random.uniform(35, 55), 'binary_value': 1.0, 'channel': 6.0, 'encoding': 37.0}
-        ],
-        "轨腰水平裂": [
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(38, 58), 'binary_value': 1.0, 'channel': 6.0, 'encoding': 18.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(38, 58), 'binary_value': 1.0, 'channel': 7.0, 'encoding': 28.0},
-            {'depth': random.uniform(30, 60), 'db_value': random.uniform(38, 58), 'binary_value': 1.0, 'channel': 8.0, 'encoding': 38.0}
-        ],
-        "轨底断裂": [
-            {'depth': random.uniform(50, 80), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 8.0, 'encoding': 19.0},
-            {'depth': random.uniform(50, 80), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 8.0, 'encoding': 29.0},
-            {'depth': random.uniform(50, 80), 'db_value': random.uniform(45, 65), 'binary_value': 1.0, 'channel': 8.0, 'encoding': 39.0}
-        ],
-        "螺孔裂纹": [
-            {'depth': random.uniform(15, 35), 'db_value': random.uniform(32, 52), 'binary_value': 1.0, 'channel': 4.0, 'encoding': 10.0},
-            {'depth': random.uniform(15, 35), 'db_value': random.uniform(32, 52), 'binary_value': 1.0, 'channel': 5.0, 'encoding': 20.0},
-            {'depth': random.uniform(15, 35), 'db_value': random.uniform(32, 52), 'binary_value': 1.0, 'channel': 4.0, 'encoding': 30.0}
-        ],
-        "接头": [
-            {'depth': 0.0, 'db_value': random.uniform(10, 20), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 5.0},
-            {'depth': 0.0, 'db_value': random.uniform(10, 20), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 15.0},
-            {'depth': 0.0, 'db_value': random.uniform(10, 20), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 25.0}
-        ],
-        "螺孔": [
-            {'depth': 0.0, 'db_value': random.uniform(15, 25), 'binary_value': 0.0, 'channel': 4.0, 'encoding': 7.0},
-            {'depth': 0.0, 'db_value': random.uniform(15, 25), 'binary_value': 0.0, 'channel': 5.0, 'encoding': 17.0},
-            {'depth': 0.0, 'db_value': random.uniform(15, 25), 'binary_value': 0.0, 'channel': 4.0, 'encoding': 27.0}
-        ],
-        "导线孔": [
-            {'depth': 0.0, 'db_value': random.uniform(12, 22), 'binary_value': 0.0, 'channel': 0.0, 'encoding': 8.0},
-            {'depth': 0.0, 'db_value': random.uniform(12, 22), 'binary_value': 0.0, 'channel': 1.0, 'encoding': 18.0},
-            {'depth': 0.0, 'db_value': random.uniform(12, 22), 'binary_value': 0.0, 'channel': 2.0, 'encoding': 28.0}
-        ],
-        "焊缝": [
-            {'depth': 0.0, 'db_value': random.uniform(18, 28), 'binary_value': 0.0, 'channel': 6.0, 'encoding': 9.0},
-            {'depth': 0.0, 'db_value': random.uniform(18, 28), 'binary_value': 0.0, 'channel': 7.0, 'encoding': 19.0},
-            {'depth': 0.0, 'db_value': random.uniform(18, 28), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 29.0}
-        ],
-        "鱼鳞伤": [
-            {'depth': 0.0, 'db_value': random.uniform(14, 24), 'binary_value': 0.0, 'channel': 0.0, 'encoding': 6.0},
-            {'depth': 0.0, 'db_value': random.uniform(14, 24), 'binary_value': 0.0, 'channel': 1.0, 'encoding': 16.0},
-            {'depth': 0.0, 'db_value': random.uniform(14, 24), 'binary_value': 0.0, 'channel': 2.0, 'encoding': 26.0}
-        ],
-        "轨底锈蚀": [
-            {'depth': 0.0, 'db_value': random.uniform(16, 26), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 11.0},
-            {'depth': 0.0, 'db_value': random.uniform(16, 26), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 21.0},
-            {'depth': 0.0, 'db_value': random.uniform(16, 26), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 31.0}
-        ],
-        "轨底焊筋": [
-            {'depth': 0.0, 'db_value': random.uniform(17, 27), 'binary_value': 0.0, 'channel': 7.0, 'encoding': 12.0},
-            {'depth': 0.0, 'db_value': random.uniform(17, 27), 'binary_value': 0.0, 'channel': 8.0, 'encoding': 22.0},
-            {'depth': 0.0, 'db_value': random.uniform(17, 27), 'binary_value': 0.0, 'channel': 7.0, 'encoding': 32.0}
-        ],
-        "道岔": [
-            {'depth': 0.0, 'db_value': random.uniform(13, 23), 'binary_value': 0.0, 'channel': 0.0, 'encoding': 13.0},
-            {'depth': 0.0, 'db_value': random.uniform(13, 23), 'binary_value': 0.0, 'channel': 3.0, 'encoding': 23.0},
-            {'depth': 0.0, 'db_value': random.uniform(13, 23), 'binary_value': 0.0, 'channel': 6.0, 'encoding': 33.0}
-        ]
-    }
+    # 训练数据读取
+    training_data = {}
+    
+    if args.train_data and args.train_labels:
+        # 从文件读取训练数据
+        print("\n从文件读取训练数据...")
+        reader = HexDataReader()
+        training_data = reader.convert_to_training_data(data_points, args.train_labels)
+        print(f"转换为 {len(training_data)} 类训练数据")
+    else:
+        print("\n未提供训练数据和标签文件，无法进行训练")
+        exit(1)
     
     # 训练分类器
     print("\n训练分类器...")
     flaw_classifier.train_classifier(training_data)
     
-    # 测试分类器
-    test_sample = {'depth': 52.0, 'db_value': 55.0, 'binary_value': 1.0, 'channel': 0.0, 'encoding': 15.0}
-    result, max_sim, all_sims = flaw_classifier.classify_flaw(test_sample)
-    print(f"\n测试样本分类结果：{result}，最大相似度：{max_sim:.4f}")
-    print("所有类别相似度：")
-    for class_label, sim in all_sims.items():
-        print(f"  {class_label}: {sim:.4f}")
-    
-    # 提取B显数据特征并分类
-    print("\nB显数据分类测试：")
-    bscan_points = bscan_processor.get_bscan_points()  # 获取BScanPoint对象矩阵
+    # 从文件读取测试数据
+    test_data = []
     classification_results = {}
     
-    for channel in range(3):
-        for encoding in range(5, 10):
-            features = flaw_classifier.extract_features(bscan_points, channel, encoding)
-            result, max_sim, all_sims = flaw_classifier.classify_flaw(features)
-            print(f"通道{channel}, 编码{encoding}: 分类结果={result}, 最大相似度={max_sim:.4f}")
+    if args.test_data:
+        print(f"\n从文件读取测试数据: {args.test_data}")
+        reader = HexDataReader()
+        test_data_points = reader.read_data_file(args.test_data)
+        test_data = reader.convert_to_test_data(test_data_points)
+        print(f"读取到 {len(test_data)} 个测试样本")
+        
+        # 测试所有测试样本
+        print("\n测试数据分类结果：")
+        for i, sample in enumerate(test_data):
+            result, max_sim, all_sims = flaw_classifier.classify_flaw(sample)
+            print(f"测试样本{i+1}: 分类结果={result}, 最大相似度={max_sim:.4f}")
             
             # 记录分类结果
             if result not in classification_results:
                 classification_results[result] = 0
             classification_results[result] += 1
+    else:
+        print("\n未提供测试数据文件，无法进行测试")
+        exit(1)
     
     # 可视化分类结果统计
     print("\n分类结果统计：")
