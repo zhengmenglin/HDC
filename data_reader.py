@@ -1,4 +1,5 @@
 import numpy as np
+import json
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
@@ -9,6 +10,7 @@ class DataPoint:
     encoding: int
     depth: float
     db_value: float
+    amplitude: float = 100.0  # 信号幅度值（%），默认为100%
 
 class HexDataReader:
     """16进制数据文件读取器"""
@@ -39,10 +41,14 @@ class HexDataReader:
     
     def read_data_file(self, file_path: str) -> List[DataPoint]:
         """
-        读取16进制数据文件，支持定制协议格式
-        定制协议格式：每行包含4个16进制字段，用空格分隔
+        读取数据文件，支持十六进制格式和JSON格式
+        
+        十六进制格式：每行包含4个16进制字段，用空格分隔
         字段顺序：通道号 编码值 深度值(dB值) 原始dB值
-
+        
+        JSON格式：每行一个JSON对象，格式为 {"Bn": [通道号, 深度值, 幅度值]}
+        例如：{"B1": [1, 125, 80]} 表示通道1，深度125mm，幅度80%
+        
         Args:
             file_path: 数据文件路径
 
@@ -52,38 +58,81 @@ class HexDataReader:
         data_points = []
         
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 
+            # 检测文件格式
+            is_json = False
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    is_json = line.startswith('{') and line.endswith('}')
+                    break
+            
             # 解析文件内容
             for line in lines:
                 line = line.strip()
                 if not line or line.startswith('#'):  # 跳过空行和注释
                     continue
                 
-                # 按空格分割字段
-                fields = line.split()
-                if len(fields) < 4:
-                    continue  # 跳过格式不正确的行
-                
-                # 解析字段
-                try:
-                    channel = int(fields[0], 16)  # 通道号（16进制）
-                    encoding = int(fields[1], 16)  # 编码值（16进制）
-                    depth_hex = fields[2]  # 深度值（16进制浮点数）
-                    db_hex = fields[3]  # dB值（16进制浮点数）
+                if is_json:
+                    # JSON格式解析
+                    try:
+                        # 解析JSON
+                        json_data = json.loads(line)
+                        
+                        # 遍历所有B显点
+                        for b_point_id, b_point_data in json_data.items():
+                            if isinstance(b_point_data, list) and len(b_point_data) >= 3:
+                                # 提取数据
+                                channel = b_point_data[0]  # 通道号
+                                encoding = int(b_point_id[1:])  # 从B1、B2等中提取编码值
+                                depth = b_point_data[1]  # 深度值（mm）
+                                amplitude = b_point_data[2]  # 幅度值（%）
+                                
+                                # 计算dB值（这里假设dB值与幅度值线性相关，可根据实际情况调整）
+                                # 幅度值80%对应dB值约40dB，100%对应约50dB
+                                db_value = 20 * np.log10(amplitude / 100) + 50
+                                
+                                # 创建数据点
+                                data_point = DataPoint(channel, encoding, depth, db_value, amplitude)
+                                data_points.append(data_point)
+                    except json.JSONDecodeError as e:
+                        print(f"解析JSON行失败: {line}, 错误: {e}")
+                        continue
+                    except Exception as e:
+                        print(f"处理JSON数据失败: {line}, 错误: {e}")
+                        continue
+                else:
+                    # 十六进制格式解析
+                    # 按空格分割字段
+                    fields = line.split()
+                    if len(fields) < 4:
+                        continue  # 跳过格式不正确的行
                     
-                    # 转换16进制浮点数
-                    depth = self.parse_hex_float(depth_hex)
-                    db_value = self.parse_hex_float(db_hex)
-                    
-                    # 创建数据点
-                    data_point = DataPoint(channel, encoding, depth, db_value)
-                    data_points.append(data_point)
-                except Exception as e:
-                    print(f"解析行失败: {line}, 错误: {e}")
-                    continue
-                    
+                    # 解析字段
+                    try:
+                        channel = int(fields[0], 16)  # 通道号（16进制）
+                        encoding = int(fields[1], 16)  # 编码值（16进制）
+                        depth_hex = fields[2]  # 深度值（16进制浮点数）
+                        db_hex = fields[3]  # dB值（16进制浮点数）
+                        
+                        # 转换16进制浮点数
+                        depth = self.parse_hex_float(depth_hex)
+                        db_value = self.parse_hex_float(db_hex)
+                        
+                        # 计算幅度值（假设dB值与幅度值线性相关）
+                        # 幅度值80%对应dB值约40dB，100%对应约50dB
+                        amplitude = 100 * 10 ** ((db_value - 50) / 20)
+                        amplitude = max(0, min(100, amplitude))  # 限制在0-100%之间
+                        
+                        # 创建数据点，包含幅度值
+                        data_point = DataPoint(channel, encoding, depth, db_value, amplitude)
+                        data_points.append(data_point)
+                    except Exception as e:
+                        print(f"解析行失败: {line}, 错误: {e}")
+                        continue
+                        
         except Exception as e:
             print(f"读取文件失败: {e}")
         
@@ -113,8 +162,14 @@ class HexDataReader:
                     fields = line.split()
                     if len(fields) < 3:
                         continue
-                    channel = int(fields[0], 16)
-                    encoding = int(fields[1], 16)
+                    # 支持十六进制和十进制格式的通道号和编码值
+                    try:
+                        channel = int(fields[0], 16)
+                        encoding = int(fields[1], 16)
+                    except ValueError:
+                        # 如果是十进制格式
+                        channel = int(fields[0])
+                        encoding = int(fields[1])
                     label = fields[2]
                     labels[(channel, encoding)] = label
         except Exception as e:
@@ -129,10 +184,11 @@ class HexDataReader:
                 if label not in training_data:
                     training_data[label] = []
                 
-                # 创建训练样本
+                # 创建训练样本，包含幅度值
                 sample = {
                     'depth': data_point.depth,
                     'db_value': data_point.db_value,
+                    'amplitude': data_point.amplitude,  # 新增幅度值字段
                     'binary_value': 1.0 if data_point.db_value > 30.0 else 0.0,
                     'channel': float(data_point.channel),
                     'encoding': float(data_point.encoding)
@@ -154,9 +210,11 @@ class HexDataReader:
         test_data = []
         
         for data_point in data_points:
+            # 创建测试样本，包含幅度值
             sample = {
                 'depth': data_point.depth,
                 'db_value': data_point.db_value,
+                'amplitude': data_point.amplitude,  # 新增幅度值字段
                 'binary_value': 1.0 if data_point.db_value > 30.0 else 0.0,
                 'channel': float(data_point.channel),
                 'encoding': float(data_point.encoding)
