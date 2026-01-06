@@ -499,33 +499,29 @@ class HyperdimensionalComputing:
             self.item_memory[address] = self.generate_random_vector()
         return self.item_memory[address]
     
-    def encode_value(self, value: float, value_range: Tuple[float, float]) -> np.ndarray:
+    def encode_value(self, value: float, value_range: Tuple[float, float], num_segments: int = 10) -> np.ndarray:
         """
-        编码数值为超维向量
+        编码数值为超维向量，支持分段编码
         
         Args:
             value: 数值
             value_range: 数值范围（min, max）
+            num_segments: 分段数量
             
         Returns:
             数值超维向量
         """
-        # 将数值映射到[-1, 1]范围
-        normalized_value = 2 * (value - value_range[0]) / (value_range[1] - value_range[0]) - 1
+        # 将数值映射到[0, num_segments-1]范围，实现分段编码
+        normalized_value = (value - value_range[0]) / (value_range[1] - value_range[0])
+        segment_index = int(normalized_value * num_segments)
+        segment_index = min(segment_index, num_segments - 1)  # 防止越界
         
-        # 生成数值超向量
-        value_key = f"value_{value_range[0]}_{value_range[1]}_{value}"
-        if value_key not in self.item_memory:
-            # 生成基础随机向量
-            base_vector = self.generate_random_vector()
-            # 根据数值大小调整向量
-            scaled_vector = base_vector * normalized_value
-            # 标准化处理
-            scaled_vector[scaled_vector > 0] = 1
-            scaled_vector[scaled_vector <= 0] = -1
-            self.item_memory[value_key] = scaled_vector
+        # 生成分段超向量
+        segment_key = f"segment_{value_range[0]}_{value_range[1]}_{num_segments}_{segment_index}"
+        if segment_key not in self.item_memory:
+            self.item_memory[segment_key] = self.generate_random_vector()
         
-        return self.item_memory[value_key]
+        return self.item_memory[segment_key]
     
     def bind(self, vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
         """
@@ -540,6 +536,38 @@ class HyperdimensionalComputing:
         """
         return np.multiply(vec1, vec2)
     
+    def encode_feature_interaction(self, feature_name1: str, value1: float, range1: Tuple[float, float],
+                                  feature_name2: str, value2: float, range2: Tuple[float, float]) -> np.ndarray:
+        """
+        编码两个特征的交互
+        
+        Args:
+            feature_name1: 第一个特征名
+            value1: 第一个特征值
+            range1: 第一个特征的数值范围
+            feature_name2: 第二个特征名
+            value2: 第二个特征值
+            range2: 第二个特征的数值范围
+            
+        Returns:
+            特征交互超维向量
+        """
+        # 分别编码两个特征
+        vec1 = self.bind(
+            self.encode_address(feature_name1),
+            self.encode_value(value1, range1)
+        )
+        
+        vec2 = self.bind(
+            self.encode_address(feature_name2),
+            self.encode_value(value2, range2)
+        )
+        
+        # 绑定两个特征向量，生成交互向量
+        interaction_vec = self.bind(vec1, vec2)
+        
+        return interaction_vec
+    
     def permute(self, vec: np.ndarray, shift: int = 1) -> np.ndarray:
         """
         置换操作：循环移位
@@ -552,6 +580,24 @@ class HyperdimensionalComputing:
             置换后的超向量
         """
         return np.roll(vec, shift)
+    
+    def encode_context(self, base_vector: np.ndarray, context_value: int, max_context: int) -> np.ndarray:
+        """
+        编码上下文信息
+        
+        Args:
+            base_vector: 基础超向量
+            context_value: 上下文值（如编码值、时间戳等）
+            max_context: 最大上下文值
+            
+        Returns:
+            上下文编码后的超维向量
+        """
+        # 根据上下文值计算置换偏移量
+        offset = int((context_value / max_context) * self.dimension) % self.dimension
+        
+        # 应用置换操作
+        return self.permute(base_vector, offset)
     
     def bundle(self, vectors: List[np.ndarray]) -> np.ndarray:
         """
@@ -585,7 +631,7 @@ class HyperdimensionalComputing:
     
     def train(self, training_data: Dict[str, List[Dict[str, float]]], value_ranges: Dict[str, Tuple[float, float]]):
         """
-        超维计算训练过程
+        超维计算训练过程，采用改进的编码流程
         
         Args:
             training_data: 训练数据，格式为{"类别": [{"特征1": 值1, "特征2": 值2, ...}, ...]}
@@ -593,6 +639,9 @@ class HyperdimensionalComputing:
         """
         # 清空联想存储器
         self.associative_memory.clear()
+        
+        # 获取最大编码值，用于上下文编码
+        max_encoding = value_ranges.get('encoding', (0, 100))[1]
         
         # 对每个类别进行训练
         for class_label, samples in training_data.items():
@@ -602,17 +651,48 @@ class HyperdimensionalComputing:
             for sample in samples:
                 sample_vector = np.zeros(self.dimension)
                 
-                # 对每个特征进行编码
+                # 基础特征编码
                 for feature_name, feature_value in sample.items():
                     if feature_name in value_ranges:
                         # 编码地址（特征名）
                         address_vec = self.encode_address(feature_name)
-                        # 编码数值（特征值）
+                        # 编码数值（特征值），使用分段编码
                         value_vec = self.encode_value(feature_value, value_ranges[feature_name])
                         # 绑定地址和数值
                         bound_vec = self.bind(address_vec, value_vec)
-                        # 将绑定后的向量添加到样本向量中
-                        sample_vector += bound_vec
+                        # 应用置换操作，增加特征区分度
+                        permuted_vec = self.permute(bound_vec, hash(feature_name) % self.dimension)
+                        # 将置换后的向量添加到样本向量中
+                        sample_vector += permuted_vec
+                
+                # 特征交互编码
+                # 通道与深度的交互
+                if 'channel' in sample and 'depth' in sample:
+                    interaction_vec = self.encode_feature_interaction(
+                        'channel', sample['channel'], value_ranges['channel'],
+                        'depth', sample['depth'], value_ranges['depth']
+                    )
+                    sample_vector += interaction_vec
+                
+                # 编码值与dB值的交互
+                if 'encoding' in sample and 'db_value' in sample:
+                    interaction_vec = self.encode_feature_interaction(
+                        'encoding', sample['encoding'], value_ranges['encoding'],
+                        'db_value', sample['db_value'], value_ranges['db_value']
+                    )
+                    sample_vector += interaction_vec
+                
+                # 深度与幅度的交互
+                if 'depth' in sample and 'amplitude' in sample:
+                    interaction_vec = self.encode_feature_interaction(
+                        'depth', sample['depth'], value_ranges['depth'],
+                        'amplitude', sample['amplitude'], value_ranges['amplitude']
+                    )
+                    sample_vector += interaction_vec
+                
+                # 上下文编码
+                if 'encoding' in sample:
+                    sample_vector = self.encode_context(sample_vector, sample['encoding'], max_encoding)
                 
                 # 标准化样本向量
                 normalized_sample_vec = self.normalize(sample_vector)
@@ -638,45 +718,80 @@ class HyperdimensionalComputing:
         """
         return np.dot(vec1, vec2) / self.dimension
     
-    def test(self, test_sample: Dict[str, float], value_ranges: Dict[str, Tuple[float, float]]) -> Tuple[str, float]:
+    def test(self, test_sample: Dict[str, float], value_ranges: Dict[str, Tuple[float, float]]) -> Tuple[str, float, Dict[str, float]]:
         """
-        超维计算测试过程
+        超维计算测试过程，匹配改进的编码流程
         
         Args:
             test_sample: 测试样本，格式为{"特征1": 值1, "特征2": 值2, ...}
             value_ranges: 各特征的数值范围，格式为{"特征": (min, max)}
             
         Returns:
-            分类结果（类别标签，最大相似度）
+            分类结果（类别标签, 最大相似度, 所有类别相似度）
         """
         # 编码测试样本
         test_vector = np.zeros(self.dimension)
         
+        # 获取最大编码值，用于上下文编码
+        max_encoding = value_ranges.get('encoding', (0, 100))[1]
+        
+        # 基础特征编码
         for feature_name, feature_value in test_sample.items():
             if feature_name in value_ranges:
                 # 编码地址（特征名）
                 address_vec = self.encode_address(feature_name)
-                # 编码数值（特征值）
+                # 编码数值（特征值），使用分段编码
                 value_vec = self.encode_value(feature_value, value_ranges[feature_name])
                 # 绑定地址和数值
                 bound_vec = self.bind(address_vec, value_vec)
-                # 将绑定后的向量添加到测试向量中
-                test_vector += bound_vec
+                # 应用置换操作，增加特征区分度
+                permuted_vec = self.permute(bound_vec, hash(feature_name) % self.dimension)
+                # 将置换后的向量添加到测试向量中
+                test_vector += permuted_vec
+        
+        # 特征交互编码
+        # 通道与深度的交互
+        if 'channel' in test_sample and 'depth' in test_sample:
+            interaction_vec = self.encode_feature_interaction(
+                'channel', test_sample['channel'], value_ranges['channel'],
+                'depth', test_sample['depth'], value_ranges['depth']
+            )
+            test_vector += interaction_vec
+        
+        # 编码值与dB值的交互
+        if 'encoding' in test_sample and 'db_value' in test_sample:
+            interaction_vec = self.encode_feature_interaction(
+                'encoding', test_sample['encoding'], value_ranges['encoding'],
+                'db_value', test_sample['db_value'], value_ranges['db_value']
+            )
+            test_vector += interaction_vec
+        
+        # 深度与幅度的交互
+        if 'depth' in test_sample and 'amplitude' in test_sample:
+            interaction_vec = self.encode_feature_interaction(
+                'depth', test_sample['depth'], value_ranges['depth'],
+                'amplitude', test_sample['amplitude'], value_ranges['amplitude']
+            )
+            test_vector += interaction_vec
+        
+        # 上下文编码
+        if 'encoding' in test_sample:
+            test_vector = self.encode_context(test_vector, test_sample['encoding'], max_encoding)
         
         # 标准化测试向量
         normalized_test_vec = self.normalize(test_vector)
         
         # 计算与所有类别超向量的相似度
-        max_similarity = -float('inf')
-        predicted_class = None
-        
+        similarities = {}
         for class_label, class_vec in self.associative_memory.items():
             sim = self.similarity(normalized_test_vec, class_vec)
-            if sim > max_similarity:
-                max_similarity = sim
-                predicted_class = class_label
+            similarities[class_label] = sim
         
-        return predicted_class, max_similarity
+        # 找到最大相似度对应的类别
+        max_similarity = max(similarities.values())
+        predicted_class = max(similarities, key=similarities.get)
+        
+        return predicted_class, max_similarity, similarities
 
 class RailFlawClassifier:
     """钢轨伤损分类器"""
@@ -716,19 +831,22 @@ class RailFlawClassifier:
         
         # 特征范围（根据实际数据调整）
         self.value_ranges = {
-            'depth': (0.0, 200.0),  # 深度值范围（mm）
-            'encoding': (0, 1000),   # 编码值范围
-            'angle': (0, 180),       # 角度值范围（度）
-            'offset': (-50, 100),     # 拼孔值范围（mm）
-            'channel': (0, 9),       # 通道号范围（0-8，对应9个通道）
-            'db_value': (-20, 100),  # 原始dB值范围
-            'binary_value': (0, 1),   # 二值化结果
-            'amplitude': (0, 100)     # 幅度值范围（%）
+            'depth': (0.0, 200.0),    # 深度值范围（mm）
+            'encoding': (0, 1000),     # 编码值范围
+            'angle': (0, 180),         # 角度值范围（度）
+            'offset': (-50, 100),       # 拼孔值范围（mm）
+            'channel': (0, 9),         # 通道号范围（0-8，对应9个通道）
+            'db_value': (-20, 100),    # 原始dB值范围
+            'binary_value': (0, 1),     # 二值化结果
+            'amplitude': (0, 100),      # 幅度值范围（%）
+            'depth_change': (-20, 20),  # 深度变化率范围（mm）
+            'db_change': (-30, 30),     # dB值变化率范围（dB）
+            'amplitude_change': (-50, 50)  # 幅度变化率范围（%）
         }
     
     def extract_features(self, bscan_data: List[List['BScanPoint']], channel: int, encoding: int) -> Dict[str, float]:
         """
-        从B显数据中提取特征
+        从B显数据中提取特征，包括上下文特征
         
         Args:
             bscan_data: B显数据矩阵（BScanPoint对象列表）
@@ -746,21 +864,37 @@ class RailFlawClassifier:
                 'binary_value': 0.0,
                 'amplitude': 0.0,
                 'channel': float(channel),
-                'encoding': float(encoding)
+                'encoding': float(encoding),
+                'depth_change': 0.0,
+                'db_change': 0.0,
+                'amplitude_change': 0.0
             }
         
-        # 获取BScanPoint对象
-        point = bscan_data[channel][encoding]
+        # 获取当前点
+        current_point = bscan_data[channel][encoding]
         
-        # 提取特征
+        # 提取基础特征
         features = {
-            'depth': point.depth if point.depth is not None else 0.0,
-            'db_value': point.db_value if point.db_value is not None else 0.0,
-            'binary_value': float(point.binary_value),
-            'amplitude': point.amplitude if point.amplitude is not None else 0.0,
+            'depth': current_point.depth if current_point.depth is not None else 0.0,
+            'db_value': current_point.db_value if current_point.db_value is not None else 0.0,
+            'binary_value': float(current_point.binary_value),
+            'amplitude': current_point.amplitude if current_point.amplitude is not None else 0.0,
             'channel': float(channel),
-            'encoding': float(encoding)
+            'encoding': float(encoding),
+            'depth_change': 0.0,
+            'db_change': 0.0,
+            'amplitude_change': 0.0
         }
+        
+        # 提取上下文特征（与前一个编码值的变化）
+        if encoding > 0:
+            prev_point = bscan_data[channel][encoding - 1]
+            if prev_point.depth is not None and current_point.depth is not None:
+                features['depth_change'] = current_point.depth - prev_point.depth
+            if prev_point.db_value is not None and current_point.db_value is not None:
+                features['db_change'] = current_point.db_value - prev_point.db_value
+            if prev_point.amplitude is not None and current_point.amplitude is not None:
+                features['amplitude_change'] = current_point.amplitude - prev_point.amplitude
         
         return features
     

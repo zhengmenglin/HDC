@@ -140,7 +140,7 @@ class HexDataReader:
     
     def convert_to_training_data(self, data_points: List[DataPoint], labels_file: str) -> Dict[str, List[Dict[str, float]]]:
         """
-        将数据点转换为训练数据格式
+        将数据点转换为训练数据格式，包括变化率计算
         
         Args:
             data_points: 数据点列表
@@ -176,8 +176,12 @@ class HexDataReader:
             print(f"读取标签文件失败: {e}")
             return training_data
         
-        # 转换数据点为训练数据
-        for data_point in data_points:
+        # 按通道和编码值排序数据点
+        sorted_data_points = sorted(data_points, key=lambda x: (x.channel, x.encoding))
+        
+        # 转换数据点为训练数据，添加变化率
+        previous_points = {}
+        for data_point in sorted_data_points:
             key = (data_point.channel, data_point.encoding)
             if key in labels:
                 label = labels[key]
@@ -191,15 +195,28 @@ class HexDataReader:
                     'amplitude': data_point.amplitude,  # 新增幅度值字段
                     'binary_value': 1.0 if data_point.db_value > 30.0 else 0.0,
                     'channel': float(data_point.channel),
-                    'encoding': float(data_point.encoding)
+                    'encoding': float(data_point.encoding),
+                    'depth_change': 0.0,
+                    'db_change': 0.0,
+                    'amplitude_change': 0.0
                 }
+                
+                # 计算变化率
+                prev_key = (data_point.channel, data_point.encoding - 1)
+                if prev_key in previous_points:
+                    prev_point = previous_points[prev_key]
+                    sample['depth_change'] = data_point.depth - prev_point.depth
+                    sample['db_change'] = data_point.db_value - prev_point.db_value
+                    sample['amplitude_change'] = data_point.amplitude - prev_point.amplitude
+                
                 training_data[label].append(sample)
+                previous_points[key] = data_point
         
         return training_data
     
     def convert_to_test_data(self, data_points: List[DataPoint]) -> List[Dict[str, float]]:
         """
-        将数据点转换为测试数据格式
+        将数据点转换为测试数据格式，包括变化率计算
         
         Args:
             data_points: 数据点列表
@@ -209,7 +226,12 @@ class HexDataReader:
         """
         test_data = []
         
-        for data_point in data_points:
+        # 按通道和编码值排序数据点
+        sorted_data_points = sorted(data_points, key=lambda x: (x.channel, x.encoding))
+        
+        # 转换数据点为测试数据，添加变化率
+        previous_points = {}
+        for data_point in sorted_data_points:
             # 创建测试样本，包含幅度值
             sample = {
                 'depth': data_point.depth,
@@ -217,9 +239,22 @@ class HexDataReader:
                 'amplitude': data_point.amplitude,  # 新增幅度值字段
                 'binary_value': 1.0 if data_point.db_value > 30.0 else 0.0,
                 'channel': float(data_point.channel),
-                'encoding': float(data_point.encoding)
+                'encoding': float(data_point.encoding),
+                'depth_change': 0.0,
+                'db_change': 0.0,
+                'amplitude_change': 0.0
             }
+            
+            # 计算变化率
+            prev_key = (data_point.channel, data_point.encoding - 1)
+            if prev_key in previous_points:
+                prev_point = previous_points[prev_key]
+                sample['depth_change'] = data_point.depth - prev_point.depth
+                sample['db_change'] = data_point.db_value - prev_point.db_value
+                sample['amplitude_change'] = data_point.amplitude - prev_point.amplitude
+            
             test_data.append(sample)
+            previous_points[(data_point.channel, data_point.encoding)] = data_point
         
         return test_data
 
