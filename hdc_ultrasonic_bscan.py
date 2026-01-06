@@ -87,7 +87,8 @@ class BScanDataProcessor:
     
     def calculate_y_coordinate(self, depth: float, y_max: float) -> float:
         """
-        计算Y坐标
+        计算Y坐标，B显左上角为原点，y向下
+        根据需求文档：Y=y/3=Ymax*d/3
         
         Args:
             depth: 深度值（mm）
@@ -96,11 +97,14 @@ class BScanDataProcessor:
         Returns:
             计算得到的Y坐标
         """
+        # 深度值d对应Y坐标：Y = Ymax * d / 3
+        # 由于y向下，深度越大，Y坐标越大
         return y_max * depth / 3
     
     def calculate_x_coordinate(self, current_x: float, channel: int, encoding_value: float) -> float:
         """
-        计算X坐标
+        计算X坐标，B显左上角为原点，x向右
+        根据需求文档：X = X + b + Δx，其中b是拼孔值，Δx是编码值
         
         Args:
             current_x: 当前X坐标
@@ -111,8 +115,8 @@ class BScanDataProcessor:
             计算得到的X坐标
         """
         if 0 <= channel < self.max_channels:
-            offset = self.channel_configs[channel].offset
-            return current_x + offset + encoding_value
+            offset = self.channel_configs[channel].offset  # 拼孔值b
+            return current_x + offset + encoding_value  # X = X + b + Δx
         return current_x
     
     def init_bscan_matrix(self, max_encoding: int):
@@ -126,26 +130,32 @@ class BScanDataProcessor:
         # 初始化B显矩阵，每个元素为BScanPoint对象
         self.bscan_matrix = [[BScanPoint(threshold=self.threshold) for _ in range(max_encoding)] for _ in range(self.max_channels)]
     
-    def update_bscan_matrix(self, channel: int, encoding: int, depth: float, db_value: float):
+    def update_bscan_matrix(self, channel: int, encoding: int, depth: float, db_value: float, amplitude: float = 100.0):
         """
-        更新B显数据矩阵
+        更新B显数据矩阵，新编码值从右向左填充
+        根据需求文档：矩阵最右一列为起始编码值，新编码值对应产生的深度值自右向左填充
         
         Args:
             channel: 通道号
             encoding: 编码值
             depth: 深度值（mm）
             db_value: 原始超声信号强度（dB）
+            amplitude: 信号幅度值（%），默认为100%
         """
         if 0 <= channel < self.max_channels and 0 <= encoding < self.max_encoding:
-            # 更新BScanPoint对象
-            self.bscan_matrix[channel][encoding] = BScanPoint(depth, db_value, self.threshold)
+            # 计算实际填充位置，从右向左填充
+            # 起始编码值（0）放在最右边，新编码值放在左边
+            actual_col = self.max_encoding - 1 - encoding
+            if 0 <= actual_col < self.max_encoding:
+                # 更新BScanPoint对象，包含幅度值
+                self.bscan_matrix[channel][actual_col] = BScanPoint(depth, db_value, self.threshold, amplitude)
     
     def get_bscan_data(self, data_type: str = "depth") -> List[List[float]]:
         """
         获取B显数据矩阵
         
         Args:
-            data_type: 数据类型，可选值："depth"（深度值）、"db"（原始dB值）、"binary"（二值化结果）
+            data_type: 数据类型，可选值："depth"（深度值）、"db"（原始dB值）、"binary"（二值化结果）、"amplitude"（幅度值）
             
         Returns:
             B显数据矩阵
@@ -164,6 +174,8 @@ class BScanDataProcessor:
                     value = point.db_value if point.db_value is not None else 0.0
                 elif data_type == "binary":
                     value = point.binary_value
+                elif data_type == "amplitude":
+                    value = point.amplitude if point.amplitude is not None else 100.0
                 else:
                     value = point.depth if point.depth is not None else 0.0
                 channel_result.append(value)
@@ -183,10 +195,11 @@ class BScanDataProcessor:
                         clusters: List[Dict] = None, cluster_classifications: Dict = None):
         """
         可视化B显数据矩阵，带伤损画框和相似度显示
+        B显左上角为原点，x向右，y向下
         
         Args:
             title: 图像标题
-            data_type: 数据类型，可选值："depth"（深度值）、"db"（原始dB值）、"binary"（二值化结果）
+            data_type: 数据类型，可选值："depth"（深度值）、"db"（原始dB值）、"binary"（二值化结果）、"amplitude"（幅度值）
             clusters: 伤损聚类结果列表
             cluster_classifications: 聚类分类结果，格式为 {cluster_id: (class_label, similarity, all_similarities)}
         """
@@ -209,9 +222,10 @@ class BScanDataProcessor:
         # 颜色列表，9个不同颜色
         colors = plt.cm.rainbow(np.linspace(0, 1, self.max_channels))
         
-        if data_type in ["depth", "db"]:
-            # 深度值和dB值：使用散点图
-            # 横轴为编码值，纵轴为深度值或dB值
+        if data_type in ["depth", "db", "amplitude"]:
+            # 深度值、dB值和幅度值：使用散点图
+            # 横轴为编码值，纵轴为深度值或dB值或幅度值
+            # B显左上角为原点，x向右，y向下
             
             for channel in range(self.max_channels):
                 # 提取该通道的数据
@@ -229,10 +243,12 @@ class BScanDataProcessor:
             
             if data_type == "depth":
                 ax_main.set_ylabel('深度值 (mm)')
-                # 设置深度值原点在右上角，深度零点在上面
-                ax_main.invert_yaxis()
-            else:
+                # B显左上角为原点，y向下，所以深度越大，y坐标越大
+                # 不需要invert_yaxis，因为深度值本身就是向下递增的
+            elif data_type == "db":
                 ax_main.set_ylabel('信号强度 (dB)')
+            elif data_type == "amplitude":
+                ax_main.set_ylabel('信号幅度值 (%)')
             
             # 设置坐标轴刻度
             ax_main.set_xticks(np.arange(0, self.max_encoding, step=10))
@@ -296,7 +312,7 @@ class BScanDataProcessor:
             ax_main.grid(True, linestyle='--', alpha=0.7)
         
         # 右侧相似度子图
-        if cluster_classifications and data_type in ["depth", "db"]:
+        if cluster_classifications and data_type in ["depth", "db", "amplitude"]:
             ax_similarity = fig.add_subplot(gs[0, 1])
             
             # 收集所有相似度不为零的类别
@@ -706,7 +722,8 @@ class RailFlawClassifier:
             'offset': (-50, 100),     # 拼孔值范围（mm）
             'channel': (0, 9),       # 通道号范围（0-8，对应9个通道）
             'db_value': (-20, 100),  # 原始dB值范围
-            'binary_value': (0, 1)    # 二值化结果
+            'binary_value': (0, 1),   # 二值化结果
+            'amplitude': (0, 100)     # 幅度值范围（%）
         }
     
     def extract_features(self, bscan_data: List[List['BScanPoint']], channel: int, encoding: int) -> Dict[str, float]:
@@ -727,6 +744,7 @@ class RailFlawClassifier:
                 'depth': 0.0,
                 'db_value': 0.0,
                 'binary_value': 0.0,
+                'amplitude': 0.0,
                 'channel': float(channel),
                 'encoding': float(encoding)
             }
@@ -739,6 +757,7 @@ class RailFlawClassifier:
             'depth': point.depth if point.depth is not None else 0.0,
             'db_value': point.db_value if point.db_value is not None else 0.0,
             'binary_value': float(point.binary_value),
+            'amplitude': point.amplitude if point.amplitude is not None else 0.0,
             'channel': float(channel),
             'encoding': float(encoding)
         }
@@ -924,7 +943,7 @@ class RailFlawClassifier:
             ax.set_title(f'{feature}特征分布', fontsize=14, fontweight='bold')
             ax.set_xlabel('类别', fontsize=12)
             ax.set_ylabel(feature, fontsize=12)
-            ax.tick_params(axis='x', rotation=45, ha='right')
+            ax.tick_params(axis='x', rotation=45)
             ax.grid(True, linestyle='--', alpha=0.7)
         
         # 调整布局
@@ -989,7 +1008,7 @@ class RailFlawClassifier:
             ax3.set_title('测试样本分类结果分布')
             ax3.set_xlabel('类别')
             ax3.set_ylabel('样本数')
-            ax3.tick_params(axis='x', rotation=45, ha='right')
+            ax3.tick_params(axis='x', rotation=45)
             ax3.grid(True, linestyle='--', alpha=0.7)
             
             # 4. 相似度分布
@@ -1021,9 +1040,9 @@ if __name__ == "__main__":
     
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="超维计算超声波探伤算法")
-    parser.add_argument('--train_data', type=str, default=None, help='训练数据文件路径（16进制）')
+    parser.add_argument('--train_data', type=str, default=None, help='训练数据文件路径（支持16进制和JSON格式）')
     parser.add_argument('--train_labels', type=str, default=None, help='训练数据标签文件路径')
-    parser.add_argument('--test_data', type=str, default=None, help='测试数据文件路径（16进制）')
+    parser.add_argument('--test_data', type=str, default=None, help='测试数据文件路径（支持16进制和JSON格式）')
     parser.add_argument('--use_simulated', action='store_true', help='使用模拟数据')
     args = parser.parse_args()
     
@@ -1044,14 +1063,15 @@ if __name__ == "__main__":
         data_points = reader.read_data_file(args.train_data)
         print(f"读取到 {len(data_points)} 个数据点")
         
-        # 更新B显矩阵
+        # 更新B显矩阵，传递幅度值
         for data_point in data_points:
             if 0 <= data_point.channel < bscan_processor.max_channels and 0 <= data_point.encoding < bscan_processor.max_encoding:
                 bscan_processor.update_bscan_matrix(
                     data_point.channel, 
                     data_point.encoding, 
                     data_point.depth, 
-                    data_point.db_value
+                    data_point.db_value,
+                    data_point.amplitude  # 传递幅度值
                 )
     else:
         print("\n必须提供训练数据文件和标签文件")
