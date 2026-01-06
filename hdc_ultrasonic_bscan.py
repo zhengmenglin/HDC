@@ -3,6 +3,7 @@ import random
 import matplotlib
 import matplotlib.pyplot as plt
 from typing import Dict, List, Tuple
+from sklearn.cluster import DBSCAN
 
 # 配置matplotlib支持中文显示
 matplotlib.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']  # 用来正常显示中文标签
@@ -30,8 +31,8 @@ class ChannelConfig:
 
 
 class BScanPoint:
-    """B显数据点类，存储深度值、原始dB值和二值化结果"""
-    def __init__(self, depth: float = None, db_value: float = None, threshold: float = 30.0):
+    """B显数据点类，存储深度值、原始dB值、幅度值和二值化结果"""
+    def __init__(self, depth: float = None, db_value: float = None, threshold: float = 30.0, amplitude: float = 100.0):
         """
         初始化B显数据点
         
@@ -39,9 +40,11 @@ class BScanPoint:
             depth: 深度值（mm）
             db_value: 原始超声信号强度（dB）
             threshold: 二值化阈值（dB）
+            amplitude: 信号幅度值（%），默认为100%
         """
         self.depth = depth
         self.db_value = db_value
+        self.amplitude = amplitude  # 新添加的幅度值字段
         self.threshold = threshold
         # 计算二值化结果：dB值大于阈值为1，否则为0
         self.binary_value = 1 if (db_value is not None and db_value > threshold) else 0
@@ -176,13 +179,16 @@ class BScanDataProcessor:
         """
         return self.bscan_matrix
     
-    def visualize_bscan(self, title: str = "B型显示图", data_type: str = "depth"):
+    def visualize_bscan(self, title: str = "B型显示图", data_type: str = "depth", 
+                        clusters: List[Dict] = None, cluster_classifications: Dict = None):
         """
-        可视化B显数据矩阵
+        可视化B显数据矩阵，带伤损画框和相似度显示
         
         Args:
             title: 图像标题
             data_type: 数据类型，可选值："depth"（深度值）、"db"（原始dB值）、"binary"（二值化结果）
+            clusters: 伤损聚类结果列表
+            cluster_classifications: 聚类分类结果，格式为 {cluster_id: (class_label, similarity, all_similarities)}
         """
         if self.bscan_matrix is None:
             print("B显数据矩阵尚未初始化")
@@ -192,39 +198,133 @@ class BScanDataProcessor:
         bscan_data = self.get_bscan_data(data_type)
         bscan_array = np.array(bscan_data, dtype=float)
         
-        # 创建图像
-        plt.figure(figsize=(12, 8))
+        # 创建图像和子图布局
+        # 主图 + 右侧相似度子图
+        fig = plt.figure(figsize=(15, 8))
+        gs = fig.add_gridspec(1, 2, width_ratios=[4, 1])
         
-        # 显示B显图像
-        if data_type == "binary":
-            # 二值化结果使用黑白图
-            im = plt.imshow(bscan_array, cmap='binary', aspect='auto', origin='upper')
-        else:
-            # 深度值和dB值使用灰度图
-            im = plt.imshow(bscan_array, cmap='gray', aspect='auto', origin='upper')
+        # 主图
+        ax_main = fig.add_subplot(gs[0, 0])
         
-        # 设置颜色条标签
-        if data_type == "depth":
-            colorbar_label = '深度值 (mm)'
-        elif data_type == "db":
-            colorbar_label = '信号强度 (dB)'
-        else:
+        # 颜色列表，9个不同颜色
+        colors = plt.cm.rainbow(np.linspace(0, 1, self.max_channels))
+        
+        if data_type in ["depth", "db"]:
+            # 深度值和dB值：使用散点图
+            # 横轴为编码值，纵轴为深度值或dB值
+            
+            for channel in range(self.max_channels):
+                # 提取该通道的数据
+                values = bscan_array[channel, :]
+                # 编码值范围
+                encoding_values = np.arange(self.max_encoding)
+                
+                # 绘制散点图
+                ax_main.scatter(encoding_values, values, color=colors[channel], 
+                        label=f'通道{channel+1}', s=20, alpha=0.7)
+            
+            # 设置标题和标签
+            ax_main.set_title(title)
+            ax_main.set_xlabel('编码值')
+            
+            if data_type == "depth":
+                ax_main.set_ylabel('深度值 (mm)')
+                # 设置深度值原点在右上角，深度零点在上面
+                ax_main.invert_yaxis()
+            else:
+                ax_main.set_ylabel('信号强度 (dB)')
+            
+            # 设置坐标轴刻度
+            ax_main.set_xticks(np.arange(0, self.max_encoding, step=10))
+            
+            # 添加图例
+            ax_main.legend(loc='best')
+            
+            # 添加网格线
+            ax_main.grid(True, linestyle='--', alpha=0.7)
+            
+            # 绘制伤损框
+            if clusters and cluster_classifications:
+                # 为每个聚类绘制边界框和标注
+                for cluster in clusters:
+                    channel = cluster['channel']
+                    bounding_box = cluster['bounding_box']
+                    cluster_id = cluster['cluster_id']
+                    
+                    # 获取分类结果
+                    if cluster_id in cluster_classifications:
+                        class_label, similarity, _ = cluster_classifications[cluster_id]
+                        
+                        # 绘制边界框
+                        min_encoding, max_encoding, min_depth, max_depth = bounding_box
+                        rect = plt.Rectangle((min_encoding, min_depth), 
+                                           max_encoding - min_encoding, 
+                                           max_depth - min_depth, 
+                                           linewidth=2, 
+                                           edgecolor='red', 
+                                           facecolor='none', 
+                                           alpha=0.8)
+                        ax_main.add_patch(rect)
+                        
+                        # 标注伤损类型和相似度
+                        ax_main.text(min_encoding, min_depth - 2, 
+                                    f'{class_label} ({similarity:.2f})', 
+                                    fontsize=9, 
+                                    fontweight='bold', 
+                                    color='red',
+                                    bbox=dict(facecolor='white', alpha=0.8))
+        else:  # binary
+            # 二值化结果：保持原有热图可视化方式
+            im = ax_main.imshow(bscan_array, cmap='binary', aspect='auto', origin='upper')
+            
+            # 设置颜色条标签
             colorbar_label = '二值化结果'
+            
+            # 添加颜色条
+            fig.colorbar(im, ax=ax_main, label=colorbar_label)
+            
+            # 设置标题和标签
+            ax_main.set_title(title)
+            ax_main.set_xlabel('编码值')
+            ax_main.set_ylabel('通道号')
+            
+            # 设置坐标轴刻度
+            ax_main.set_xticks(np.arange(0, self.max_encoding, step=10))
+            ax_main.set_yticks(np.arange(0, self.max_channels, step=1))
+            
+            # 添加网格线
+            ax_main.grid(True, linestyle='--', alpha=0.7)
         
-        # 添加颜色条
-        plt.colorbar(im, label=colorbar_label)
-        
-        # 设置标题和标签
-        plt.title(title)
-        plt.xlabel('编码值')
-        plt.ylabel('通道号')
-        
-        # 设置坐标轴刻度
-        plt.xticks(np.arange(0, self.max_encoding, step=10))
-        plt.yticks(np.arange(0, self.max_channels, step=1))
-        
-        # 添加网格线
-        plt.grid(True, linestyle='--', alpha=0.7)
+        # 右侧相似度子图
+        if cluster_classifications and data_type in ["depth", "db"]:
+            ax_similarity = fig.add_subplot(gs[0, 1])
+            
+            # 收集所有相似度不为零的类别
+            all_similarities = {}
+            for cluster_id, (_, _, sims) in cluster_classifications.items():
+                for class_label, sim in sims.items():
+                    if sim != 0:
+                        if class_label not in all_similarities:
+                            all_similarities[class_label] = 0
+                        all_similarities[class_label] += sim
+            
+            # 按相似度排序
+            sorted_classes = sorted(all_similarities.items(), key=lambda x: x[1], reverse=True)
+            
+            if sorted_classes:
+                labels = [item[0] for item in sorted_classes]
+                values = [item[1] for item in sorted_classes]
+                
+                # 绘制相似度条形图（垂直方向）
+                ax_similarity.barh(range(len(labels)), values, color=plt.cm.rainbow(np.linspace(0, 1, len(labels))))
+                ax_similarity.set_yticks(range(len(labels)))
+                ax_similarity.set_yticklabels(labels, fontsize=8)
+                ax_similarity.set_xlabel('相似度')
+                ax_similarity.set_title('各类别相似度')
+                ax_similarity.grid(True, linestyle='--', alpha=0.7)
+            else:
+                ax_similarity.text(0.5, 0.5, '无相似度数据', ha='center', va='center', fontsize=10)
+                ax_similarity.set_title('各类别相似度')
         
         # 调整布局
         plt.tight_layout()
@@ -235,6 +335,69 @@ class BScanDataProcessor:
         
         # 显示图像
         plt.show()
+    
+    def cluster_flaws(self, eps: float = 5.0, min_samples: int = 2) -> List[Dict]:
+        """
+        使用DBSCAN算法对伤损点进行聚类
+        
+        Args:
+            eps: DBSCAN算法的邻域半径
+            min_samples: 邻域内最小样本数
+            
+        Returns:
+            聚类结果列表，每个聚类包含：
+            - channel: 通道号
+            - bounding_box: 边界框 (min_encoding, max_encoding, min_depth, max_depth)
+            - points: 包含的点列表 [(encoding, depth), ...]
+            - cluster_id: 聚类ID
+        """
+        clusters = []
+        
+        # 遍历每个通道
+        for channel in range(self.max_channels):
+            # 收集该通道的所有伤损点 (binary_value == 1)
+            flaw_points = []
+            for encoding in range(self.max_encoding):
+                point = self.bscan_matrix[channel][encoding]
+                if point.binary_value == 1:
+                    flaw_points.append((encoding, point.depth))
+            
+            if not flaw_points:
+                continue
+            
+            # 将点转换为numpy数组
+            X = np.array(flaw_points)
+            
+            # 使用DBSCAN进行聚类
+            dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+            labels = dbscan.fit_predict(X)
+            
+            # 处理每个聚类
+            unique_labels = set(labels)
+            for label in unique_labels:
+                if label == -1:  # 噪声点，跳过
+                    continue
+                
+                # 获取该聚类的所有点
+                cluster_points = X[labels == label]
+                if len(cluster_points) < min_samples:
+                    continue
+                
+                # 计算边界框
+                min_encoding = np.min(cluster_points[:, 0])
+                max_encoding = np.max(cluster_points[:, 0])
+                min_depth = np.min(cluster_points[:, 1])
+                max_depth = np.max(cluster_points[:, 1])
+                
+                # 添加聚类结果
+                clusters.append({
+                    'channel': channel,
+                    'bounding_box': (min_encoding, max_encoding, min_depth, max_depth),
+                    'points': cluster_points.tolist(),
+                    'cluster_id': label
+                })
+        
+        return clusters
     
     def visualize_channel_config(self):
         """
@@ -773,6 +936,81 @@ class RailFlawClassifier:
         
         # 显示图像
         plt.show()
+        
+    def visualize_test_samples(self, test_data: List[Dict[str, float]], test_results: List[Tuple[str, float, Dict[str, float]]]):
+        """
+        可视化测试样本的分类结果
+        
+        Args:
+            test_data: 测试样本列表
+            test_results: 测试结果列表，每个元素为 (class_label, max_similarity, all_similarities)
+        """
+        try:
+            # 创建图像
+            fig = plt.figure(figsize=(15, 10))
+            
+            # 提取测试样本的特征
+            depths = [sample.get('depth', 0.0) for sample in test_data]
+            encodings = [sample.get('encoding', 0.0) for sample in test_data]
+            db_values = [sample.get('db_value', 0.0) for sample in test_data]
+            
+            # 提取分类结果
+            class_labels = [result[0] for result in test_results]
+            similarities = [result[1] for result in test_results]
+            
+            # 创建子图布局
+            gs = fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+            
+            # 1. 深度值 vs 编码值，颜色表示相似度
+            ax1 = fig.add_subplot(gs[0, 0])
+            scatter1 = ax1.scatter(encodings, depths, c=similarities, cmap='rainbow', s=50, alpha=0.7)
+            ax1.set_title('测试样本深度值分布（颜色表示相似度）')
+            ax1.set_xlabel('编码值')
+            ax1.set_ylabel('深度值 (mm)')
+            ax1.invert_yaxis()  # 深度值原点在右上角
+            ax1.grid(True, linestyle='--', alpha=0.7)
+            fig.colorbar(scatter1, ax=ax1, label='相似度')
+            
+            # 2. dB值 vs 编码值，颜色表示相似度
+            ax2 = fig.add_subplot(gs[0, 1])
+            scatter2 = ax2.scatter(encodings, db_values, c=similarities, cmap='rainbow', s=50, alpha=0.7)
+            ax2.set_title('测试样本dB值分布（颜色表示相似度）')
+            ax2.set_xlabel('编码值')
+            ax2.set_ylabel('信号强度 (dB)')
+            ax2.grid(True, linestyle='--', alpha=0.7)
+            fig.colorbar(scatter2, ax=ax2, label='相似度')
+            
+            # 3. 分类结果分布
+            ax3 = fig.add_subplot(gs[1, 0])
+            # 处理字符串标签，转换为numpy数组
+            unique_labels = list(set(class_labels))
+            label_counts = [class_labels.count(label) for label in unique_labels]
+            ax3.bar(unique_labels, label_counts, color=plt.cm.rainbow(np.linspace(0, 1, len(unique_labels))))
+            ax3.set_title('测试样本分类结果分布')
+            ax3.set_xlabel('类别')
+            ax3.set_ylabel('样本数')
+            ax3.tick_params(axis='x', rotation=45, ha='right')
+            ax3.grid(True, linestyle='--', alpha=0.7)
+            
+            # 4. 相似度分布
+            ax4 = fig.add_subplot(gs[1, 1])
+            ax4.hist(similarities, bins=20, color='skyblue', edgecolor='black', alpha=0.7)
+            ax4.set_title('测试样本相似度分布')
+            ax4.set_xlabel('相似度')
+            ax4.set_ylabel('样本数')
+            ax4.grid(True, linestyle='--', alpha=0.7)
+            
+            # 调整布局
+            plt.tight_layout()
+            
+            # 保存图像
+            plt.savefig('test_samples_visualization.png', dpi=300, bbox_inches='tight')
+            print("测试样本可视化图像已保存到: test_samples_visualization.png")
+            
+            # 关闭图像，不显示
+            plt.close(fig)
+        except Exception as e:
+            print(f"可视化测试样本时出错: {e}")
 
 # 导入数据读取模块
 from data_reader import HexDataReader, DataPoint
@@ -823,21 +1061,6 @@ if __name__ == "__main__":
     print("\n可视化通道配置...")
     bscan_processor.visualize_channel_config()
     
-    # 可视化B显数据（深度值）
-    print("\n可视化B显数据（深度值）...")
-    bscan_processor.visualize_bscan(title="超声波探伤B型显示图", data_type="depth")
-    
-    # 可视化B显数据（dB值）
-    print("\n可视化B显数据（dB值）...")
-    bscan_processor.visualize_bscan(title="超声波探伤B型显示图", data_type="db")
-    
-    # 可视化B显数据（二值化结果）
-    print("\n可视化B显数据（二值化结果）...")
-    bscan_processor.visualize_bscan(title="超声波探伤B型显示图", data_type="binary")
-    
-    # 创建钢轨伤损分类器
-    flaw_classifier = RailFlawClassifier()
-    
     # 创建钢轨伤损分类器
     flaw_classifier = RailFlawClassifier()
     
@@ -871,17 +1094,87 @@ if __name__ == "__main__":
         
         # 测试所有测试样本
         print("\n测试数据分类结果：")
+        test_results = []  # 保存测试结果
         for i, sample in enumerate(test_data):
             result, max_sim, all_sims = flaw_classifier.classify_flaw(sample)
+            test_results.append((result, max_sim, all_sims))  # 保存结果
             print(f"测试样本{i+1}: 分类结果={result}, 最大相似度={max_sim:.4f}")
             
             # 记录分类结果
             if result not in classification_results:
                 classification_results[result] = 0
             classification_results[result] += 1
+        
+        # 可视化测试样本
+        print("\n可视化测试样本...")
+        flaw_classifier.visualize_test_samples(test_data, test_results)
     else:
         print("\n未提供测试数据文件，无法进行测试")
         exit(1)
+    
+    # 伤损聚类
+    print("\n进行伤损聚类...")
+    clusters = bscan_processor.cluster_flaws(eps=5.0, min_samples=2)
+    print(f"找到 {len(clusters)} 个伤损聚类")
+    
+    # 对每个聚类进行分类
+    cluster_classifications = {}
+    for cluster in clusters:
+        # 提取聚类中所有点的特征
+        cluster_points = cluster['points']
+        channel = cluster['channel']
+        
+        # 对聚类中每个点进行分类，取最大相似度作为聚类的分类结果
+        cluster_max_similarity = -float('inf')
+        cluster_best_class = "其他"
+        cluster_all_similarities = {}
+        
+        for point in cluster_points:
+            encoding, depth = point
+            # 提取特征
+            features = flaw_classifier.extract_features(
+                bscan_processor.get_bscan_points(), channel, int(encoding)
+            )
+            # 分类
+            result, max_sim, all_sims = flaw_classifier.classify_flaw(features)
+            
+            # 更新聚类的最大相似度和最佳类别
+            if max_sim > cluster_max_similarity:
+                cluster_max_similarity = max_sim
+                cluster_best_class = result
+            
+            # 合并所有相似度
+            for class_label, sim in all_sims.items():
+                if class_label not in cluster_all_similarities:
+                    cluster_all_similarities[class_label] = 0
+                cluster_all_similarities[class_label] += sim
+        
+        # 保存聚类分类结果
+        cluster_classifications[cluster['cluster_id']] = (
+            cluster_best_class, cluster_max_similarity, cluster_all_similarities
+        )
+    
+    # 可视化B显数据（深度值），带伤损画框和相似度显示
+    print("\n可视化B显数据（深度值）...")
+    bscan_processor.visualize_bscan(
+        title="超声波探伤B型显示图", 
+        data_type="depth",
+        clusters=clusters,
+        cluster_classifications=cluster_classifications
+    )
+    
+    # 可视化B显数据（dB值），带伤损画框和相似度显示
+    print("\n可视化B显数据（dB值）...")
+    bscan_processor.visualize_bscan(
+        title="超声波探伤B型显示图", 
+        data_type="db",
+        clusters=clusters,
+        cluster_classifications=cluster_classifications
+    )
+    
+    # 可视化B显数据（二值化结果）
+    print("\n可视化B显数据（二值化结果）...")
+    bscan_processor.visualize_bscan(title="超声波探伤B型显示图", data_type="binary")
     
     # 可视化分类结果统计
     print("\n分类结果统计：")
