@@ -1,0 +1,28 @@
+{
+  "annotations": [
+    {
+      "id": "1",
+      "type": "结构",
+      "subtype": {
+        "id": "1",
+        "name": "接头"
+      },
+      "points": [
+        {
+          "e": 739,
+          "channel": 7,
+          "depth": 96.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 739,
+      "end_E": 739,
+      "channels": [
+        7
+      ],
+      "timestamp": "2026-01-08T15:03:59.044926"
+    }
+  ],
+  "timestamp": "2026-01-08T15:04:09.260107",
+  "version": "1.0"
+}

@@ -85,13 +85,13 @@ class FlawDetectionDataParser:
         # 通道配置映射：0-8代表1-9通道
         self.channel_config = {
             0: {'angle': 70, 'way': '前外', 'side': '右'},
-            1: {'angle': 70, 'way': '后外', 'side': '右'},
+            1: {'angle': -70, 'way': '后外', 'side': '右'},
             2: {'angle': 70, 'way': '前内', 'side': '右'},
-            3: {'angle': 70, 'way': '后内', 'side': '右'},
+            3: {'angle': -70, 'way': '后内', 'side': '右'},
             4: {'angle': 70, 'way': '前直', 'side': '右'},
-            5: {'angle': 70, 'way': '后直', 'side': '右'},
+            5: {'angle': -70, 'way': '后直', 'side': '右'},
             6: {'angle': 37, 'way': '前直', 'side': '右'},
-            7: {'angle': 37, 'way': '后直', 'side': '右'},
+            7: {'angle': -37, 'way': '后直', 'side': '右'},
             8: {'angle': 0, 'way': '直打', 'side': '右'},
         }
         
@@ -327,6 +327,13 @@ class FlawDetectionDataParser:
                         if i + 1 < len(value):
                             channel = value[i]
                             beam_angle_val = value[i + 1]
+                            
+                            # 根据通道号将后向通道的角度转换为负数
+                            # 通道1、3、5、7为后向通道
+                            if channel in [1, 3, 5, 7]:
+                                # 将后向通道的角度转换为负数
+                                beam_angle_val = -abs(beam_angle_val)
+                            
                             self.params['beam_angle'][channel] = beam_angle_val
             
             elif key == 'BeamWay':
@@ -481,109 +488,76 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
     
     # 为0-8通道设置特定颜色（对应1-9通道）
     channel_colors = {
-        0: '#FFD700',  # 通道0（对应1通道）：金 A 前外 70°
-        1: '#00FF00',  # 通道1（对应2通道）：绿 B 后外 70°
-        2: '#A52A2A',  # 通道2（对应3通道）：棕 C 前内 70°
-        3: '#0000FF',  # 通道3（对应4通道）：蓝 D 后内 70°
-        4: '#000000',  # 通道4（对应5通道）：黑 E 前直 70°
-        5: '#FFC0CB',  # 通道5（对应6通道）：粉 F 后直 70°
-        6: '#228B22',  # 通道6（对应7通道）：绿 G 前 37°
-        7: '#00008B',  # 通道7（对应8通道）：蓝 H 后 37°
-        8: '#FF0000'   # 通道8（对应9通道）：红 I 直打 0°
+        0: '#8B008B',  # 通道0（对应1通道）：深紫色 A 前外 70°
+        1: '#90EE90',  # 通道1（对应2通道）：浅绿色 B 后外 70°
+        2: '#DEB887',  # 通道2（对应3通道）：浅棕色 C 前内 70°
+        3: '#87CEEB',  # 通道3（对应4通道）：天蓝色 D 后内 70°
+        4: '#000000',  # 通道4（对应5通道）：黑色 E 前直 70°
+        5: '#DDA0DD',  # 通道5（对应6通道）：浅紫色 F 后直 70°
+        6: '#006400',  # 通道6（对应7通道）：深绿色 G 前 37°
+        7: '#00008B',  # 通道7（对应8通道）：深蓝色 H 后 37°
+        8: '#FF0000'   # 通道8（对应9通道）：红色 I 直打 0°
     }
     
-    # 绘制B1点
-    for channel in channels:
-        # 获取通道的灵敏度值，默认为0
-        sensitivity = parser.params['sensitivity'].get(channel, 0)
-        
-        # 过滤掉幅度低于灵敏度的点
-        channel_data = [(p['e'], p['depth'], p['amplitude']) 
-                       for p in b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
-        
-        if channel_data:
-            # 获取通道的拼孔值，默认为0
-            beam_offset = parser.params['beam_offset'].get(channel, 0)
-            
-            # 获取通道角度，默认为0度
-            if channel in parser.params['beam_angle']:
-                angle = parser.params['beam_angle'][channel]
-            else:
-                angle = parser.channel_config.get(channel, {}).get('angle', 0)
-            
-            # 将角度转换为弧度
-            angle_rad = math.radians(angle)
-            
-            # 计算cos(θ)和sin(θ)
-            cos_theta = math.cos(angle_rad)
-            sin_theta = math.sin(angle_rad)
-            
-            # 应用拼孔值：编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
-            # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
-            e_vals = [d[0] - int(beam_offset / 3) + int((d[1] * sin_theta) / 3) for d in channel_data]
-            # 深度值 = 原始深度×cos(θ)
-            depth_vals = [d[1] * cos_theta for d in channel_data]
-            amp_vals = [d[2] for d in channel_data]
-            
-            # 根据幅度设置点的大小
-            sizes = [10 + amp * 0.5 for amp in amp_vals]
-            
-            # 使用通道特定颜色
-            color = channel_colors.get(channel, '#808080')
-            
-            ax_main.scatter(e_vals, depth_vals, 
-                           c=color, 
-                           s=sizes, 
-                           alpha=0.7,
-                           label=f'B1 Ch{channel}')
-            
+    def plot_bscan_points(points, point_type, marker='o'):
+        """绘制B显点的辅助函数
 
-    
-    # 绘制B2点（使用三角形标记）
-    for channel in channels:
-        # 获取通道的灵敏度值，默认为0
-        sensitivity = parser.params['sensitivity'].get(channel, 0)
-        
-        # 过滤掉幅度低于灵敏度的点
-        channel_data = [(p['e'], p['depth'], p['amplitude']) 
-                       for p in b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
-        
-        if channel_data:
-            # 获取通道的拼孔值，默认为0
-            beam_offset = parser.params['beam_offset'].get(channel, 0)
-            
-            # 获取通道角度，默认为0度
-            if channel in parser.params['beam_angle']:
-                angle = parser.params['beam_angle'][channel]
-            else:
-                angle = parser.channel_config.get(channel, {}).get('angle', 0)
-            
-            # 将角度转换为弧度
-            angle_rad = math.radians(angle)
-            
-            # 计算cos(θ)和sin(θ)
-            cos_theta = math.cos(angle_rad)
-            sin_theta = math.sin(angle_rad)
-            
-            # 应用拼孔值：编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
-            # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
-            e_vals = [d[0] - int(beam_offset / 3) + int((d[1] * sin_theta) / 3) for d in channel_data]
-            # 深度值 = 原始深度×cos(θ)
-            depth_vals = [d[1] * cos_theta for d in channel_data]
-            amp_vals = [d[2] for d in channel_data]
-            
-            sizes = [10 + amp * 0.5 for amp in amp_vals]
-            
-            # 使用通道特定颜色
-            color = channel_colors.get(channel, '#808080')
-            
-            ax_main.scatter(e_vals, depth_vals, 
-                           c=color, 
-                           s=sizes, 
-                           marker='^',
-                           alpha=0.7,
-                           label=f'B2 Ch{channel}')
-            
+        Args:
+            points: 点数据列表
+            point_type: 点类型 ('B1' 或 'B2')
+            marker: matplotlib标记类型
+        """
+        for channel in channels:
+            # 获取通道的灵敏度值，默认为0
+            sensitivity =0# parser.params['sensitivity'].get(channel, 0)
+
+            # 过滤掉幅度低于灵敏度的点
+            channel_data = [(p['e'], p['depth'], p['amplitude'])
+                          for p in points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+
+            if channel_data:
+                # 获取通道的拼孔值，默认为0
+                beam_offset = parser.params['beam_offset'].get(channel, 0)
+
+                # 获取通道角度，默认为0度
+                if channel in parser.params['beam_angle']:
+                    angle = parser.params['beam_angle'][channel]
+                else:
+                    angle = parser.channel_config.get(channel, {}).get('angle', 0)
+
+                # 将角度转换为弧度
+                angle_rad = math.radians(angle)
+
+                # 计算cos(θ)和sin(θ)
+                cos_theta = math.cos(angle_rad)
+                sin_theta = math.sin(angle_rad)
+
+                # 应用拼孔值：编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值
+                # 横向移动距离 = 编码值 - beam_offset/3 + (深度值×sin(θ))/3（深度单位是mm，编码值单位是3mm，需要转换）
+                e_vals = [d[0] - beam_offset / 3 + (d[1] * sin_theta) / 3 for d in channel_data]
+                # 深度值 = 原始深度×cos(θ)
+                depth_vals = [d[1] * cos_theta for d in channel_data]
+                amp_vals = [d[2] for d in channel_data]
+
+                # 根据幅度设置点的大小
+                sizes = [10 + amp * 0.3 for amp in amp_vals]
+                if angle < 0:
+                    # 如果是负数角度，使用统一大小
+                    sizes = [10 for _ in amp_vals]
+
+                # 使用通道特定颜色
+                color = channel_colors.get(channel, '#808080')
+
+                ax_main.scatter(e_vals, depth_vals,
+                               c=color,
+                               s=sizes,
+                               marker=marker,
+                               alpha=0.7,
+                               label=f'{point_type} Ch{channel}')
+
+    # 绘制B1点（圆点）和B2点（三角形）
+    plot_bscan_points(b1_points, 'B1', 'o')
+    plot_bscan_points(b2_points, 'B2', '^')
 
     
     # 设置主图属性 - 以右上角为原点
@@ -597,7 +571,7 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
     # X轴：向右为负方向（E值从右向左递增），显示范围255个单位
     # Y轴：向下为正方向（深度值向下递增），显示范围255个单位
     
-    # 计算调整后的X坐标（编码值 - 1/3拼孔值取整 + 深度×sin(θ)/3）的最大值
+    # 计算调整后的X坐标（编码值 - 1/3拼孔值 + 深度×sin(θ)/3）的最大值
     def get_adjusted_e(p):
         beam_offset = parser.params['beam_offset'].get(p['channel'], 0)
         
@@ -611,9 +585,9 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
         angle_rad = math.radians(angle)
         sin_theta = math.sin(angle_rad)
         
-        # 编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
-        # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
-        return p['e'] - int(beam_offset / 3) + int((p['depth'] * sin_theta) / 3)
+        # 编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值
+        # 横向移动距离 = 编码值 - beam_offset/3 + (深度值×sin(θ))/3（深度单位是mm，编码值单位是3mm，需要转换）
+        return p['e'] - beam_offset / 3 + (p['depth'] * sin_theta) / 3
     
     adjusted_e_values = []
     for p in b1_points + b2_points:
