@@ -214,6 +214,10 @@ class HyperdimensionalEncoder:
             num_levels: 离散级别数
             base_key: 存储器键前缀
         """
+        # 初始化存储器
+        if base_key not in self.item_memory:
+            self.item_memory[base_key] = {}
+        
         # 生成最小值向量
         base_vector = self.generate_binary_hypervector()
         self.item_memory[base_key][min_val] = base_vector
