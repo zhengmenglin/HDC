@@ -15,6 +15,7 @@
 import json
 import sys
 import os
+import math
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
@@ -81,17 +82,17 @@ class FlawDetectionDataParser:
             'battery': '',          # 电池电量
         }
         
-        # 通道配置映射
+        # 通道配置映射：0-8代表1-9通道
         self.channel_config = {
-            1: {'angle': 70, 'way': '前外', 'side': '右'},
-            2: {'angle': 70, 'way': '后外', 'side': '右'},
-            3: {'angle': 70, 'way': '前内', 'side': '右'},
-            4: {'angle': 70, 'way': '后内', 'side': '右'},
-            5: {'angle': 70, 'way': '前直', 'side': '右'},
-            6: {'angle': 70, 'way': '后直', 'side': '右'},
-            7: {'angle': 37, 'way': '前直', 'side': '右'},
-            8: {'angle': 37, 'way': '后直', 'side': '右'},
-            9: {'angle': 0, 'way': '直打', 'side': '右'},
+            0: {'angle': 70, 'way': '前外', 'side': '右'},
+            1: {'angle': 70, 'way': '后外', 'side': '右'},
+            2: {'angle': 70, 'way': '前内', 'side': '右'},
+            3: {'angle': 70, 'way': '后内', 'side': '右'},
+            4: {'angle': 70, 'way': '前直', 'side': '右'},
+            5: {'angle': 70, 'way': '后直', 'side': '右'},
+            6: {'angle': 37, 'way': '前直', 'side': '右'},
+            7: {'angle': 37, 'way': '后直', 'side': '右'},
+            8: {'angle': 0, 'way': '直打', 'side': '右'},
         }
         
         # 解析数据
@@ -209,74 +210,144 @@ class FlawDetectionDataParser:
                     })
             
             elif key == 'Sensitivity':
-                # 灵敏度 [channel, dB值]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['sensitivity'][value[0]] = value[1]
+                # 灵敏度 [channel, dB值] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            sensitivity_val = value[i + 1]
+                            self.params['sensitivity'][channel] = sensitivity_val
             
             elif key == 'GateStart':
-                # 闸门前沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['gate_start'][value[0]] = value[1]
+                # 闸门前沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            gate_start_val = value[i + 1]
+                            self.params['gate_start'][channel] = gate_start_val
             
             elif key == 'GateEnd':
-                # 闸门后沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['gate_end'][value[0]] = value[1]
+                # 闸门后沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            gate_end_val = value[i + 1]
+                            self.params['gate_end'][channel] = gate_end_val
             
             elif key == 'GateLevel':
-                # 报警阈值 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['gate_level'][value[0]] = value[1]
+                # 报警阈值 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            gate_level_val = value[i + 1]
+                            self.params['gate_level'][channel] = gate_level_val
             
             elif key == 'RailBaseStart':
-                # 轨底闸门前沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['railbase_start'][value[0]] = value[1]
+                # 轨底闸门前沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            railbase_start_val = value[i + 1]
+                            self.params['railbase_start'][channel] = railbase_start_val
             
             elif key == 'RailBaseEnd':
-                # 轨底闸门后沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['railbase_end'][value[0]] = value[1]
+                # 轨底闸门后沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            railbase_end_val = value[i + 1]
+                            self.params['railbase_end'][channel] = railbase_end_val
             
             elif key == 'SignalLossLevel':
-                # 穿透报警阈值 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['signalloss_level'][value[0]] = value[1]
+                # 穿透报警阈值 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            signalloss_level_val = value[i + 1]
+                            self.params['signalloss_level'][channel] = signalloss_level_val
             
             elif key == 'BoltHoleStart':
-                # 螺孔闸门前沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['bolthole_start'][value[0]] = value[1]
+                # 螺孔闸门前沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            bolthole_start_val = value[i + 1]
+                            self.params['bolthole_start'][channel] = bolthole_start_val
             
             elif key == 'BoltHoleEnd':
-                # 螺孔闸门后沿 [channel, %]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['bolthole_end'][value[0]] = value[1]
+                # 螺孔闸门后沿 [channel, %] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            bolthole_end_val = value[i + 1]
+                            self.params['bolthole_end'][channel] = bolthole_end_val
             
             elif key == 'TestRange':
-                # 探测范围 [channel, mm]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['test_range'][value[0]] = value[1]
+                # 探测范围 [channel, mm] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            test_range_val = value[i + 1]
+                            self.params['test_range'][channel] = test_range_val
             
             elif key == 'ZeroDelay':
-                # 零点延迟 [channel, us]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['zero_delay'][value[0]] = value[1]
+                # 零点延迟 [channel, us] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            zero_delay_val = value[i + 1]
+                            self.params['zero_delay'][channel] = zero_delay_val
             
             elif key == 'BeamAngle':
-                # 声束角度 [channel, 度]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['beam_angle'][value[0]] = value[1]
+                # 声束角度 [channel, 度] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            beam_angle_val = value[i + 1]
+                            self.params['beam_angle'][channel] = beam_angle_val
             
             elif key == 'BeamWay':
-                # 射向 [channel, 编号]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['beam_way'][value[0]] = value[1]
+                # 射向 [channel, 编号] 或 [channel1, value1, channel2, value2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, value]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            beam_way_val = value[i + 1]
+                            self.params['beam_way'][channel] = beam_way_val
             
             elif key == 'BeamOffset':
-                # 拼孔值 [channel, mm]
-                if isinstance(value, list) and len(value) >= 2:
-                    self.params['beam_offset'][value[0]] = value[1]
+                # 拼孔值 [channel, mm] 或 [channel1, offset1, channel2, offset2, ...]
+                if isinstance(value, list):
+                    # 处理多通道格式：每两个元素为一组 [channel, offset]
+                    for i in range(0, len(value), 2):
+                        if i + 1 < len(value):
+                            channel = value[i]
+                            offset = value[i + 1]
+                            self.params['beam_offset'][channel] = offset
             
             elif key == 'TVG':
                 # 补偿曲线 [channel, [20个点]]
@@ -408,27 +479,50 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
     # 主图区域
     ax_main = fig.add_subplot(gs[0])
     
-    # 为1-9通道设置特定颜色
+    # 为0-8通道设置特定颜色（对应1-9通道）
     channel_colors = {
-        1: '#9370DB',  # 紫色
-        2: '#98FB98',  # 浅绿
-        3: '#D2691E',  # 棕色
-        4: '#87CEEB',  # 天蓝
-        5: '#000000',  # 黑色
-        6: '#DC143C',  # 紫红
-        7: '#228B22',  # 深绿
-        8: '#00008B',  # 深蓝
-        9: '#FF0000',  # 红色
-        0: '#808080'   # 通道0使用灰色
+        0: '#FFD700',  # 通道0（对应1通道）：金 A 前外 70°
+        1: '#00FF00',  # 通道1（对应2通道）：绿 B 后外 70°
+        2: '#A52A2A',  # 通道2（对应3通道）：棕 C 前内 70°
+        3: '#0000FF',  # 通道3（对应4通道）：蓝 D 后内 70°
+        4: '#000000',  # 通道4（对应5通道）：黑 E 前直 70°
+        5: '#FFC0CB',  # 通道5（对应6通道）：粉 F 后直 70°
+        6: '#228B22',  # 通道6（对应7通道）：绿 G 前 37°
+        7: '#00008B',  # 通道7（对应8通道）：蓝 H 后 37°
+        8: '#FF0000'   # 通道8（对应9通道）：红 I 直打 0°
     }
     
     # 绘制B1点
     for channel in channels:
+        # 获取通道的灵敏度值，默认为0
+        sensitivity = parser.params['sensitivity'].get(channel, 0)
+        
+        # 过滤掉幅度低于灵敏度的点
         channel_data = [(p['e'], p['depth'], p['amplitude']) 
-                       for p in b1_points if p['channel'] == channel]
+                       for p in b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+        
         if channel_data:
-            e_vals = [d[0] for d in channel_data]
-            depth_vals = [d[1] for d in channel_data]
+            # 获取通道的拼孔值，默认为0
+            beam_offset = parser.params['beam_offset'].get(channel, 0)
+            
+            # 获取通道角度，默认为0度
+            if channel in parser.params['beam_angle']:
+                angle = parser.params['beam_angle'][channel]
+            else:
+                angle = parser.channel_config.get(channel, {}).get('angle', 0)
+            
+            # 将角度转换为弧度
+            angle_rad = math.radians(angle)
+            
+            # 计算cos(θ)和sin(θ)
+            cos_theta = math.cos(angle_rad)
+            sin_theta = math.sin(angle_rad)
+            
+            # 应用拼孔值：编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
+            # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
+            e_vals = [d[0] - int(beam_offset / 3) + int((d[1] * sin_theta) / 3) for d in channel_data]
+            # 深度值 = 原始深度×cos(θ)
+            depth_vals = [d[1] * cos_theta for d in channel_data]
             amp_vals = [d[2] for d in channel_data]
             
             # 根据幅度设置点的大小
@@ -443,19 +537,39 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
                            alpha=0.7,
                            label=f'B1 Ch{channel}')
             
-            # 连接线
-            if len(e_vals) > 1:
-                ax_main.plot(e_vals, depth_vals, 
-                            c=color, 
-                            alpha=0.3, linewidth=0.5)
+
     
     # 绘制B2点（使用三角形标记）
     for channel in channels:
+        # 获取通道的灵敏度值，默认为0
+        sensitivity = parser.params['sensitivity'].get(channel, 0)
+        
+        # 过滤掉幅度低于灵敏度的点
         channel_data = [(p['e'], p['depth'], p['amplitude']) 
-                       for p in b2_points if p['channel'] == channel]
+                       for p in b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+        
         if channel_data:
-            e_vals = [d[0] for d in channel_data]
-            depth_vals = [d[1] for d in channel_data]
+            # 获取通道的拼孔值，默认为0
+            beam_offset = parser.params['beam_offset'].get(channel, 0)
+            
+            # 获取通道角度，默认为0度
+            if channel in parser.params['beam_angle']:
+                angle = parser.params['beam_angle'][channel]
+            else:
+                angle = parser.channel_config.get(channel, {}).get('angle', 0)
+            
+            # 将角度转换为弧度
+            angle_rad = math.radians(angle)
+            
+            # 计算cos(θ)和sin(θ)
+            cos_theta = math.cos(angle_rad)
+            sin_theta = math.sin(angle_rad)
+            
+            # 应用拼孔值：编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
+            # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
+            e_vals = [d[0] - int(beam_offset / 3) + int((d[1] * sin_theta) / 3) for d in channel_data]
+            # 深度值 = 原始深度×cos(θ)
+            depth_vals = [d[1] * cos_theta for d in channel_data]
             amp_vals = [d[2] for d in channel_data]
             
             sizes = [10 + amp * 0.5 for amp in amp_vals]
@@ -470,11 +584,7 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
                            alpha=0.7,
                            label=f'B2 Ch{channel}')
             
-            if len(e_vals) > 1:
-                ax_main.plot(e_vals, depth_vals, 
-                            c=color, 
-                            linestyle='--',
-                            alpha=0.3, linewidth=0.5)
+
     
     # 设置主图属性 - 以右上角为原点
     ax_main.set_xlabel('编码间隔 (E)', fontsize=12)
@@ -486,7 +596,30 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
     # 设置坐标系：右上角为原点
     # X轴：向右为负方向（E值从右向左递增），显示范围255个单位
     # Y轴：向下为正方向（深度值向下递增），显示范围255个单位
-    max_e = max([p['e'] for p in b1_points] + [p['e'] for p in b2_points] + [255], default=255)
+    
+    # 计算调整后的X坐标（编码值 - 1/3拼孔值取整 + 深度×sin(θ)/3）的最大值
+    def get_adjusted_e(p):
+        beam_offset = parser.params['beam_offset'].get(p['channel'], 0)
+        
+        # 获取通道角度，默认为0度
+        if p['channel'] in parser.params['beam_angle']:
+            angle = parser.params['beam_angle'][p['channel']]
+        else:
+            angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+        
+        # 将角度转换为弧度
+        angle_rad = math.radians(angle)
+        sin_theta = math.sin(angle_rad)
+        
+        # 编码值单位是3mm，拼孔值单位是1mm，所以应该减去1/3的拼孔值并取整
+        # 横向移动距离 = 编码值 + 深度值×sin(θ)（深度单位是mm，编码值单位是3mm，需要转换）
+        return p['e'] - int(beam_offset / 3) + int((p['depth'] * sin_theta) / 3)
+    
+    adjusted_e_values = []
+    for p in b1_points + b2_points:
+        adjusted_e_values.append(get_adjusted_e(p))
+    
+    max_e = max(adjusted_e_values + [255], default=255)
     
     # 设置固定显示范围：X轴和Y轴都是255个单位
     x_range = 255
@@ -629,23 +762,34 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
 
 def main():
     """主函数"""
-    if len(sys.argv) < 2:
-        print("用法: python parse_flaw_detection_json.py <json文件路径> [输出图像文件] [--no-show]")
-        print("示例: python parse_flaw_detection_json.py 123.json")
-        print("示例: python parse_flaw_detection_json.py 123.json output.png")
-        print("示例: python parse_flaw_detection_json.py 123.json --no-show")
-        sys.exit(1)
+    import glob
     
-    json_file = sys.argv[1]
+    json_file = None
     output_file = None
     show_plot = True
     
     # 解析命令行参数
-    for arg in sys.argv[2:]:
-        if arg == '--no-show':
-            show_plot = False
+    if len(sys.argv) < 2:
+        # 没有提供json文件路径，从当前目录找第一个json文件
+        json_files = glob.glob("*.json")
+        if json_files:
+            json_file = json_files[0]
+            print(f"未指定JSON文件，自动使用: {json_file}")
         else:
-            output_file = arg
+            print("错误: 当前目录没有找到JSON文件")
+            print("用法: python parse_flaw_detection_json.py <json文件路径> [输出图像文件] [--no-show]")
+            print("示例: python parse_flaw_detection_json.py 123.json")
+            print("示例: python parse_flaw_detection_json.py 123.json output.png")
+            print("示例: python parse_flaw_detection_json.py 123.json --no-show")
+            sys.exit(1)
+    else:
+        json_file = sys.argv[1]
+        # 解析其他参数
+        for arg in sys.argv[2:]:
+            if arg == '--no-show':
+                show_plot = False
+            else:
+                output_file = arg
     
     if not os.path.exists(json_file):
         print(f"错误: 文件不存在 - {json_file}")
