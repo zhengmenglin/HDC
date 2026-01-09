@@ -78,21 +78,9 @@ class AnnotationManager:
             bool: 保存成功返回True，失败返回False
         """
         try:
-            # 如果文件已存在，先加载已有的标注
-            existing_annotations = []
-            if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    existing_data = json.load(f)
-                    existing_annotations = existing_data.get("annotations", [])
-            
-            # 获取所有已存在标注的ID，用于去重
-            existing_ids = set(anno["id"] for anno in existing_annotations)
-            
-            # 只保存新创建的标注（ID不存在于现有标注中的）
-            new_annotations = [anno for anno in self.annotations if anno["id"] not in existing_ids]
-            
-            # 合并新标注到现有标注
-            all_annotations = existing_annotations + new_annotations
+            # 直接保存当前内存中的所有标注，包括删除操作后的结果
+            # 不合并现有文件，确保删除的标注不会出现在保存的文件中
+            all_annotations = self.annotations
             
             # 保存所有标注
             with open(file_path, 'w', encoding='utf-8') as f:
