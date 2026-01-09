@@ -539,8 +539,8 @@ class BScanCanvas(FigureCanvas):
                     alpha=0.8
                 )
                 
-                # 绘制灰色文字（标注名）在框的下方
-                annotation_name = f"{annotation['subtype']['name']}"
+                # 绘制灰色文字（标注名）在框的下方，格式：{类型} {标注ID}: {子类型名称}
+                annotation_name = f"{annotation['type']} {annotation['id']}: {annotation['subtype']['name']}"
                 self.axes.text(
                     (min_e + max_e) / 2,  # 文字水平居中
                     max_depth + 5,  # 文字在框下方
@@ -602,6 +602,11 @@ class MainWindow(QMainWindow):
         
         # 初始化标注管理器
         self.annotation_manager = AnnotationManager()
+        
+        # 保存上次的类型选择
+        self.last_damage_type_index = 0  # 保存上次选择的损伤类型索引
+        self.last_subtype_index = 0  # 保存上次选择的子类型索引
+        self.last_type_data = None  # 保存上次选择的类型数据（damage或structure）
         
         # 创建菜单栏
         self.create_menu_bar()
@@ -770,6 +775,10 @@ class MainWindow(QMainWindow):
         type_data = self.damage_combo.currentData()
         self.subtype_combo.setEnabled(True)
 
+        # 保存用户的类型选择
+        self.last_damage_type_index = index
+        self.last_type_data = type_data
+
         # 根据选择的类型设置子类型
         if type_data == "damage":  # 伤损类型
             if selected_type == "伤损":
@@ -808,13 +817,16 @@ class MainWindow(QMainWindow):
 
     def reset_annotation_ui(self):
         """重置标注UI"""
-        self.damage_combo.setCurrentIndex(0)
+        # 不重置损伤类型选择，保持用户上次的选择
         self.subtype_combo.clear()
         self.subtype_combo.setEnabled(False)
         self.save_annotation_btn.setEnabled(False)
 
     def on_subtype_changed(self, index):
         """子类型选择变化事件"""
+        # 保存用户的子类型选择
+        self.last_subtype_index = index
+        
         if index > 0 and self.point_selector.get_selected_points():
             self.save_annotation_btn.setEnabled(True)
         else:
@@ -868,15 +880,44 @@ class MainWindow(QMainWindow):
 
             annotation_file_path = os.path.join(json_dir, annotation_filename)
 
-            # 保存标注（AnnotationManager会自动合并到现有文件）
+            # 保存标注（AnnotationManager会自动保存当前所有标注）
             if self.annotation_manager.save_annotations(annotation_file_path):
                 QMessageBox.information(self, "成功", f"标注已保存到: {annotation_file_path}")
-                # 清空选择和重置UI，但保持多选模式
+                # 清空选择但保持类型选择
                 self.point_selector.clear_selection()
-                self.damage_combo.setCurrentIndex(0)
+                
+                # 保存当前的主类型和子类型选择
+                current_type_index = self.damage_combo.currentIndex()
+                current_subtype_index = self.subtype_combo.currentIndex()
+                # 保存当前子类型的ID，用于恢复
+                current_subtype_id = self.subtype_combo.currentData()
+                
+                # 清空子类型选择，但保持主类型选择
                 self.subtype_combo.clear()
                 self.subtype_combo.setEnabled(False)
                 self.save_annotation_btn.setEnabled(False)
+                
+                # 如果之前选择了主类型，重新加载子类型列表
+                if current_type_index > 0:
+                    # 触发主类型选择变化事件，重新加载子类型
+                    self.on_damage_type_changed(current_type_index)
+                    
+                    # 恢复子类型选择
+                    if current_subtype_id is not None:
+                        # 遍历子类型列表，找到匹配的子类型ID并恢复选择
+                        for i in range(self.subtype_combo.count()):
+                            if self.subtype_combo.itemData(i) == current_subtype_id:
+                                self.subtype_combo.setCurrentIndex(i)
+                                break
+                    elif current_subtype_index > 0:
+                        # 如果没有保存子类型ID，尝试恢复索引
+                        if current_subtype_index < self.subtype_combo.count():
+                            self.subtype_combo.setCurrentIndex(current_subtype_index)
+                        else:
+                            # 如果索引超出范围，选择第一个可用的子类型
+                            if self.subtype_combo.count() > 0:
+                                self.subtype_combo.setCurrentIndex(1)  # 跳过"请选择具体类型"选项
+                
                 # 更新状态栏
                 self.status_bar.showMessage("标注已保存")
                 # 更新已标注列表，显示文件中的所有标注
@@ -929,7 +970,8 @@ class MainWindow(QMainWindow):
             
             # 显示文件中的标注
             for annotation in file_annotations:
-                annotation_name = f"{annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
+                # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
+                annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
                 self.annotations_list.addItem(annotation_name, annotation['id'])
 
     def on_annotation_selected(self, index):
@@ -1152,16 +1194,21 @@ class MainWindow(QMainWindow):
 
         if not selected_points:
             self.selected_points_text.setPlainText("暂无选中的点")
-            return
+        else:
+            # 构建显示文本
+            display_lines = []
+            for i, point in enumerate(selected_points, 1):
+                original = point['original']
+                display_lines.append(
+                    f"{i}. E:{original['e']} Ch:{original['channel']} "
+                    f"深度:{original['depth']:.1f} 幅度:{original['amplitude']:.1f}"
+                )
 
-        # 构建显示文本
-        display_lines = []
-        for i, point in enumerate(selected_points, 1):
-            original = point['original']
-            display_lines.append(
-                f"{i}. E:{original['e']} Ch:{original['channel']} "
-                f"深度:{original['depth']:.1f} 幅度:{original['amplitude']:.1f}"
-            )
-
-        # 设置文本内容
-        self.selected_points_text.setPlainText("\n".join(display_lines))
+            # 设置文本内容
+            self.selected_points_text.setPlainText("\n".join(display_lines))
+        
+        # 更新保存按钮状态
+        # 检查是否有选中的点和有效的子类型选择
+        has_points = len(selected_points) > 0
+        has_valid_subtype = self.subtype_combo.currentIndex() > 0
+        self.save_annotation_btn.setEnabled(has_points and has_valid_subtype)

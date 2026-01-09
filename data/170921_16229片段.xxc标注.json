@@ -112,8 +112,674 @@
         8
       ],
       "timestamp": "2026-01-09T11:23:52.809712"
+    },
+    {
+      "id": "2",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 836,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 837,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 838,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 839,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 840,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 841,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 842,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 843,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 844,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 845,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 846,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 853,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 854,
+          "channel": 7,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 855,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 856,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 857,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 858,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 859,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 836,
+      "end_E": 859,
+      "channels": [
+        7,
+        8
+      ],
+      "timestamp": "2026-01-09T11:34:36.868691"
+    },
+    {
+      "id": "3",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 875,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 876,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 877,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 878,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 879,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 880,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 881,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 882,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 883,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 884,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 893,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 894,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 895,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 896,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 897,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 875,
+      "end_E": 897,
+      "channels": [
+        7,
+        8
+      ],
+      "timestamp": "2026-01-09T11:35:27.922456"
+    },
+    {
+      "id": "4",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 927,
+          "channel": 7,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 928,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 929,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 927,
+      "end_E": 929,
+      "channels": [
+        7
+      ],
+      "timestamp": "2026-01-09T11:44:52.533781"
+    },
+    {
+      "id": "5",
+      "type": "伤损",
+      "subtype": {
+        "id": "1",
+        "name": "轨头外侧核伤"
+      },
+      "points": [
+        {
+          "e": 632,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 633,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 634,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 664,
+          "channel": 4,
+          "depth": 124.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 665,
+          "channel": 4,
+          "depth": 122.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 716,
+          "channel": 3,
+          "depth": 120.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 717,
+          "channel": 3,
+          "depth": 122.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 718,
+          "channel": 3,
+          "depth": 127.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 719,
+          "channel": 3,
+          "depth": 129.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 720,
+          "channel": 3,
+          "depth": 140.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 721,
+          "channel": 3,
+          "depth": 136.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 722,
+          "channel": 3,
+          "depth": 140.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 723,
+          "channel": 3,
+          "depth": 142.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 724,
+          "channel": 3,
+          "depth": 144.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 725,
+          "channel": 3,
+          "depth": 147.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 726,
+          "channel": 3,
+          "depth": 150.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 727,
+          "channel": 3,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 728,
+          "channel": 3,
+          "depth": 154.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 729,
+          "channel": 3,
+          "depth": 156.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 730,
+          "channel": 3,
+          "depth": 157.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 731,
+          "channel": 3,
+          "depth": 160.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 732,
+          "channel": 3,
+          "depth": 164.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 733,
+          "channel": 3,
+          "depth": 166.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 734,
+          "channel": 3,
+          "depth": 169.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 735,
+          "channel": 3,
+          "depth": 173.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 736,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 737,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 738,
+          "channel": 7,
+          "depth": 94.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 739,
+          "channel": 7,
+          "depth": 96.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 754,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 755,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 632,
+      "end_E": 755,
+      "channels": [
+        3,
+        4,
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-09T13:26:41.082443"
+    },
+    {
+      "id": "6",
+      "type": "伤损",
+      "subtype": {
+        "id": "3",
+        "name": "轨头内侧核伤"
+      },
+      "points": [
+        {
+          "e": 688,
+          "channel": 7,
+          "depth": 56.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 689,
+          "channel": 7,
+          "depth": 56.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 690,
+          "channel": 7,
+          "depth": 58.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 691,
+          "channel": 7,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 692,
+          "channel": 7,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 693,
+          "channel": 7,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 694,
+          "channel": 7,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 695,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 696,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 697,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 688,
+      "end_E": 697,
+      "channels": [
+        7
+      ],
+      "timestamp": "2026-01-09T13:32:29.524107"
+    },
+    {
+      "id": "7",
+      "type": "伤损",
+      "subtype": {
+        "id": "3",
+        "name": "轨头内侧核伤"
+      },
+      "points": [
+        {
+          "e": 499,
+          "channel": 0,
+          "depth": 149.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 500,
+          "channel": 0,
+          "depth": 147.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 501,
+          "channel": 0,
+          "depth": 144.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 502,
+          "channel": 0,
+          "depth": 141.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 504,
+          "channel": 0,
+          "depth": 127.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 620,
+          "channel": 8,
+          "depth": 53.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 621,
+          "channel": 8,
+          "depth": 53.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 622,
+          "channel": 8,
+          "depth": 53.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 623,
+          "channel": 8,
+          "depth": 53.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 631,
+          "channel": 7,
+          "depth": 68.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 499,
+      "end_E": 631,
+      "channels": [
+        0,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-09T13:32:37.522117"
+    },
+    {
+      "id": "9",
+      "type": "结构",
+      "subtype": {
+        "id": "103",
+        "name": "轨腰"
+      },
+      "points": [
+        {
+          "e": 637,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 648,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 649,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 637,
+      "end_E": 649,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-01-09T13:32:47.782129"
     }
   ],
-  "timestamp": "2026-01-09T11:23:52.810015",
+  "timestamp": "2026-01-09T13:33:06.346340",
   "version": "1.0"
 }
