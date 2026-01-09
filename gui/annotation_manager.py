@@ -6,6 +6,7 @@
 """
 
 import json
+import os
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -77,23 +78,48 @@ class AnnotationManager:
             bool: 保存成功返回True，失败返回False
         """
         try:
+            # 如果文件已存在，先加载已有的标注
+            existing_annotations = []
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+                    existing_annotations = existing_data.get("annotations", [])
+            
+            # 获取所有已存在标注的ID，用于去重
+            existing_ids = set(anno["id"] for anno in existing_annotations)
+            
+            # 只保存新创建的标注（ID不存在于现有标注中的）
+            new_annotations = [anno for anno in self.annotations if anno["id"] not in existing_ids]
+            
+            # 合并新标注到现有标注
+            all_annotations = existing_annotations + new_annotations
+            
+            # 保存所有标注
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump({
-                    "annotations": self.annotations,
+                    "annotations": all_annotations,
                     "timestamp": datetime.now().isoformat(),
                     "version": "1.0"
                 }, f, ensure_ascii=False, indent=2)
+            
+            # 保存成功后不清空标注列表，保留所有标注
+            # 但更新ID计数器，确保新标注的ID唯一
+            if all_annotations:
+                max_id = max(int(anno["id"]) for anno in all_annotations)
+                self.annotation_id = max_id + 1
+            
             return True
         except Exception as e:
             print(f"保存标注数据失败: {str(e)}")
             return False
     
-    def load_annotations(self, file_path: str):
+    def load_annotations(self, file_path: str, replace: bool = True):
         """
         从JSON文件加载标注数据
         
         Args:
             file_path: 输入文件路径
+            replace: 是否替换现有标注，False则合并到现有标注中
         
         Returns:
             bool: 加载成功返回True，失败返回False
@@ -104,7 +130,21 @@ class AnnotationManager:
             
             # 检查数据格式
             if "annotations" in data:
-                self.annotations = data["annotations"]
+                loaded_annotations = data["annotations"]
+                
+                if replace:
+                    # 替换现有标注
+                    self.annotations = loaded_annotations
+                else:
+                    # 合并到现有标注中，确保标注ID唯一性
+                    # 先收集所有已存在的ID
+                    existing_ids = set(anno["id"] for anno in self.annotations)
+                    
+                    # 只添加新的标注（ID不存在的）
+                    for anno in loaded_annotations:
+                        if anno["id"] not in existing_ids:
+                            self.annotations.append(anno)
+                            existing_ids.add(anno["id"])
                 
                 # 更新ID计数器
                 if self.annotations:

@@ -6,9 +6,10 @@
 
 import sys
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSlider, 
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSlider,
     QLabel, QMenuBar, QAction, QFileDialog, QMessageBox,
-    QStatusBar, QSplitter
+    QStatusBar, QSplitter, QTextEdit, QGroupBox, QComboBox,
+    QPushButton, QRadioButton, QButtonGroup, QFrame, QCheckBox
 )
 from PyQt5.QtCore import Qt
 import matplotlib
@@ -28,9 +29,9 @@ from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
 
 # 导入自定义模块
-from type_selector import TypeSelectorDialog
-from point_selector import PointSelector
-from annotation_manager import AnnotationManager
+from gui.type_selector import TypeSelectorDialog
+from gui.point_selector import PointSelector
+from gui.annotation_manager import AnnotationManager
 
 
 class FlawDetectionDataParser:
@@ -315,8 +316,29 @@ class BScanCanvas(FigureCanvas):
         # 保存绘制的点信息，用于点选择
         self.displayed_points = []
         
-    def update_bscan(self, parser, display_range=255, current_e=None):
+        # 保存画布的属性，用于更新
+        self.parser = None
+        self.display_range = 255
+        self.current_e = None
+        self.annotation_manager = None
+        
+        # 自动缩放恢复标志，默认开启
+        self.auto_reset_zoom = True
+        
+    def update_bscan(self, parser, display_range=255, current_e=None, annotations=None):
         """更新B显图像"""
+        # 保存当前的轴范围，以便在更新后恢复（如果需要）
+        # 无论auto_reset_zoom状态如何，都保存当前范围，以便用户使用工具栏缩放后能保持
+        current_xlim = self.axes.get_xlim()
+        current_ylim = self.axes.get_ylim()
+        
+        # 保存参数到画布属性
+        self.parser = parser
+        self.display_range = display_range
+        self.current_e = current_e
+        if annotations is not None:
+            self.annotations = annotations
+        
         # 清空当前图像
         self.axes.clear()
         
@@ -447,7 +469,7 @@ class BScanCanvas(FigureCanvas):
             angle_rad = math.radians(angle)
             sin_theta = math.sin(angle_rad)
             
-            return p['e'] - int(beam_offset / 3) + int((p['depth'] * sin_theta) / 3)
+            return p['e'] - beam_offset / 3 + (p['depth'] * sin_theta) / 3
         
         adjusted_e_values = []
         for p in b1_points + b2_points:
@@ -472,8 +494,73 @@ class BScanCanvas(FigureCanvas):
         # 取消固定的xy轴比例，允许Y轴自由缩放，但保持右上角为原点
         self.axes.set_aspect('auto')
         
+        # 绘制标注框
+        if annotations:
+            for annotation in annotations:
+                points = annotation['points']
+                if not points:
+                    continue
+                
+                # 计算标注框的边界
+                e_values = []
+                depth_values = []
+                for p in points:
+                    adjusted_e = get_adjusted_e(p)
+                    
+                    # 获取通道角度
+                    if p['channel'] in parser.params['beam_angle']:
+                        angle = parser.params['beam_angle'][p['channel']]
+                    else:
+                        angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                    
+                    # 将角度转换为弧度
+                    angle_rad = math.radians(angle)
+                    cos_theta = math.cos(angle_rad)
+                    
+                    # 计算调整后的深度值
+                    adjusted_depth = p['depth'] * cos_theta
+                    
+                    e_values.append(adjusted_e)
+                    depth_values.append(adjusted_depth)
+                
+                # 获取边界
+                min_e = min(e_values)
+                max_e = max(e_values)
+                min_depth = min(depth_values)
+                max_depth = max(depth_values)
+                
+                # 绘制灰色框
+                self.axes.plot(
+                    [min_e, max_e, max_e, min_e, min_e],
+                    [min_depth, min_depth, max_depth, max_depth, min_depth],
+                    color='gray',
+                    linestyle='-',
+                    linewidth=2,  # 增加线宽，使其更明显
+                    alpha=0.8
+                )
+                
+                # 绘制灰色文字（标注名）在框的下方
+                annotation_name = f"{annotation['subtype']['name']}"
+                self.axes.text(
+                    (min_e + max_e) / 2,  # 文字水平居中
+                    max_depth + 5,  # 文字在框下方
+                    annotation_name,
+                    ha='center',
+                    va='top',
+                    fontsize=8,
+                    color='gray',
+                    weight='bold',
+                    bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', boxstyle='round,pad=0.3')
+                )
+        
         # 绘制选中的点
         self.highlight_selected_points()
+        
+        # 如果没有开启自动缩放恢复，恢复到用户之前的缩放状态
+        # 这将保持用户使用matplotlib工具栏进行的缩放
+        if not self.auto_reset_zoom:
+            self.axes.set_xlim(current_xlim)
+            self.axes.set_ylim(current_ylim)
         
         # 更新画布
         self.draw()
@@ -485,13 +572,13 @@ class BScanCanvas(FigureCanvas):
             x_vals = [p['e'] for p in self.selected_points]
             y_vals = [p['depth'] for p in self.selected_points]
             
-            # 绘制选中的点，使用红色外圈高亮
-            self.axes.scatter(x_vals, y_vals, 
-                           c='none', 
-                           s=100, 
-                           edgecolors='red', 
-                           linewidths=2, 
-                           zorder=5)
+            # 绘制选中的点，使用橙色外圈高亮
+            self.axes.scatter(x_vals, y_vals,
+                           c='none',
+                           s=150,  # 保持大小不变
+                           edgecolors='orange',
+                           linewidths=2,  # 减小线宽，使其更细
+                           zorder=20)  # 保持zorder不变，确保在最上层
     
     def get_displayed_points(self):
         """获取显示的点列表"""
@@ -527,15 +614,21 @@ class MainWindow(QMainWindow):
         # 创建B显画布
         self.bscan_canvas = BScanCanvas(self, width=12, height=8)
         
+        # 设置画布的annotation_manager属性
+        self.bscan_canvas.annotation_manager = self.annotation_manager
+        
         # 添加NavigationToolbar
         self.toolbar = NavigationToolbar(self.bscan_canvas, self)
         self.main_layout.addWidget(self.toolbar)
         
         self.main_layout.addWidget(self.bscan_canvas)
-        
+
         # 初始化点选择器
-        self.point_selector = PointSelector(self.bscan_canvas)
-        
+        self.point_selector = PointSelector(self.bscan_canvas, self.update_selected_points_display)
+
+        # 创建选中点和已标注结构/伤损的并排显示区域
+        self.create_combined_display()
+
         # 创建X轴滑动条
         self.create_x_axis_slider()
         
@@ -568,25 +661,7 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut("Ctrl+Q")
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
-        # 标注菜单
-        annotation_menu = menubar.addMenu("标注")
-        
-        # 开始标注菜单项
-        start_annotation_action = QAction("开始标注", self)
-        start_annotation_action.triggered.connect(self.start_annotation)
-        annotation_menu.addAction(start_annotation_action)
-        
-        # 保存标注菜单项
-        save_annotation_action = QAction("保存标注", self)
-        save_annotation_action.triggered.connect(self.save_annotation)
-        annotation_menu.addAction(save_annotation_action)
-        
-        # 加载标注菜单项
-        load_annotation_action = QAction("加载标注", self)
-        load_annotation_action.triggered.connect(self.load_annotation)
-        annotation_menu.addAction(load_annotation_action)
-    
+
     def create_x_axis_slider(self):
         """创建X轴滑动条"""
         slider_layout = QHBoxLayout()
@@ -622,8 +697,26 @@ class MainWindow(QMainWindow):
                 # 创建解析器
                 self.parser = FlawDetectionDataParser(file_path)
                 
-                # 更新B显画布
-                self.bscan_canvas.update_bscan(self.parser)
+                # 重置标注管理器
+                self.annotation_manager.clear_annotations()
+                
+                # 尝试加载现有的标注文件
+                import os
+                json_dir = os.path.dirname(file_path)
+                json_filename = os.path.basename(file_path)
+                name_without_ext = os.path.splitext(json_filename)[0]
+                annotation_filename = f"{name_without_ext}标注.json"
+                annotation_file_path = os.path.join(json_dir, annotation_filename)
+                
+                if os.path.exists(annotation_file_path):
+                    self.annotation_manager.load_annotations(annotation_file_path)
+                    self.status_bar.showMessage(
+                        f"已加载标注文件: {annotation_filename}", 3000
+                    )
+                
+                # 更新B显画布，传递标注数据
+                annotations = self.annotation_manager.get_annotations()
+                self.bscan_canvas.update_bscan(self.parser, annotations=annotations)
                 
                 # 获取摘要信息
                 summary = self.parser.get_summary()
@@ -637,7 +730,13 @@ class MainWindow(QMainWindow):
                 self.x_slider.setValue(max_e)
                 self.x_pos_label.setText(f"当前: {max_e}")
                 self.current_e = max_e
+
+                # 重置标注UI
+                self.reset_annotation_ui()
                 
+                # 更新标注列表
+                self.update_annotations_list()
+
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"打开文件失败: {str(e)}")
     
@@ -658,98 +757,411 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"保存图像失败: {str(e)}")
     
-    def start_annotation(self):
-        """开始标注"""
+    def on_damage_type_changed(self, index):
+        """类型选择变化事件"""
+        self.subtype_combo.clear()
+        self.subtype_combo.setEnabled(False)
+        self.save_annotation_btn.setEnabled(False)
+
+        if index <= 0:  # 请选择类型
+            return
+
+        selected_type = self.damage_combo.currentText()
+        type_data = self.damage_combo.currentData()
+        self.subtype_combo.setEnabled(True)
+
+        # 根据选择的类型设置子类型
+        if type_data == "damage":  # 伤损类型
+            if selected_type == "伤损":
+                subtypes = [
+                    ("1", "轨头外侧核伤"),
+                    ("2", "轨头中心核伤"),
+                    ("3", "轨头内侧核伤"),
+                    ("4", "轨头内、外、中心核伤"),
+                    ("5", "轨头内、中心核伤"),
+                    ("6", "轨头外、中心核伤"),
+                    ("7", "轨头水平分裂"),
+                    ("8", "轨头、轨腰分裂"),
+                    ("9", "轨腰水平裂"),
+                    ("10", "轨底断裂"),
+                    ("11", "螺孔裂纹"),
+                    ("12", "其他伤损")
+                ]
+        elif type_data == "structure":  # 正常结构类型
+            if selected_type == "正常结构":
+                subtypes = [
+                    ("101", "螺孔"),
+                    ("102", "轨头"),
+                    ("103", "轨腰"),
+                    ("104", "轨底"),
+                    ("105", "其他结构")
+                ]
+        else:
+            return
+
+        self.subtype_combo.addItem("请选择具体类型", "")
+        for subtype_id, subtype_name in subtypes:
+            self.subtype_combo.addItem(f"{subtype_name}", subtype_id)
+
+        # 连接子类型选择变化事件
+        self.subtype_combo.currentIndexChanged.connect(self.on_subtype_changed)
+
+    def reset_annotation_ui(self):
+        """重置标注UI"""
+        self.damage_combo.setCurrentIndex(0)
+        self.subtype_combo.clear()
+        self.subtype_combo.setEnabled(False)
+        self.save_annotation_btn.setEnabled(False)
+
+    def on_subtype_changed(self, index):
+        """子类型选择变化事件"""
+        if index > 0 and self.point_selector.get_selected_points():
+            self.save_annotation_btn.setEnabled(True)
+        else:
+            self.save_annotation_btn.setEnabled(False)
+
+    def save_annotation_auto(self):
+        """自动保存标注（不选择路径）"""
         if self.parser is None:
             QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
             return
-        
-        # 打开类型选择对话框
-        dialog = TypeSelectorDialog(self)
-        if dialog.exec_():
-            # 获取选择结果
-            selected = dialog.get_selected_type()
-            annotation_type = selected['type']
-            subtype = selected['subtype']
-            
-            # 开始选择点
-            self.point_selector.start_selection()
-            
-            # 提示用户选择点
-            QMessageBox.information(self, "标注", "请在图像上选择点，按住Shift键可多选，按Esc键取消选择")
-            
-            # 更新状态栏
-            self.status_bar.showMessage(f"进入标注模式：{annotation_type} - {subtype['name']}")
-    
-    def save_annotation(self):
-        """保存标注"""
-        if self.parser is None:
-            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
-            return
-        
+
         # 获取选中的点
         selected_points = self.point_selector.get_selected_points()
         if not selected_points:
             QMessageBox.warning(self, "警告", "请先选择要标注的点")
             return
-        
-        # 打开类型选择对话框
-        dialog = TypeSelectorDialog(self)
-        if dialog.exec_():
-            # 获取选择结果
-            selected = dialog.get_selected_type()
-            annotation_type = selected['type']
-            subtype = selected['subtype']
-            
-            # 创建标注
-            annotation = self.annotation_manager.create_annotation(
-                annotation_type, subtype, [p['original'] for p in selected_points]
-            )
-            
-            if annotation:
-                # 保存标注到文件
-                file_path, _ = QFileDialog.getSaveFileName(
-                    self, "保存标注", ".", "JSON Files (*.json);;All Files (*)"
-                )
-                
-                if file_path:
-                    # 保存所有标注
-                    if self.annotation_manager.save_annotations(file_path):
-                        QMessageBox.information(self, "成功", f"标注已保存到: {file_path}")
-                        # 清空选择
-                        self.point_selector.clear_selection()
-                        # 更新状态栏
-                        self.status_bar.showMessage("标注已保存")
-                    else:
-                        QMessageBox.critical(self, "错误", "保存标注失败")
-    
-    def load_annotation(self):
-        """加载标注"""
-        if self.parser is None:
-            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
+
+        # 获取选择的类型
+        selected_type = self.damage_combo.currentText()
+        type_data = self.damage_combo.currentData()
+        subtype_index = self.subtype_combo.currentIndex()
+        if subtype_index <= 0:
+            QMessageBox.warning(self, "警告", "请选择具体类型")
             return
-        
-        # 打开文件选择对话框
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "加载标注", ".", "JSON Files (*.json);;All Files (*)"
+
+        subtype_text = self.subtype_combo.currentText()
+        subtype_id = self.subtype_combo.currentData()
+
+        # 创建标注类型信息
+        annotation_type = "伤损" if type_data == "damage" else "结构"
+        subtype = {
+            'id': subtype_id,
+            'name': subtype_text.split('. ', 1)[1] if '. ' in subtype_text else subtype_text
+        }
+
+        # 创建标注
+        annotation = self.annotation_manager.create_annotation(
+            annotation_type, subtype, [p['original'] for p in selected_points]
         )
-        
-        if file_path:
-            # 加载标注
-            if self.annotation_manager.load_annotations(file_path):
-                # 获取标注数量
-                annotation_count = len(self.annotation_manager.get_annotations())
-                QMessageBox.information(self, "成功", f"已加载 {annotation_count} 个标注")
+
+        if annotation:
+            # 自动生成保存路径
+            import os
+            json_file_path = self.parser.json_file
+            json_dir = os.path.dirname(json_file_path)
+            json_filename = os.path.basename(json_file_path)
+
+            # 去掉扩展名，添加"标注"后缀
+            name_without_ext = os.path.splitext(json_filename)[0]
+            annotation_filename = f"{name_without_ext}标注.json"
+
+            annotation_file_path = os.path.join(json_dir, annotation_filename)
+
+            # 保存标注（AnnotationManager会自动合并到现有文件）
+            if self.annotation_manager.save_annotations(annotation_file_path):
+                QMessageBox.information(self, "成功", f"标注已保存到: {annotation_file_path}")
+                # 清空选择和重置UI，但保持多选模式
+                self.point_selector.clear_selection()
+                self.damage_combo.setCurrentIndex(0)
+                self.subtype_combo.clear()
+                self.subtype_combo.setEnabled(False)
+                self.save_annotation_btn.setEnabled(False)
                 # 更新状态栏
-                self.status_bar.showMessage(f"已加载 {annotation_count} 个标注")
+                self.status_bar.showMessage("标注已保存")
+                # 更新已标注列表，显示文件中的所有标注
+                self.update_annotations_list()
+                # 重新绘制B显，显示所有标注（包括新保存的和未保存的）
+                annotations = self.annotation_manager.get_annotations()
+                self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
             else:
-                QMessageBox.critical(self, "错误", "加载标注失败")
-    
+                QMessageBox.critical(self, "错误", "保存标注失败")
+
     def on_x_slider_changed(self, value):
         """X轴滑动条值变化时的处理函数"""
         # 滑动条从右向左拖动时，值减小，当前显示的编码值也减小
         self.current_e = value
         self.x_pos_label.setText(f"当前: {value}")
-        
+
         if self.parser is not None:
-            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e)
+            # 获取当前的标注数据
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+
+
+
+    def update_annotations_list(self):
+        """更新标注列表"""
+        if self.parser is None:
+            return
+
+        import os
+        from gui.annotation_manager import AnnotationManager
+        json_file_path = self.parser.json_file
+        json_dir = os.path.dirname(json_file_path)
+        json_filename = os.path.basename(json_file_path)
+
+        # 去掉扩展名，添加"标注"后缀
+        name_without_ext = os.path.splitext(json_filename)[0]
+        annotation_filename = f"{name_without_ext}标注.json"
+        annotation_file_path = os.path.join(json_dir, annotation_filename)
+
+        # 清空当前标注列表
+        self.annotations_list.clear()
+        self.annotations_list.addItem("请选择标注", None)
+
+        # 加载标注文件到临时管理器，避免影响内存中的未保存标注
+        if os.path.exists(annotation_file_path):
+            # 创建临时标注管理器，仅用于加载文件中的标注
+            temp_manager = AnnotationManager()
+            temp_manager.load_annotations(annotation_file_path)
+            file_annotations = temp_manager.get_annotations()
+            
+            # 显示文件中的标注
+            for annotation in file_annotations:
+                annotation_name = f"{annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
+                self.annotations_list.addItem(annotation_name, annotation['id'])
+
+    def on_annotation_selected(self, index):
+        """当选择标注时更新详情"""
+        if index <= 0:
+            self.annotation_details_text.setPlainText("暂无选中的标注")
+            self.delete_annotation_btn.setEnabled(False)
+            return
+
+        # 获取选中的标注ID
+        annotation_id = self.annotations_list.currentData()
+        annotation = self.annotation_manager.get_annotation_by_id(annotation_id)
+
+        if annotation:
+            # 构建详情文本
+            details_lines = []
+            details_lines.append(f"标注ID: {annotation['id']}")
+            details_lines.append(f"类型: {annotation['type']}")
+            details_lines.append(f"具体类型: {annotation['subtype']['name']}")
+            details_lines.append(f"编码范围: E{annotation['start_E']} - E{annotation['end_E']}")
+            details_lines.append(f"涉及通道: {annotation['channels']}")
+            details_lines.append(f"点数: {len(annotation['points'])}")
+            details_lines.append(f"创建时间: {annotation['timestamp']}")
+            details_lines.append("")
+            details_lines.append("包含的点:")
+            
+            for i, point in enumerate(annotation['points'], 1):
+                details_lines.append(
+                    f"{i}. E:{point['e']} Ch:{point['channel']} "
+                    f"深度:{point['depth']:.1f} 幅度:{point['amplitude']:.1f}"
+                )
+
+            # 设置详情文本
+            self.annotation_details_text.setPlainText("\n".join(details_lines))
+            self.delete_annotation_btn.setEnabled(True)
+        else:
+            self.annotation_details_text.setPlainText("暂无选中的标注")
+            self.delete_annotation_btn.setEnabled(False)
+    
+    def delete_selected_annotation(self):
+        """删除选中的标注"""
+        # 获取选中的标注ID
+        annotation_id = self.annotations_list.currentData()
+        if not annotation_id:
+            return
+        
+        # 删除标注
+        if self.annotation_manager.delete_annotation(annotation_id):
+            # 保存修改后的标注到文件
+            import os
+            json_file_path = self.parser.json_file
+            json_dir = os.path.dirname(json_file_path)
+            json_filename = os.path.basename(json_file_path)
+            name_without_ext = os.path.splitext(json_filename)[0]
+            annotation_filename = f"{name_without_ext}标注.json"
+            annotation_file_path = os.path.join(json_dir, annotation_filename)
+            
+            self.annotation_manager.save_annotations(annotation_file_path)
+            
+            # 更新标注列表
+            self.update_annotations_list()
+            
+            # 重新绘制B显，显示更新后的标注
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+            
+            QMessageBox.information(self, "成功", "标注已删除")
+        else:
+            QMessageBox.critical(self, "错误", "删除标注失败")
+    
+    def on_rect_select_state_changed(self, state):
+        """处理框选开关状态变化"""
+        # 设置点选择器的框选功能状态
+        enabled = state == 2  # 2表示选中，0表示未选中
+        self.point_selector.set_rect_select_enabled(enabled)
+        
+    def on_auto_zoom_reset_changed(self, state):
+        """处理自动缩放恢复开关状态变化"""
+        # 设置B显画布的自动缩放恢复状态
+        enabled = state == 2  # 2表示选中，0表示未选中
+        self.bscan_canvas.auto_reset_zoom = enabled
+
+    def create_combined_display(self):
+        """创建选中点和已标注结构/伤损的并排显示区域"""
+        # 创建一个水平布局来容纳两个区域
+        combined_layout = QHBoxLayout()
+        
+        # 左侧：选中点和标注控制面板
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        
+        # 创建选中点信息显示区域
+        group_box1 = QGroupBox("选中的点和标注")
+        group_layout1 = QHBoxLayout(group_box1)
+        
+        # 左侧：选中点信息显示
+        left_layout1 = QVBoxLayout()
+        
+        # 创建文本编辑器用于显示选中点信息
+        self.selected_points_text = QTextEdit()
+        self.selected_points_text.setReadOnly(True)
+        self.selected_points_text.setMaximumHeight(120)  # 设置最大高度，大约5行
+        self.selected_points_text.setPlainText("暂无选中的点")
+        
+        left_layout1.addWidget(QLabel("选中的点："))
+        left_layout1.addWidget(self.selected_points_text)
+        
+        # 添加框选开关
+        self.rect_select_checkbox = QCheckBox("启用框选功能")
+        self.rect_select_checkbox.setChecked(True)  # 默认开启
+        self.rect_select_checkbox.stateChanged.connect(self.on_rect_select_state_changed)
+        left_layout1.addWidget(self.rect_select_checkbox)
+        
+        # 添加自动缩放恢复开关
+        self.auto_zoom_reset_checkbox = QCheckBox("启用自动缩放恢复")
+        self.auto_zoom_reset_checkbox.setChecked(True)  # 默认开启
+        self.auto_zoom_reset_checkbox.stateChanged.connect(self.on_auto_zoom_reset_changed)
+        left_layout1.addWidget(self.auto_zoom_reset_checkbox)
+        
+        # 右侧：标注控制面板
+        right_layout1 = QVBoxLayout()
+        
+        # 伤损/结构类型选择
+        type_label = QLabel("类型：")
+        self.damage_combo = QComboBox()
+        self.damage_combo.addItem("请选择类型", "")
+        self.damage_combo.addItem("伤损", "damage")
+        self.damage_combo.addItem("正常结构", "structure")
+        
+        # 子类型选择（根据选择的类型动态更新）
+        subtype_label = QLabel("具体类型：")
+        self.subtype_combo = QComboBox()
+        self.subtype_combo.setMinimumWidth(200)  # 增加最小宽度，确保选项显示完整
+        self.subtype_combo.setEnabled(False)
+        
+        # 连接类型选择变化事件
+        self.damage_combo.currentIndexChanged.connect(self.on_damage_type_changed)
+        
+        # 保存标注按钮
+        self.save_annotation_btn = QPushButton("保存标注")
+        self.save_annotation_btn.clicked.connect(self.save_annotation_auto)
+        self.save_annotation_btn.setEnabled(False)
+        
+        right_layout1.addWidget(type_label)
+        right_layout1.addWidget(self.damage_combo)
+        right_layout1.addWidget(subtype_label)
+        right_layout1.addWidget(self.subtype_combo)
+        right_layout1.addWidget(self.save_annotation_btn)
+        right_layout1.addStretch()  # 添加伸缩空间
+        
+        # 添加分隔线
+        line1 = QFrame()
+        line1.setFrameShape(QFrame.VLine)
+        line1.setFrameShadow(QFrame.Sunken)
+        
+        group_layout1.addLayout(left_layout1)
+        group_layout1.addWidget(line1)
+        group_layout1.addLayout(right_layout1)
+        
+        left_layout.addWidget(group_box1)
+        
+        # 右侧：已标注结构/伤损显示区域
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        
+        group_box2 = QGroupBox("已标注的结构/伤损")
+        group_layout2 = QVBoxLayout(group_box2)  # 改为垂直布局
+        
+        # 上侧：标注列表
+        self.annotations_list_label = QLabel("标注列表：")
+        group_layout2.addWidget(self.annotations_list_label)
+        
+        # 创建标注列表视图，设置宽度
+        self.annotations_list = QComboBox()
+        self.annotations_list.setMinimumWidth(300)  # 增加宽度
+        self.annotations_list.setMaximumHeight(120)
+        self.annotations_list.currentIndexChanged.connect(self.on_annotation_selected)
+        group_layout2.addWidget(self.annotations_list)
+        
+        # 添加刷新按钮和删除按钮
+        button_layout = QHBoxLayout()
+        self.refresh_annotations_btn = QPushButton("刷新标注列表")
+        self.refresh_annotations_btn.clicked.connect(self.update_annotations_list)
+        button_layout.addWidget(self.refresh_annotations_btn)
+        
+        self.delete_annotation_btn = QPushButton("删除选中标注")
+        self.delete_annotation_btn.clicked.connect(self.delete_selected_annotation)
+        self.delete_annotation_btn.setEnabled(False)
+        button_layout.addWidget(self.delete_annotation_btn)
+        group_layout2.addLayout(button_layout)
+        
+        # 下侧：标注详情
+        self.annotation_details_label = QLabel("标注详情：")
+        group_layout2.addWidget(self.annotation_details_label)
+        
+        # 创建标注详情文本框
+        self.annotation_details_text = QTextEdit()
+        self.annotation_details_text.setReadOnly(True)
+        self.annotation_details_text.setMaximumHeight(120)
+        self.annotation_details_text.setPlainText("暂无选中的标注")
+        group_layout2.addWidget(self.annotation_details_text)
+        
+        right_layout.addWidget(group_box2)
+        
+        # 添加分隔线
+        line2 = QFrame()
+        line2.setFrameShape(QFrame.VLine)
+        line2.setFrameShadow(QFrame.Sunken)
+        
+        combined_layout.addWidget(left_widget, 1)  # 左侧占1份宽度
+        combined_layout.addWidget(line2)
+        combined_layout.addWidget(right_widget, 1)  # 右侧占1份宽度
+        
+        # 将组合布局添加到主布局
+        self.main_layout.addLayout(combined_layout)
+    
+    def update_selected_points_display(self):
+        """更新选中点信息显示"""
+        selected_points = self.point_selector.get_selected_points()
+
+        if not selected_points:
+            self.selected_points_text.setPlainText("暂无选中的点")
+            return
+
+        # 构建显示文本
+        display_lines = []
+        for i, point in enumerate(selected_points, 1):
+            original = point['original']
+            display_lines.append(
+                f"{i}. E:{original['e']} Ch:{original['channel']} "
+                f"深度:{original['depth']:.1f} 幅度:{original['amplitude']:.1f}"
+            )
+
+        # 设置文本内容
+        self.selected_points_text.setPlainText("\n".join(display_lines))
