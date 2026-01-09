@@ -71,7 +71,8 @@ class FlawDetectionDataParser:
             'test_range': {},       # 探测范围 {channel: mm}
             'zero_delay': {},       # 零点延迟 {channel: us}
             'beam_angle': {},       # 声束角度 {channel: 度}
-            'beam_way': {},         # 射向 {channel: 编号}
+            'beam_way': {},         # 射向 {channel: -1后、0直、1前}
+            'beam_side': {},        # 侧边 {channel: -1左、0正、1右}
             'beam_offset': {},      # 拼孔值 {channel: mm}
             'tvg': {}               # 补偿曲线 {channel: [20个补偿点]}
         }
@@ -97,16 +98,20 @@ class FlawDetectionDataParser:
             'battery': '',          # 电池电量
         }
         
-        # 通道配置映射：0-8代表1-9通道
+        # 通道配置映射：0-8代表A-I通道
+        # 通道顺序：A B C D E F G H I
+        # 角度分布：前四个斜70°，然后两个直70°，然后两个直37°，最后直打
+        # 根据JSON文档注释：各通道射向分别是A后右，B前右，C后左，D前左，E后直，F前直，G后直，H前直，I直直
+        # 这里的角度作为默认值，都是正值，会被BeamAngle字段替换，最后根据BeamWay值调整正负
         self.channel_config = {
-            0: {'angle': 70, 'way': '前外', 'side': '右'},
-            1: {'angle': -70, 'way': '后外', 'side': '右'},
-            2: {'angle': 70, 'way': '前内', 'side': '右'},
-            3: {'angle': -70, 'way': '后内', 'side': '右'},
-            4: {'angle': 70, 'way': '前直', 'side': '右'},
-            5: {'angle': -70, 'way': '后直', 'side': '右'},
-            6: {'angle': 37, 'way': '前直', 'side': '右'},
-            7: {'angle': -37, 'way': '后直', 'side': '右'},
+            0: {'angle': 70, 'way': '后外', 'side': '右'},
+            1: {'angle': 70, 'way': '前外', 'side': '右'},
+            2: {'angle': 70, 'way': '后内', 'side': '左'},
+            3: {'angle': 70, 'way': '前内', 'side': '左'},
+            4: {'angle': 70, 'way': '后直', 'side': '右'},
+            5: {'angle': 70, 'way': '前直', 'side': '右'},
+            6: {'angle': 37, 'way': '后直', 'side': '右'},
+            7: {'angle': 37, 'way': '前直', 'side': '右'},
             8: {'angle': 0, 'way': '直打', 'side': '右'},
         }
         
@@ -239,9 +244,9 @@ class FlawDetectionDataParser:
                             channel = value[i]
                             beam_angle_val = value[i + 1]
                             
-                            # 根据通道号将后向通道的角度转换为负数
-                            # 通道1、3、5、7为后向通道
-                            if channel in [1, 3, 5, 7]:
+                            # 根据BeamWay值将后向通道的角度转换为负数
+                            # BeamWay值为-1表示后向通道
+                            if channel in self.params['beam_way'] and self.params['beam_way'][channel] == -1:
                                 # 将后向通道的角度转换为负数
                                 beam_angle_val = -abs(beam_angle_val)
                             
@@ -254,6 +259,17 @@ class FlawDetectionDataParser:
                             channel = value[i]
                             offset = value[i + 1]
                             self.params['beam_offset'][channel] = offset
+            
+            elif key == 'BeamWay':
+                if isinstance(value, list):
+                    # BeamWay格式：每三个数为一组，依次是通道号、射向（-1后、0直、1前）、侧边（-1左、0正、1右）
+                    for i in range(0, len(value), 3):
+                        if i + 2 < len(value):
+                            channel = value[i]
+                            beam_way = value[i + 1]  # -1后、0直、1前
+                            beam_side = value[i + 2]  # -1左、0正、1右
+                            self.params['beam_way'][channel] = beam_way
+                            self.params['beam_side'][channel] = beam_side
             
             # 作业信息解析...（省略，与原代码相同）
             elif key == 'Bureau':
@@ -373,11 +389,15 @@ class BScanCanvas(FigureCanvas):
                 # 获取通道的拼孔值，默认为0
                 beam_offset = parser.params['beam_offset'].get(channel, 0)
                 
-                # 获取通道角度（俯仰角），默认为0度
+                # 获取通道角度（俯仰角）
+                # 1. 先从channel_config获取默认角度
+                pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                # 2. 然后用BeamAngle字段替换默认角度
                 if channel in parser.params['beam_angle']:
                     pitch_angle = parser.params['beam_angle'][channel]
-                else:
-                    pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                # 3. 最后根据BeamWay值调整角度正负，BeamWay值为-1表示后向通道，角度为负
+                if channel in parser.params['beam_way'] and parser.params['beam_way'][channel] == -1:
+                    pitch_angle = -abs(pitch_angle)
                 
                 # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
                 if 0 <= channel <= 3:
@@ -399,7 +419,7 @@ class BScanCanvas(FigureCanvas):
                 # 计算调整后的编码值和深度值
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
-                e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                e_vals = [p['e'] - beam_offset  + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
                 depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
@@ -441,11 +461,15 @@ class BScanCanvas(FigureCanvas):
                 # 获取通道的拼孔值，默认为0
                 beam_offset = parser.params['beam_offset'].get(channel, 0)
                 
-                # 获取通道角度（俯仰角），默认为0度
+                # 获取通道角度（俯仰角）
+                # 1. 先从channel_config获取默认角度
+                pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                # 2. 然后用BeamAngle字段替换默认角度
                 if channel in parser.params['beam_angle']:
                     pitch_angle = parser.params['beam_angle'][channel]
-                else:
-                    pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                # 3. 最后根据BeamWay值调整角度正负，BeamWay值为-1表示后向通道，角度为负
+                if channel in parser.params['beam_way'] and parser.params['beam_way'][channel] == -1:
+                    pitch_angle = -abs(pitch_angle)
                 
                 # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
                 if 0 <= channel <= 3:
@@ -505,10 +529,14 @@ class BScanCanvas(FigureCanvas):
             beam_offset = parser.params['beam_offset'].get(p['channel'], 0)
             
             # 获取通道角度（俯仰角）
+            # 1. 先从channel_config获取默认角度
+            pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+            # 2. 然后用BeamAngle字段替换默认角度
             if p['channel'] in parser.params['beam_angle']:
                 pitch_angle = parser.params['beam_angle'][p['channel']]
-            else:
-                pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+            # 3. 最后根据BeamWay值调整角度正负，BeamWay值为-1表示后向通道，角度为负
+            if p['channel'] in parser.params['beam_way'] and parser.params['beam_way'][p['channel']] == -1:
+                pitch_angle = -abs(pitch_angle)
             
             # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
             if 0 <= p['channel'] <= 3:
@@ -564,10 +592,14 @@ class BScanCanvas(FigureCanvas):
                     adjusted_e = get_adjusted_e(p)
                     
                     # 获取通道角度（俯仰角）
+                    # 1. 先从channel_config获取默认角度
+                    pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                    # 2. 然后用BeamAngle字段替换默认角度
                     if p['channel'] in parser.params['beam_angle']:
                         pitch_angle = parser.params['beam_angle'][p['channel']]
-                    else:
-                        pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                    # 3. 最后根据BeamWay值调整角度正负，BeamWay值为-1表示后向通道，角度为负
+                    if p['channel'] in parser.params['beam_way'] and parser.params['beam_way'][p['channel']] == -1:
+                        pitch_angle = -abs(pitch_angle)
                     
                     # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
                     if 0 <= p['channel'] <= 3:
