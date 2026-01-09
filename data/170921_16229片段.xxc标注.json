@@ -334,8 +334,134 @@
         8
       ],
       "timestamp": "2026-01-09T16:33:21.213319"
+    },
+    {
+      "id": "7",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 734,
+          "channel": 3,
+          "depth": 169.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 735,
+          "channel": 3,
+          "depth": 173.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 796,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 797,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 798,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 799,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 800,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 801,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 802,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 803,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 804,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 813,
+          "channel": 7,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 814,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 815,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 816,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 817,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 818,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 819,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 734,
+      "end_E": 819,
+      "channels": [
+        3,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-09T16:55:59.791736"
     }
   ],
-  "timestamp": "2026-01-09T16:33:21.213621",
+  "timestamp": "2026-01-09T16:55:59.791998",
   "version": "1.0"
 }
