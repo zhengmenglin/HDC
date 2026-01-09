@@ -490,7 +490,7 @@ def visualize_bscan(parser: FlawDetectionDataParser, output_file: str = None, sh
     channel_colors = {
         0: '#8B008B',  # 通道0（对应1通道）：深紫色 A 前外 70°
         1: '#90EE90',  # 通道1（对应2通道）：浅绿色 B 后外 70°
-        2: '#DEB887',  # 通道2（对应3通道）：浅棕色 C 前内 70°
+        2: '#A52A2A',  # 通道2（对应3通道）：棕色 C 前内 70°
         3: '#87CEEB',  # 通道3（对应4通道）：天蓝色 D 后内 70°
         4: '#000000',  # 通道4（对应5通道）：黑色 E 前直 70°
         5: '#DDA0DD',  # 通道5（对应6通道）：浅紫色 F 后直 70°
