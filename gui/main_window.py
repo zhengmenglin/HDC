@@ -52,8 +52,10 @@ class FlawDetectionDataParser:
         self.encoding_count = 0  # 编码计数器
         
         # B显数据存储
-        self.b1_points = []  # 第一B显点 [{e, channel, depth, amplitude}, ...]
-        self.b2_points = []  # 第二B显点 [{e, channel, depth, amplitude}, ...]
+        # 注意：这里的'depth'字段实际上是声程距离，不是实际深度
+        # 实际深度 = 声程 * cos(水平角) * cos(俯仰角)
+        self.b1_points = []  # 第一B显点 [{e, channel, depth: 声程距离, amplitude}, ...]
+        self.b2_points = []  # 第二B显点 [{e, channel, depth: 声程距离, amplitude}, ...]
         
         # 系统参数
         self.params = {
@@ -325,6 +327,11 @@ class BScanCanvas(FigureCanvas):
         # 自动缩放恢复标志，默认开启
         self.auto_reset_zoom = True
         
+        # 通道显示状态，默认所有通道都显示
+        self.channel_visible = {}  # 记录每个通道是否显示，默认都显示
+        for channel in range(9):  # 0-8通道
+            self.channel_visible[channel] = True
+        
     def update_bscan(self, parser, display_range=255, current_e=None, annotations=None):
         """更新B显图像"""
         # 保存当前的轴范围，以便在更新后恢复（如果需要）
@@ -352,6 +359,10 @@ class BScanCanvas(FigureCanvas):
         
         # 绘制B1点
         for channel in channels:
+            # 检查通道是否可见
+            if not self.get_channel_visible(channel):
+                continue
+            
             # 获取通道的灵敏度值，默认为0
             sensitivity = parser.params['sensitivity'].get(channel, 0)
             
@@ -362,20 +373,34 @@ class BScanCanvas(FigureCanvas):
                 # 获取通道的拼孔值，默认为0
                 beam_offset = parser.params['beam_offset'].get(channel, 0)
                 
-                # 获取通道角度，默认为0度
+                # 获取通道角度（俯仰角），默认为0度
                 if channel in parser.params['beam_angle']:
-                    angle = parser.params['beam_angle'][channel]
+                    pitch_angle = parser.params['beam_angle'][channel]
                 else:
-                    angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                    pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                
+                # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
+                if 0 <= channel <= 3:
+                    horizontal_angle = 20
+                else:
+                    horizontal_angle = 0
                 
                 # 将角度转换为弧度
-                angle_rad = math.radians(angle)
-                cos_theta = math.cos(angle_rad)
-                sin_theta = math.sin(angle_rad)
+                pitch_rad = math.radians(pitch_angle)
+                horizontal_rad = math.radians(horizontal_angle)
+                
+                # 计算cos(俯仰角)和sin(俯仰角)
+                cos_pitch = math.cos(pitch_rad)
+                sin_pitch = math.sin(pitch_rad)
+                
+                # 计算cos(水平角)
+                cos_horizontal = math.cos(horizontal_rad)
                 
                 # 计算调整后的编码值和深度值
-                e_vals = [p['e'] - beam_offset / 3 + (p['depth'] * sin_theta) / 3 for p in channel_data]
-                depth_vals = [p['depth'] * cos_theta for p in channel_data]
+                # 深度 = 声程 * cos(水平角) * cos(俯仰角)
+                # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
+                e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
                 # 根据幅度设置点的大小
@@ -402,6 +427,10 @@ class BScanCanvas(FigureCanvas):
         
         # 绘制B2点（使用三角形标记）
         for channel in channels:
+            # 检查通道是否可见
+            if not self.get_channel_visible(channel):
+                continue
+                
             # 获取通道的灵敏度值，默认为0
             sensitivity = parser.params['sensitivity'].get(channel, 0)
             
@@ -412,20 +441,34 @@ class BScanCanvas(FigureCanvas):
                 # 获取通道的拼孔值，默认为0
                 beam_offset = parser.params['beam_offset'].get(channel, 0)
                 
-                # 获取通道角度，默认为0度
+                # 获取通道角度（俯仰角），默认为0度
                 if channel in parser.params['beam_angle']:
-                    angle = parser.params['beam_angle'][channel]
+                    pitch_angle = parser.params['beam_angle'][channel]
                 else:
-                    angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                    pitch_angle = parser.channel_config.get(channel, {}).get('angle', 0)
+                
+                # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
+                if 0 <= channel <= 3:
+                    horizontal_angle = 20
+                else:
+                    horizontal_angle = 0
                 
                 # 将角度转换为弧度
-                angle_rad = math.radians(angle)
-                cos_theta = math.cos(angle_rad)
-                sin_theta = math.sin(angle_rad)
+                pitch_rad = math.radians(pitch_angle)
+                horizontal_rad = math.radians(horizontal_angle)
+                
+                # 计算cos(俯仰角)和sin(俯仰角)
+                cos_pitch = math.cos(pitch_rad)
+                sin_pitch = math.sin(pitch_rad)
+                
+                # 计算cos(水平角)
+                cos_horizontal = math.cos(horizontal_rad)
                 
                 # 计算调整后的编码值和深度值
-                e_vals = [p['e'] - beam_offset / 3 + (p['depth'] * sin_theta) / 3 for p in channel_data]
-                depth_vals = [p['depth'] * cos_theta for p in channel_data]
+                # 深度 = 声程 * cos(水平角) * cos(俯仰角)
+                # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
+                e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
                 sizes = [10 + amp * 0.5 for amp in amp_vals]
@@ -461,15 +504,28 @@ class BScanCanvas(FigureCanvas):
         def get_adjusted_e(p):
             beam_offset = parser.params['beam_offset'].get(p['channel'], 0)
             
+            # 获取通道角度（俯仰角）
             if p['channel'] in parser.params['beam_angle']:
-                angle = parser.params['beam_angle'][p['channel']]
+                pitch_angle = parser.params['beam_angle'][p['channel']]
             else:
-                angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
             
-            angle_rad = math.radians(angle)
-            sin_theta = math.sin(angle_rad)
+            # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
+            if 0 <= p['channel'] <= 3:
+                horizontal_angle = 20
+            else:
+                horizontal_angle = 0
             
-            return p['e'] - beam_offset / 3 + (p['depth'] * sin_theta) / 3
+            # 将角度转换为弧度
+            pitch_rad = math.radians(pitch_angle)
+            horizontal_rad = math.radians(horizontal_angle)
+            
+            # 计算sin(俯仰角)和cos(水平角)
+            sin_pitch = math.sin(pitch_rad)
+            cos_horizontal = math.cos(horizontal_rad)
+            
+            # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
+            return p['e'] - beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
         
         adjusted_e_values = []
         for p in b1_points + b2_points:
@@ -507,18 +563,28 @@ class BScanCanvas(FigureCanvas):
                 for p in points:
                     adjusted_e = get_adjusted_e(p)
                     
-                    # 获取通道角度
+                    # 获取通道角度（俯仰角）
                     if p['channel'] in parser.params['beam_angle']:
-                        angle = parser.params['beam_angle'][p['channel']]
+                        pitch_angle = parser.params['beam_angle'][p['channel']]
                     else:
-                        angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                        pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
+                    
+                    # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
+                    if 0 <= p['channel'] <= 3:
+                        horizontal_angle = 20
+                    else:
+                        horizontal_angle = 0
                     
                     # 将角度转换为弧度
-                    angle_rad = math.radians(angle)
-                    cos_theta = math.cos(angle_rad)
+                    pitch_rad = math.radians(pitch_angle)
+                    horizontal_rad = math.radians(horizontal_angle)
                     
-                    # 计算调整后的深度值
-                    adjusted_depth = p['depth'] * cos_theta
+                    # 计算cos(俯仰角)和cos(水平角)
+                    cos_pitch = math.cos(pitch_rad)
+                    cos_horizontal = math.cos(horizontal_rad)
+                    
+                    # 计算调整后的深度值：深度 = 声程 * cos(水平角) * cos(俯仰角)
+                    adjusted_depth = p['depth'] * cos_horizontal * cos_pitch
                     
                     e_values.append(adjusted_e)
                     depth_values.append(adjusted_depth)
@@ -583,6 +649,28 @@ class BScanCanvas(FigureCanvas):
     def get_displayed_points(self):
         """获取显示的点列表"""
         return self.displayed_points
+    
+    def set_channel_visible(self, channel, visible):
+        """
+        设置通道的显示状态
+        
+        Args:
+            channel: 通道号
+            visible: 是否显示该通道
+        """
+        self.channel_visible[channel] = visible
+    
+    def get_channel_visible(self, channel):
+        """
+        获取通道的显示状态
+        
+        Args:
+            channel: 通道号
+        
+        Returns:
+            bool: 通道是否显示
+        """
+        return self.channel_visible.get(channel, True)
 
 
 class MainWindow(QMainWindow):
@@ -1053,6 +1141,17 @@ class MainWindow(QMainWindow):
         # 设置B显画布的自动缩放恢复状态
         enabled = state == 2  # 2表示选中，0表示未选中
         self.bscan_canvas.auto_reset_zoom = enabled
+    
+    def on_channel_visibility_changed(self, channel, state):
+        """处理通道可见性变化事件"""
+        # 设置通道可见性
+        visible = state == 2  # 2表示选中，0表示未选中
+        self.bscan_canvas.set_channel_visible(channel, visible)
+        
+        # 重新绘制B显图像，反映通道可见性变化
+        if self.parser is not None:
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
 
     def create_combined_display(self):
         """创建选中点和已标注结构/伤损的并排显示区域"""
@@ -1066,6 +1165,37 @@ class MainWindow(QMainWindow):
         # 创建选中点信息显示区域
         group_box1 = QGroupBox("选中的点和标注")
         group_layout1 = QHBoxLayout(group_box1)
+        
+        # 最左侧：通道显示开关
+        channel_group_box = QGroupBox("通道显示开关")
+        channel_layout = QVBoxLayout(channel_group_box)
+        
+        # 通道名称映射
+        channel_names = {
+            0: "通道1 (前外 70°)",
+            1: "通道2 (后外 70°)",
+            2: "通道3 (前内 70°)",
+            3: "通道4 (后内 70°)",
+            4: "通道5 (前直 70°)",
+            5: "通道6 (后直 70°)",
+            6: "通道7 (前直 37°)",
+            7: "通道8 (后直 37°)",
+            8: "通道9 (直打 0°)"
+        }
+        
+        # 创建通道复选框并添加到布局
+        self.channel_checkboxes = {}
+        for channel in range(9):
+            checkbox = QCheckBox(channel_names[channel])
+            checkbox.setChecked(True)  # 默认选中
+            checkbox.stateChanged.connect(lambda state, ch=channel: self.on_channel_visibility_changed(ch, state))
+            self.channel_checkboxes[channel] = checkbox
+            channel_layout.addWidget(checkbox)
+        
+        # 添加分隔线
+        line0 = QFrame()
+        line0.setFrameShape(QFrame.VLine)
+        line0.setFrameShadow(QFrame.Sunken)
         
         # 左侧：选中点信息显示
         left_layout1 = QVBoxLayout()
@@ -1127,6 +1257,9 @@ class MainWindow(QMainWindow):
         line1.setFrameShape(QFrame.VLine)
         line1.setFrameShadow(QFrame.Sunken)
         
+        # 调整group_layout1的顺序：通道开关 -> 分隔线 -> 选中点信息 -> 分隔线 -> 标注控制面板
+        group_layout1.addWidget(channel_group_box)
+        group_layout1.addWidget(line0)
         group_layout1.addLayout(left_layout1)
         group_layout1.addWidget(line1)
         group_layout1.addLayout(right_layout1)

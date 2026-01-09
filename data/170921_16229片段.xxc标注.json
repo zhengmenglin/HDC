@@ -587,160 +587,6 @@
     },
     {
       "id": "6",
-      "type": "伤损",
-      "subtype": {
-        "id": "3",
-        "name": "轨头内侧核伤"
-      },
-      "points": [
-        {
-          "e": 688,
-          "channel": 7,
-          "depth": 56.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 689,
-          "channel": 7,
-          "depth": 56.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 690,
-          "channel": 7,
-          "depth": 58.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 691,
-          "channel": 7,
-          "depth": 60.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 692,
-          "channel": 7,
-          "depth": 64.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 693,
-          "channel": 7,
-          "depth": 67.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 694,
-          "channel": 7,
-          "depth": 68.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 695,
-          "channel": 7,
-          "depth": 86.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 696,
-          "channel": 7,
-          "depth": 88.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 697,
-          "channel": 7,
-          "depth": 90.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 688,
-      "end_E": 697,
-      "channels": [
-        7
-      ],
-      "timestamp": "2026-01-09T13:32:29.524107"
-    },
-    {
-      "id": "7",
-      "type": "伤损",
-      "subtype": {
-        "id": "3",
-        "name": "轨头内侧核伤"
-      },
-      "points": [
-        {
-          "e": 499,
-          "channel": 0,
-          "depth": 149.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 500,
-          "channel": 0,
-          "depth": 147.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 501,
-          "channel": 0,
-          "depth": 144.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 502,
-          "channel": 0,
-          "depth": 141.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 504,
-          "channel": 0,
-          "depth": 127.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 620,
-          "channel": 8,
-          "depth": 53.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 621,
-          "channel": 8,
-          "depth": 53.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 622,
-          "channel": 8,
-          "depth": 53.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 623,
-          "channel": 8,
-          "depth": 53.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 631,
-          "channel": 7,
-          "depth": 68.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 499,
-      "end_E": 631,
-      "channels": [
-        0,
-        7,
-        8
-      ],
-      "timestamp": "2026-01-09T13:32:37.522117"
-    },
-    {
-      "id": "9",
       "type": "结构",
       "subtype": {
         "id": "103",
@@ -748,38 +594,26 @@
       },
       "points": [
         {
-          "e": 637,
+          "e": 612,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 647,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 648,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 649,
+          "e": 625,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 637,
-      "end_E": 649,
+      "start_E": 612,
+      "end_E": 625,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-09T13:32:47.782129"
+      "timestamp": "2026-01-09T13:36:23.203728"
     }
   ],
-  "timestamp": "2026-01-09T13:33:06.346340",
+  "timestamp": "2026-01-09T13:36:23.203993",
   "version": "1.0"
 }
