@@ -325,6 +325,16 @@ class PointSelector:
         # 重新绘制画布（这会触发BScanCanvas的highlight_selected_points）
         self.canvas.update_bscan(self.canvas.parser, self.canvas.display_range, self.canvas.current_e, self.canvas.annotation_manager.get_annotations())
     
+    def set_selected_points(self, points):
+        """
+        设置选中的点
+
+        Args:
+            points: 要选中的点列表，每个点应该是包含 'e', 'depth', 'amplitude' 等字段的字典
+        """
+        self.selected_points = list(points)  # 复制列表
+        self.highlight_selected_points()
+
     def clear_selection(self):
         """清空选择"""
         self.selected_points.clear()

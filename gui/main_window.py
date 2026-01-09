@@ -419,7 +419,7 @@ class BScanCanvas(FigureCanvas):
                 # 计算调整后的编码值和深度值
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
-                e_vals = [p['e'] - beam_offset  + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                e_vals = [p['e'] - beam_offset  + (p['depth'] * cos_horizontal * sin_pitch)/3  for p in channel_data]
                 depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
@@ -584,13 +584,15 @@ class BScanCanvas(FigureCanvas):
                 points = annotation['points']
                 if not points:
                     continue
-                
-                # 计算标注框的边界
+
+                # 计算标注框的边界 - 使用实际绘制点的坐标
                 e_values = []
                 depth_values = []
+
                 for p in points:
-                    adjusted_e = get_adjusted_e(p)
-                    
+                    # 获取通道的拼孔值，默认为0
+                    beam_offset = parser.params['beam_offset'].get(p['channel'], 0)
+
                     # 获取通道角度（俯仰角）
                     # 1. 先从channel_config获取默认角度
                     pitch_angle = parser.channel_config.get(p['channel'], {}).get('angle', 0)
@@ -600,33 +602,56 @@ class BScanCanvas(FigureCanvas):
                     # 3. 最后根据BeamWay值调整角度正负，BeamWay值为-1表示后向通道，角度为负
                     if p['channel'] in parser.params['beam_way'] and parser.params['beam_way'][p['channel']] == -1:
                         pitch_angle = -abs(pitch_angle)
-                    
+
                     # 定义水平角：斜向通道（0-3）为20度，其他通道为0度
                     if 0 <= p['channel'] <= 3:
                         horizontal_angle = 20
                     else:
                         horizontal_angle = 0
-                    
+
                     # 将角度转换为弧度
                     pitch_rad = math.radians(pitch_angle)
                     horizontal_rad = math.radians(horizontal_angle)
-                    
-                    # 计算cos(俯仰角)和cos(水平角)
+
+                    # 计算cos(俯仰角)和sin(俯仰角)
                     cos_pitch = math.cos(pitch_rad)
+                    sin_pitch = math.sin(pitch_rad)
+
+                    # 计算cos(水平角)
                     cos_horizontal = math.cos(horizontal_rad)
-                    
-                    # 计算调整后的深度值：深度 = 声程 * cos(水平角) * cos(俯仰角)
-                    adjusted_depth = p['depth'] * cos_horizontal * cos_pitch
-                    
-                    e_values.append(adjusted_e)
-                    depth_values.append(adjusted_depth)
-                
+
+                    # 计算实际绘制时使用的坐标
+                    # 这里需要根据点是B1还是B2来选择正确的公式
+                    # 由于标注点可能同时包含B1和B2，我们尝试匹配displayed_points中的坐标
+                    actual_e = None
+                    actual_depth = None
+
+                    # 在displayed_points中查找匹配的点
+                    for displayed_point in self.displayed_points:
+                        orig = displayed_point['original']
+                        if (orig['e'] == p['e'] and
+                            orig['channel'] == p['channel'] and
+                            abs(orig['depth'] - p['depth']) < 0.1 and  # 深度近似匹配
+                            abs(orig['amplitude'] - p['amplitude']) < 0.1):  # 幅度近似匹配
+                            actual_e = displayed_point['e']
+                            actual_depth = displayed_point['depth']
+                            break
+
+                    # 如果在displayed_points中找不到匹配的点，则使用B2的计算公式作为默认值
+                    if actual_e is None or actual_depth is None:
+                        # 使用B2的计算公式：e + beam_offset / 3 + (depth * cos_horizontal * sin_pitch) / 3
+                        actual_e = p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
+                        actual_depth = p['depth'] * cos_horizontal * cos_pitch
+
+                    e_values.append(actual_e)
+                    depth_values.append(actual_depth)
+
                 # 获取边界
                 min_e = min(e_values)
                 max_e = max(e_values)
                 min_depth = min(depth_values)
                 max_depth = max(depth_values)
-                
+
                 # 绘制灰色框
                 self.axes.plot(
                     [min_e, max_e, max_e, min_e, min_e],
@@ -636,7 +661,7 @@ class BScanCanvas(FigureCanvas):
                     linewidth=2,  # 增加线宽，使其更明显
                     alpha=0.8
                 )
-                
+
                 # 绘制灰色文字（标注名）在框的下方，格式：{类型} {标注ID}: {子类型名称}
                 annotation_name = f"{annotation['type']} {annotation['id']}: {annotation['subtype']['name']}"
                 self.axes.text(
@@ -941,6 +966,7 @@ class MainWindow(QMainWindow):
         self.subtype_combo.clear()
         self.subtype_combo.setEnabled(False)
         self.save_annotation_btn.setEnabled(False)
+        self.select_annotation_points_btn.setEnabled(False)
 
     def on_subtype_changed(self, index):
         """子类型选择变化事件"""
@@ -1117,7 +1143,7 @@ class MainWindow(QMainWindow):
             details_lines.append(f"创建时间: {annotation['timestamp']}")
             details_lines.append("")
             details_lines.append("包含的点:")
-            
+
             for i, point in enumerate(annotation['points'], 1):
                 details_lines.append(
                     f"{i}. E:{point['e']} Ch:{point['channel']} "
@@ -1127,17 +1153,54 @@ class MainWindow(QMainWindow):
             # 设置详情文本
             self.annotation_details_text.setPlainText("\n".join(details_lines))
             self.delete_annotation_btn.setEnabled(True)
+            self.select_annotation_points_btn.setEnabled(True)
         else:
             self.annotation_details_text.setPlainText("暂无选中的标注")
             self.delete_annotation_btn.setEnabled(False)
+            self.select_annotation_points_btn.setEnabled(False)
     
+    def select_annotation_points(self):
+        """选中当前标注包含的点"""
+        # 获取选中的标注ID
+        annotation_id = self.annotations_list.currentData()
+        if not annotation_id:
+            QMessageBox.warning(self, "警告", "请先选择一个标注")
+            return
+
+        # 获取标注数据
+        annotation = self.annotation_manager.get_annotation_by_id(annotation_id)
+        if not annotation or not annotation['points']:
+            QMessageBox.warning(self, "警告", "选中的标注不包含任何点")
+            return
+
+        # 将标注中的点设置为选中状态
+        # 注意：标注中的点是原始点数据，需要转换为displayed_points格式
+        selected_points = []
+        for point in annotation['points']:
+            # 在displayed_points中查找匹配的点
+            for displayed_point in self.bscan_canvas.displayed_points:
+                orig = displayed_point['original']
+                if (orig['e'] == point['e'] and
+                    orig['channel'] == point['channel'] and
+                    abs(orig['depth'] - point['depth']) < 0.1 and
+                    abs(orig['amplitude'] - point['amplitude']) < 0.1):
+                    selected_points.append(displayed_point)
+                    break
+
+        if selected_points:
+            # 设置选中的点
+            self.point_selector.set_selected_points(selected_points)
+            self.status_bar.showMessage(f"已选中标注 '{annotation['type']} {annotation['id']}' 中的 {len(selected_points)} 个点")
+        else:
+            QMessageBox.warning(self, "警告", "无法找到标注中的点，可能数据已过期")
+
     def delete_selected_annotation(self):
         """删除选中的标注"""
         # 获取选中的标注ID
         annotation_id = self.annotations_list.currentData()
         if not annotation_id:
             return
-        
+
         # 删除标注
         if self.annotation_manager.delete_annotation(annotation_id):
             # 保存修改后的标注到文件
@@ -1148,16 +1211,16 @@ class MainWindow(QMainWindow):
             name_without_ext = os.path.splitext(json_filename)[0]
             annotation_filename = f"{name_without_ext}标注.json"
             annotation_file_path = os.path.join(json_dir, annotation_filename)
-            
+
             self.annotation_manager.save_annotations(annotation_file_path)
-            
+
             # 更新标注列表
             self.update_annotations_list()
-            
+
             # 重新绘制B显，显示更新后的标注
             annotations = self.annotation_manager.get_annotations()
             self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
-            
+
             QMessageBox.information(self, "成功", "标注已删除")
         else:
             QMessageBox.critical(self, "错误", "删除标注失败")
@@ -1316,11 +1379,12 @@ class MainWindow(QMainWindow):
         self.annotations_list.currentIndexChanged.connect(self.on_annotation_selected)
         group_layout2.addWidget(self.annotations_list)
         
-        # 添加刷新按钮和删除按钮
+        # 添加选中标注点和删除按钮
         button_layout = QHBoxLayout()
-        self.refresh_annotations_btn = QPushButton("刷新标注列表")
-        self.refresh_annotations_btn.clicked.connect(self.update_annotations_list)
-        button_layout.addWidget(self.refresh_annotations_btn)
+        self.select_annotation_points_btn = QPushButton("选中标注的点")
+        self.select_annotation_points_btn.clicked.connect(self.select_annotation_points)
+        self.select_annotation_points_btn.setEnabled(False)  # 默认禁用，需要选择标注后才启用
+        button_layout.addWidget(self.select_annotation_points_btn)
         
         self.delete_annotation_btn = QPushButton("删除选中标注")
         self.delete_annotation_btn.clicked.connect(self.delete_selected_annotation)
