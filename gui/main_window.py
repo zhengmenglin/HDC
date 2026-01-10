@@ -203,30 +203,36 @@ class FlawDetectionDataParser:
                 self.encoding_count = int(value) if value is not None else 0
             
             elif key == 'B1':
-                # 第一B显点 [channel, depth, amplitude, ...]
+                # 第一B显点，可能包含多个点，每个点占5个元素：[channel, depth, amplitude, x, y, ...]
                 if isinstance(value, list) and len(value) >= 3:
-                    channel = int(value[0]) if value[0] is not None else 0
-                    depth = float(value[1]) if value[1] is not None else 0.0
-                    amplitude = float(value[2]) if value[2] is not None else 100.0
-                    self.b1_points.append({
-                        'e': self.encoding_count,
-                        'channel': channel,
-                        'depth': depth,
-                        'amplitude': amplitude
-                    })
+                    # 每5个元素为一组，处理每个点
+                    for i in range(0, len(value), 5):
+                        if i + 2 < len(value):  # 确保至少有channel, depth, amplitude
+                            channel = int(value[i]) if value[i] is not None else 0
+                            depth = float(value[i+1]) if value[i+1] is not None else 0.0
+                            amplitude = float(value[i+2]) if value[i+2] is not None else 100.0
+                            self.b1_points.append({
+                                'e': self.encoding_count,
+                                'channel': channel,
+                                'depth': depth,
+                                'amplitude': amplitude
+                            })
             
             elif key == 'B2':
-                # 第二B显点 [channel, depth, amplitude, ...]
+                # 第二B显点，可能包含多个点，每个点占5个元素：[channel, depth, amplitude, x, y, ...]
                 if isinstance(value, list) and len(value) >= 3:
-                    channel = int(value[0]) if value[0] is not None else 0
-                    depth = float(value[1]) if value[1] is not None else 0.0
-                    amplitude = float(value[2]) if value[2] is not None else 100.0
-                    self.b2_points.append({
-                        'e': self.encoding_count,
-                        'channel': channel,
-                        'depth': depth,
-                        'amplitude': amplitude
-                    })
+                    # 每5个元素为一组，处理每个点
+                    for i in range(0, len(value), 5):
+                        if i + 2 < len(value):  # 确保至少有channel, depth, amplitude
+                            channel = int(value[i]) if value[i] is not None else 0
+                            depth = float(value[i+1]) if value[i+1] is not None else 0.0
+                            amplitude = float(value[i+2]) if value[i+2] is not None else 100.0
+                            self.b2_points.append({
+                                'e': self.encoding_count,
+                                'channel': channel,
+                                'depth': depth,
+                                'amplitude': amplitude
+                            })
             
             # 系统参数解析...（省略，与原代码相同）
             elif key == 'Sensitivity':
@@ -380,7 +386,7 @@ class BScanCanvas(FigureCanvas):
                 continue
             
             # 获取通道的灵敏度值，默认为0
-            sensitivity = parser.params['sensitivity'].get(channel, 0)
+            sensitivity = 0#parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
             channel_data = [p for p in b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
@@ -424,7 +430,7 @@ class BScanCanvas(FigureCanvas):
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
                 # 根据幅度设置点的大小
-                sizes = [10 + amp * 0.5 for amp in amp_vals]
+                sizes = [10 ]#+ amp * 0.5 for amp in amp_vals]
                 
                 # 使用通道特定颜色
                 color = self.channel_colors.get(channel, '#808080')
@@ -452,7 +458,7 @@ class BScanCanvas(FigureCanvas):
                 continue
                 
             # 获取通道的灵敏度值，默认为0
-            sensitivity = parser.params['sensitivity'].get(channel, 0)
+            sensitivity = 0# parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
             channel_data = [p for p in b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]

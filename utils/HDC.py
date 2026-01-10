@@ -2,7 +2,18 @@ import numpy as np
 import json
 from collections import defaultdict
 import random
+import math
 from typing import Dict, List, Tuple, Optional
+
+
+def calculate_actual_depth(acoustic_range, horizontal_angle, pitch_angle):
+    """计算实际深度值（经角度矫正）"""
+    return acoustic_range * math.cos(math.radians(horizontal_angle)) * math.cos(math.radians(pitch_angle))
+
+
+def calculate_encoding_offset(acoustic_range, horizontal_angle, pitch_angle):
+    """计算编码偏差"""
+    return acoustic_range * math.cos(math.radians(horizontal_angle)) * math.sin(math.radians(pitch_angle))
 
 
 class BScanPoint:
@@ -37,33 +48,95 @@ class ChannelConfig:
         self.offset = offset
 
 
+class ChannelManager:
+    """通道管理器，负责解析和管理9个通道的配置"""
+    
+    def __init__(self, config_data=None):
+        self.channels = {}
+        # 初始化默认通道配置
+        self._init_default_channels()
+        # 如果提供了配置数据，则解析并更新
+        if config_data:
+            self.parse_config(config_data)
+    
+    def _init_default_channels(self):
+        """初始化默认的9个通道配置"""
+        # 默认通道配置：(俯仰角度, 水平角度, 拼孔值)
+        default_configs = [
+            (70, 20, 10),   # 通道1：俯仰70°, 水平角度α(默认20°), 拼孔值10
+            (70, 20, 60),   # 通道2：俯仰70°, 水平角度α(默认20°), 拼孔值60
+            (70, 20, 20),   # 通道3：俯仰70°, 水平角度α(默认20°), 拼孔值20
+            (70, 20, 50),   # 通道4：俯仰70°, 水平角度α(默认20°), 拼孔值50
+            (70, 0, 30),    # 通道5：俯仰70°, 水平角度0°, 拼孔值30
+            (70, 0, 40),    # 通道6：俯仰70°, 水平角度0°, 拼孔值40
+            (37, 0, 0),     # 通道7：俯仰37°, 水平角度0°, 拼孔值0
+            (37, 0, 70),    # 通道8：俯仰37°, 水平角度0°, 拼孔值70
+            (0, 0, 80)      # 通道9：俯仰0°, 水平角度0°, 拼孔值80
+        ]
+        
+        for i, (pitch, horizontal, offset) in enumerate(default_configs):
+            channel_id = i + 1  # 通道号从1开始
+            self.channels[channel_id] = ChannelConfig(pitch, horizontal, offset)
+    
+    def parse_config(self, config_data):
+        """从JSON配置数据解析通道参数"""
+        if isinstance(config_data, dict):
+            # 解析BeamAngle、BeamOffset等配置
+            for channel_id in range(1, 10):
+                beam_angle_key = f"BeamAngle{channel_id}"
+                beam_offset_key = f"BeamOffset{channel_id}"
+                
+                if beam_angle_key in config_data:
+                    # 解析角度配置，格式可能为"俯仰,水平"或单个角度
+                    angle_str = config_data[beam_angle_key]
+                    if isinstance(angle_str, str) and ',' in angle_str:
+                        pitch, horizontal = map(float, angle_str.split(','))
+                    else:
+                        pitch = float(angle_str)
+                        horizontal = 0.0  # 默认水平角度为0
+                    
+                    # 更新通道配置
+                    if channel_id in self.channels:
+                        self.channels[channel_id].pitch_angle = pitch
+                        self.channels[channel_id].horizontal_angle = horizontal
+                
+                if beam_offset_key in config_data:
+                    # 解析拼孔值
+                    offset = float(config_data[beam_offset_key])
+                    if channel_id in self.channels:
+                        self.channels[channel_id].offset = offset
+    
+    def get_channel_config(self, channel_id):
+        """获取指定通道的配置"""
+        return self.channels.get(channel_id)
+    
+    def get_all_channels(self):
+        """获取所有通道配置"""
+        return self.channels
+
+
 class BScanMatrix:
     """B显矩阵管理类"""
     
-    def __init__(self, max_channels: int = 9):
+    def __init__(self, max_channels: int = 9, config_data=None):
         """
         初始化B显矩阵管理器
         
         Args:
             max_channels: 最大通道数
+            config_data: 通道配置数据（可选）
         """
         self.max_channels = max_channels
         self.max_encoding = 0
         self.bscan_matrix = None
         
-        # 初始化9个通道的配置（根据需求文档）
-        # 通道配置：(俯仰角度, 水平角度, 拼孔值)
-        self.channel_configs = [
-            ChannelConfig(70, 20, 10),   # 通道1：俯仰70°, 水平角度α(默认20°), 拼孔值10
-            ChannelConfig(70, 20, 60),   # 通道2：俯仰70°, 水平角度α(默认20°), 拼孔值60
-            ChannelConfig(70, 20, 20),   # 通道3：俯仰70°, 水平角度α(默认20°), 拼孔值20
-            ChannelConfig(70, 20, 50),   # 通道4：俯仰70°, 水平角度α(默认20°), 拼孔值50
-            ChannelConfig(70, 0, 30),    # 通道5：俯仰70°, 水平角度0°, 拼孔值30
-            ChannelConfig(70, 0, 40),    # 通道6：俯仰70°, 水平角度0°, 拼孔值40
-            ChannelConfig(37, 0, 0),     # 通道7：俯仰37°, 水平角度0°, 拼孔值0
-            ChannelConfig(37, 0, 70),     # 通道8：俯仰37°, 水平角度0°, 拼孔值70
-            ChannelConfig(0, 0, 80)       # 通道9：俯仰0°, 水平角度0°, 拼孔值80
-        ]
+        # 使用通道管理器管理通道配置
+        self.channel_manager = ChannelManager(config_data)
+        
+        # 初始化通道配置列表，通道号从1开始
+        self.channel_configs = [None] * (max_channels + 1)  # 索引0未使用
+        for channel_id in range(1, max_channels + 1):
+            self.channel_configs[channel_id] = self.channel_manager.get_channel_config(channel_id)
     
     def init_bscan_matrix(self, max_encoding: int):
         """
@@ -82,19 +155,21 @@ class BScanMatrix:
         根据需求文档：矩阵最右一列为起始编码值，新编码值对应产生的深度值自右向左填充
         
         Args:
-            channel: 通道号
+            channel: 通道号（1-9）
             encoding: 编码值
             depth: 深度值（mm）
             db_value: 原始超声信号强度（dB）
             amplitude: 信号幅度值（%），默认为100%
         """
-        if 0 <= channel < self.max_channels and 0 <= encoding < self.max_encoding:
+        # 转换为0-based索引
+        channel_idx = channel - 1
+        if 0 <= channel_idx < self.max_channels and 0 <= encoding < self.max_encoding:
             # 计算实际填充位置，从右向左填充
             # 起始编码值（0）放在最右边，新编码值放在左边
             actual_col = self.max_encoding - 1 - encoding
             if 0 <= actual_col < self.max_encoding:
                 # 更新BScanPoint对象，包含幅度值
-                self.bscan_matrix[channel][actual_col] = BScanPoint(depth, db_value, amplitude)
+                self.bscan_matrix[channel_idx][actual_col] = BScanPoint(depth, db_value, amplitude)
     
     def calculate_x_coordinate(self, current_x: float, channel: int, encoding_value: float) -> float:
         """
@@ -103,13 +178,13 @@ class BScanMatrix:
         
         Args:
             current_x: 当前X坐标
-            channel: 通道号
+            channel: 通道号（1-9）
             encoding_value: 编码值（Δx）
             
         Returns:
             计算得到的X坐标
         """
-        if 0 <= channel < self.max_channels:
+        if 1 <= channel <= self.max_channels and self.channel_configs[channel] is not None:
             offset = self.channel_configs[channel].offset  # 拼孔值b
             return current_x + offset + encoding_value  # X = X + b + Δx
         return current_x
@@ -252,6 +327,10 @@ class HyperdimensionalEncoder:
         Returns:
             循环移位编码后的超维向量
         """
+        # 处理空列表情况
+        if not depth_values:
+            return self.generate_binary_hypervector()
+        
         # 生成基础深度向量
         base_key = 'depths_circular'
         if base_key not in self.item_memory:
@@ -276,10 +355,100 @@ class HyperdimensionalEncoder:
         result_vector = base_vector.copy()
         for i in range(1, len(depth_indices)):
             depth_vector = self.item_memory[base_key][min_val + depth_indices[i]]
-            # 循环移位操作：将结果向量与深度向量进行异或操作
-            result_vector = np.where(result_vector != depth_vector, -1, 1)
+            # 真正的循环移位操作：将结果向量循环移位i位，然后与当前深度向量绑定
+            shifted_vector = np.roll(result_vector, i)
+            result_vector = self.bind(shifted_vector, depth_vector)
         
         return result_vector
+    
+    def encode_damage_region(self, region_points: List[Tuple[int, int, float, float]], 
+                           min_depth: float, max_depth: float, 
+                           min_amplitude: float, max_amplitude: float, 
+                           num_depth_levels: int = 301, num_amplitude_levels: int = 101):
+        """
+        编码完整的伤损区域
+        一个伤损区域由多个点构成，每个点包含(channel, code, depth, amplitude)
+        
+        Args:
+            region_points: 伤损区域的点列表，每个点格式为(channel, code, depth, amplitude)
+            min_depth: 最小深度值
+            max_depth: 最大深度值
+            min_amplitude: 最小幅度值
+            max_amplitude: 最大幅度值
+            num_depth_levels: 深度离散级别数
+            num_amplitude_levels: 幅度离散级别数
+            
+        Returns:
+            伤损区域的超维编码向量
+        """
+        if not region_points:
+            return self.generate_binary_hypervector()
+        
+        # 按通道和编码值排序，保留空间关系
+        sorted_points = sorted(region_points, key=lambda x: (x[0], x[1]))
+        
+        # 为每个通道生成编码向量
+        channel_vectors = defaultdict(list)
+        for point in sorted_points:
+            channel, code, depth, amplitude = point
+            
+            # 获取或生成通道向量
+            channel_vec = self.generate_address_vector(channel, 'channels')
+            
+            # 获取或生成编码值向量
+            code_vec = self.generate_address_vector(code, 'codes')
+            
+            # 确保深度和幅度向量已生成
+            if 'depths' not in self.item_memory or not self.item_memory['depths']:
+                self.continuous_mapping(min_depth, max_depth, num_depth_levels, 'depths')
+            if 'amplitudes' not in self.item_memory or not self.item_memory['amplitudes']:
+                self.continuous_mapping(min_amplitude, max_amplitude, num_amplitude_levels, 'amplitudes')
+            
+            # 获取深度和幅度向量
+            depth_index = int((depth - min_depth) / (max_depth - min_depth) * (num_depth_levels - 1))
+            depth_index = max(0, min(depth_index, num_depth_levels - 1))
+            depth_vec = self.item_memory['depths'].get(min_depth + depth_index, self.generate_binary_hypervector())
+            
+            amplitude_index = int((amplitude - min_amplitude) / (max_amplitude - min_amplitude) * (num_amplitude_levels - 1))
+            amplitude_index = max(0, min(amplitude_index, num_amplitude_levels - 1))
+            amplitude_vec = self.item_memory['amplitudes'].get(min_amplitude + amplitude_index, self.generate_binary_hypervector())
+            
+            # 编码单个点
+            point_vec = self.bundle([
+                self.bind(channel_vec, depth_vec),
+                self.bind(code_vec, depth_vec),
+                self.bind(channel_vec, amplitude_vec),
+                self.bind(code_vec, amplitude_vec)
+            ])
+            
+            channel_vectors[channel].append(point_vec)
+        
+        # 对每个通道的点向量进行循环移位编码
+        channel_circular_vectors = []
+        for channel, vectors in channel_vectors.items():
+            # 计算通道权重（基于点数量）
+            weight = len(vectors) / len(sorted_points)
+            
+            # 对通道内的点向量进行循环移位
+            if len(vectors) == 1:
+                # 单个点直接使用
+                circular_vec = vectors[0]
+            else:
+                # 多个点使用循环移位
+                circular_vec = vectors[0].copy()
+                for i in range(1, len(vectors)):
+                    shifted_vec = np.roll(circular_vec, i)
+                    circular_vec = self.bind(shifted_vec, vectors[i])
+            
+            # 应用权重（通过重复捆绑）
+            weighted_vec = circular_vec
+            for _ in range(int(weight * 10)):
+                weighted_vec = self.bundle([weighted_vec, circular_vec])
+            
+            channel_circular_vectors.append(weighted_vec)
+        
+        # 捆绑所有通道的向量，生成最终的伤损区域向量
+        return self.bundle(channel_circular_vectors)
     
     def bind(self, address_vector, value_vector):
         """绑定运算（乘法）"""
@@ -449,6 +618,12 @@ class HDCClassifier:
         self.class_vectors = {}  # 类别超向量
         self.class_labels = {}   # 类别标签映射
         
+        # 深度和幅度的范围设置
+        self.min_depth = 0.0
+        self.max_depth = 300.0
+        self.min_amplitude = 0.0
+        self.max_amplitude = 100.0
+    
     def determine_flaw_type(self, channel: int, depth: float, amplitude: float) -> str:
         """
         根据通道和深度判断伤损类型
@@ -564,6 +739,44 @@ class HDCClassifier:
             # 存入联想存储器
             self.encoder.associative_memory[label] = class_vector
     
+    def train_with_regions(self, damage_regions, normal_regions):
+        """
+        使用伤损区域和正常区域进行训练
+        Args:
+            damage_regions: 伤损区域列表，每个元素为(region_points, label)
+            normal_regions: 正常区域列表，每个元素为(region_points, label)
+        """
+        # 合并所有区域
+        all_regions = damage_regions + normal_regions
+        
+        # 按类别分组区域
+        class_groups = defaultdict(list)
+        for region_points, label in all_regions:
+            class_groups[label].append(region_points)
+        
+        # 为每个类别生成类别超向量
+        for label, region_list in class_groups.items():
+            region_vectors = []
+            
+            for region_points in region_list:
+                # 编码整个伤损区域
+                region_vector = self.encoder.encode_damage_region(
+                    region_points, 
+                    self.min_depth, self.max_depth, 
+                    self.min_amplitude, self.max_amplitude
+                )
+                region_vectors.append(region_vector)
+            
+            # 捆绑同类所有区域向量
+            class_vector = self.encoder.bundle(region_vectors, normalize=True)
+            
+            # 存储类别超向量
+            self.class_vectors[label] = class_vector
+            self.class_labels[label] = label
+            
+            # 存入联想存储器
+            self.encoder.associative_memory[label] = class_vector
+    
     def predict(self, sample):
         """
         预测样本类别
@@ -586,6 +799,71 @@ class HDCClassifier:
         predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
         
         return predicted_label, similarities
+    
+    def predict_region(self, region_points):
+        """
+        预测伤损区域的类别
+        Args:
+            region_points: 伤损区域的点列表
+        Returns:
+            预测标签，相似度字典
+        """
+        # 编码查询区域
+        query_vector = self.encoder.encode_damage_region(
+            region_points, 
+            self.min_depth, self.max_depth, 
+            self.min_amplitude, self.max_amplitude
+        )
+        
+        # 计算与每个类别超向量的相似度
+        similarities = {}
+        for label, class_vector in self.class_vectors.items():
+            similarity = self.encoder.hamming_similarity(query_vector, class_vector)
+            similarities[label] = similarity
+        
+        # 选择相似度最高的类别
+        predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
+        
+        return predicted_label, similarities
+    
+    def scan_with_sliding_window(self, bscan_samples, window_size=5, step=2, min_similarity=0.7):
+        """
+        使用滑动窗口扫描B显数据，检测伤损区域
+        Args:
+            bscan_samples: B显样本列表
+            window_size: 滑动窗口大小（点数）
+            step: 滑动步长
+            min_similarity: 最小相似度阈值
+        Returns:
+            检测到的伤损区域列表，每个元素为(region_points, predicted_label, similarity)
+        """
+        # 按通道分组
+        channel_samples = defaultdict(list)
+        for sample in bscan_samples:
+            channel, code, depth, amplitude, db_value = sample
+            channel_samples[channel].append((channel, code, depth, amplitude))
+        
+        detected_regions = []
+        
+        # 对每个通道进行滑动窗口扫描
+        for channel, samples in channel_samples.items():
+            # 按编码值排序
+            sorted_samples = sorted(samples, key=lambda x: x[1])
+            
+            # 滑动窗口扫描
+            for i in range(0, len(sorted_samples) - window_size + 1, step):
+                # 提取窗口内的点
+                window_points = sorted_samples[i:i+window_size]
+                
+                # 预测窗口内的区域
+                predicted_label, similarities = self.predict_region(window_points)
+                max_similarity = max(similarities.values())
+                
+                # 如果相似度超过阈值，保存检测结果
+                if max_similarity >= min_similarity:
+                    detected_regions.append((window_points, predicted_label, max_similarity))
+        
+        return detected_regions
     
     def retrain(self, samples, labels, iterations=10, learning_rate=0.1):
         """
@@ -632,15 +910,61 @@ class HDCClassifier:
                 self.class_vectors[label] = np.where(self.class_vectors[label] > 0, 1, -1)
             
             print(f"迭代 {iteration+1}: 错误样本数 {len(misclassified)}")
+    
+    def set_depth_range(self, min_depth, max_depth):
+        """
+        设置深度值范围
+        Args:
+            min_depth: 最小深度值
+            max_depth: 最大深度值
+        """
+        self.min_depth = min_depth
+        self.max_depth = max_depth
+    
+    def set_amplitude_range(self, min_amplitude, max_amplitude):
+        """
+        设置幅度值范围
+        Args:
+            min_amplitude: 最小幅度值
+            max_amplitude: 最大幅度值
+        """
+        self.min_amplitude = min_amplitude
+        self.max_amplitude = max_amplitude
 
 
 class BScanDataProcessor:
     """B显数据处理器"""
     
-    def __init__(self, encoder):
+    def __init__(self, encoder, config_data=None):
         self.encoder = encoder
-        self.bscan_matrix = BScanMatrix()
+        self.bscan_matrix = BScanMatrix(config_data=config_data)
+        self.damage_types = {
+            1: "轨头外侧核伤",
+            2: "轨头中心核伤",
+            3: "轨头内侧核伤",
+            4: "轨头内、外、中心核伤",
+            5: "轨头内、中心核伤",
+            6: "轨头外、中心核伤",
+            7: "轨头水平分裂",
+            8: "轨头、轨腰分裂",
+            9: "轨腰水平裂",
+            10: "轨底断裂",
+            11: "螺孔裂纹",
+            12: "其他伤损"
+        }
         
+        self.normal_types = {
+            1: "接头",
+            2: "螺孔",
+            3: "导线孔",
+            4: "焊缝",
+            5: "鱼鳞伤",
+            6: "轨底锈蚀",
+            7: "轨底焊筋",
+            8: "道岔",
+            9: "其他"
+        }
+    
     def load_json_data(self, json_file):
         """从JSON文件加载B显数据"""
         with open(json_file, 'r', encoding='utf-8') as f:
@@ -649,24 +973,139 @@ class BScanDataProcessor:
         samples = []
         labels = []
         
-        for key, value in data.items():
-            # 解析JSON格式: {"B1":[1,125,80]}
-            if isinstance(value, list) and len(value) >= 3:
-                channel = value[0]
-                depth = value[1]
-                amplitude = value[2]
-                code = int(key[1:])  # 从B1、B2等中提取编码值
+        # 解析配置数据（第一个元素通常是配置）
+        config_data = None
+        if isinstance(data, list) and len(data) > 0:
+            if isinstance(data[0], dict) and 'E' in data[0] and data[0]['E'] == 1:
+                config_data = data[0]
+                data = data[1:]  # 剩下的是B显数据
                 
-                # 计算dB值（假设dB值与幅度值线性相关）
-                db_value = 20 * np.log10(amplitude / 100) + 50
-                
-                samples.append((channel, code, depth, amplitude, db_value))
-                
-                # 自动生成标签
-                label = self._determine_label(channel, depth, amplitude)
-                labels.append(label)
+                # 更新通道配置
+                self.bscan_matrix.channel_manager.parse_config(config_data)
+                # 更新通道配置列表
+                for channel_id in range(1, self.bscan_matrix.max_channels + 1):
+                    self.bscan_matrix.channel_configs[channel_id] = self.bscan_matrix.channel_manager.get_channel_config(channel_id)
         
-        return samples, labels
+        # 解析B显数据
+        for item in data:
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    # 解析JSON格式: {"B1":[1,125,80]}
+                    if isinstance(value, list) and len(value) >= 3:
+                        channel = int(value[0])  # 确保通道号是整数
+                        acoustic_range = value[1]  # 原始声程
+                        amplitude = value[2]
+                        code = int(key[1:])  # 从B1、B2等中提取编码值
+                        
+                        # 获取通道配置
+                        channel_config = self.bscan_matrix.channel_configs[channel]
+                        if channel_config:
+                            # 进行角度矫正，计算实际深度
+                            depth = calculate_actual_depth(
+                                acoustic_range, 
+                                channel_config.horizontal_angle, 
+                                channel_config.pitch_angle
+                            )
+                            # 计算编码偏差
+                            encoding_offset = calculate_encoding_offset(
+                                acoustic_range, 
+                                channel_config.horizontal_angle, 
+                                channel_config.pitch_angle
+                            )
+                        else:
+                            # 如果没有通道配置，使用原始声程作为深度
+                            depth = acoustic_range
+                            encoding_offset = 0
+                        
+                        # 计算dB值（假设dB值与幅度值线性相关）
+                        db_value = 20 * np.log10(amplitude / 100) + 50
+                        
+                        samples.append((channel, code, depth, amplitude, db_value))
+                        
+                        # 自动生成标签
+                        label = self._determine_label(channel, depth, amplitude)
+                        labels.append(label)
+        
+        return samples, labels, config_data
+    
+    def load_annotation_data(self, annotation_file):
+        """从标注JSON文件加载标注数据"""
+        with open(annotation_file, 'r', encoding='utf-8') as f:
+            annotation_data = json.load(f)
+        
+        damage_regions = []
+        normal_regions = []
+        
+        # 解析标注数据
+        for item in annotation_data:
+            if isinstance(item, dict):
+                # 假设标注格式包含：type（类型）、points（点列表）、label（标签）
+                region_type = item.get('type', 'damage')
+                points = item.get('points', [])
+                label_id = item.get('label', 0)
+                
+                # 转换点格式：从标注坐标转换为B显点格式
+                bscan_points = []
+                for point in points:
+                    if len(point) >= 4:
+                        channel, code, depth, amplitude = point
+                        bscan_points.append((channel, code, depth, amplitude))
+                
+                if region_type == 'damage':
+                    # 获取伤损类型名称
+                    damage_name = self.damage_types.get(label_id, f"其他伤损{label_id}")
+                    damage_regions.append((bscan_points, damage_name))
+                else:
+                    # 获取正常结构类型名称
+                    normal_name = self.normal_types.get(label_id, f"其他结构{label_id}")
+                    normal_regions.append((bscan_points, normal_name))
+        
+        return damage_regions, normal_regions
+    
+    def extract_damage_regions_from_bscan(self, bscan_samples, min_points=2):
+        """从B显数据中提取潜在的伤损区域（用于无标注数据的自动提取）"""
+        # 按通道分组
+        channel_samples = defaultdict(list)
+        for sample in bscan_samples:
+            channel, code, depth, amplitude, db_value = sample
+            channel_samples[channel].append(sample)
+        
+        damage_regions = []
+        
+        # 对每个通道的样本进行处理
+        for channel, samples in channel_samples.items():
+            # 按编码值排序
+            sorted_samples = sorted(samples, key=lambda x: x[1])
+            
+            current_region = []
+            previous_code = None
+            
+            for sample in sorted_samples:
+                channel, code, depth, amplitude, db_value = sample
+                
+                # 判断是否为潜在伤损点（幅度大于阈值）
+                if amplitude > 60:  # 幅度阈值
+                    if previous_code is None or code <= previous_code + 3:  # 编码值连续或间隔小于等于3
+                        # 继续当前区域
+                        current_region.append((channel, code, depth, amplitude))
+                    else:
+                        # 保存当前区域并开始新区域
+                        if len(current_region) >= min_points:
+                            damage_regions.append(current_region)
+                        current_region = [(channel, code, depth, amplitude)]
+                    previous_code = code
+                else:
+                    # 结束当前区域
+                    if len(current_region) >= min_points:
+                        damage_regions.append(current_region)
+                    current_region = []
+                    previous_code = None
+            
+            # 保存最后一个区域
+            if len(current_region) >= min_points:
+                damage_regions.append(current_region)
+        
+        return damage_regions
     
     def _determine_label(self, channel, depth, amplitude):
         """根据通道和深度确定标签"""
