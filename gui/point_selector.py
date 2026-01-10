@@ -199,7 +199,10 @@ class PointSelector:
     def draw_selection_rectangle(self):
         """绘制框选区域"""
         # 先更新B显图像，清除之前的框选区域
-        self.canvas.update_bscan(self.canvas.parser, self.canvas.display_range, self.canvas.current_e, self.canvas.annotation_manager.get_annotations())
+        # 从主窗口获取当前的显示模式
+        parent_window = self.canvas.parent() if hasattr(self.canvas, 'parent') else None
+        display_mode = getattr(parent_window, 'depth_display_mode', "压缩")
+        self.canvas.update_bscan(self.canvas.parser, self.canvas.display_range, self.canvas.current_e, self.canvas.annotation_manager.get_annotations(), display_mode)
         
         # 计算矩形的边界
         min_x = min(self.start_x, self.end_x)
@@ -323,7 +326,10 @@ class PointSelector:
         self.canvas.selected_points = self.selected_points
 
         # 重新绘制画布（这会触发BScanCanvas的highlight_selected_points）
-        self.canvas.update_bscan(self.canvas.parser, self.canvas.display_range, self.canvas.current_e, self.canvas.annotation_manager.get_annotations())
+        # 从主窗口获取当前的显示模式
+        parent_window = self.canvas.parent() if hasattr(self.canvas, 'parent') else None
+        display_mode = getattr(parent_window, 'depth_display_mode', "压缩")
+        self.canvas.update_bscan(self.canvas.parser, self.canvas.display_range, self.canvas.current_e, self.canvas.annotation_manager.get_annotations(), display_mode)
     
     def set_selected_points(self, points):
         """

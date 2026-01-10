@@ -98,6 +98,17 @@ class FlawDetectionDataParser:
             'battery': '',          # 电池电量
         }
         
+        # 轨型信息
+        self.rail_type = None  # 轨型，如"45", "50", "60", "75"
+        
+        # 轨型对应的最大深度映射
+        self.max_depth_by_rail_type = {
+            "45": 34,
+            "50": 36,
+            "60": 39,
+            "75": 48
+        }
+        
         # 通道配置映射：0-8代表A-I通道
         # 通道顺序：A B C D E F G H I
         # 角度分布：前四个斜70°，然后两个直70°，然后两个直37°，最后直打
@@ -306,6 +317,34 @@ class FlawDetectionDataParser:
             'channels_with_data': len(self.get_all_channels()),
             'job_info': self.job_info
         }
+    
+    def calculate_adjusted_depth(self, channel: int, depth: float, display_mode: str) -> float:
+        """
+        根据显示模式计算调整后的深度，用于处理二次反射
+        
+        Args:
+            channel: 通道号
+            depth: 原始深度值
+            display_mode: 显示模式，"V型"或"压缩"
+            
+        Returns:
+            调整后的深度值
+        """
+        # 只有斜70°通道（0-3）需要特殊处理
+        if not (0 <= channel <= 3):
+            return depth
+        
+        if display_mode == "V型":
+            # 方案1：根据轨型确定最大深度，处理二次反射
+            max_depth = self.max_depth_by_rail_type.get(self.rail_type, 39)  # 默认60轨
+            if depth > max_depth:
+                adjusted_depth = max_depth + max_depth - depth
+                return adjusted_depth
+            return depth
+        elif display_mode == "压缩":
+            # 方案2：直接将深度*0.5
+            return depth * 0.5
+        return depth
 
 
 class BScanCanvas(FigureCanvas):
@@ -354,7 +393,7 @@ class BScanCanvas(FigureCanvas):
         for channel in range(9):  # 0-8通道
             self.channel_visible[channel] = True
         
-    def update_bscan(self, parser, display_range=255, current_e=None, annotations=None):
+    def update_bscan(self, parser, display_range=255, current_e=None, annotations=None, display_mode="V型"):
         """更新B显图像"""
         # 保存当前的轴范围，以便在更新后恢复（如果需要）
         # 无论auto_reset_zoom状态如何，都保存当前范围，以便用户使用工具栏缩放后能保持
@@ -426,11 +465,14 @@ class BScanCanvas(FigureCanvas):
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
                 e_vals = [p['e'] - beam_offset  + (p['depth'] * cos_horizontal * sin_pitch)/3  for p in channel_data]
-                depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
+                # 先计算原始深度
+                raw_depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
+                # 然后根据显示模式调整深度，处理二次反射
+                depth_vals = [parser.calculate_adjusted_depth(channel, d, display_mode) for d in raw_depth_vals]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
                 # 根据幅度设置点的大小
-                sizes = [10 ]#+ amp * 0.5 for amp in amp_vals]
+                sizes = [30 ]#+ amp * 0.5 for amp in amp_vals]
                 
                 # 使用通道特定颜色
                 color = self.channel_colors.get(channel, '#808080')
@@ -498,7 +540,10 @@ class BScanCanvas(FigureCanvas):
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
                 e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
-                depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
+                # 先计算原始深度
+                raw_depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
+                # 然后根据显示模式调整深度，处理二次反射
+                depth_vals = [parser.calculate_adjusted_depth(channel, d, display_mode) for d in raw_depth_vals]
                 amp_vals = [p['amplitude'] for p in channel_data]
                 
                 sizes = [10 + amp * 0.5 for amp in amp_vals]
@@ -526,7 +571,12 @@ class BScanCanvas(FigureCanvas):
         # 设置主图属性 - 以右上角为原点
         self.axes.set_xlabel('编码间隔 (E)', fontsize=12)
         self.axes.set_ylabel('深度 (mm)', fontsize=12)
-        self.axes.set_title('钢轨探伤B显数据可视化\n(右上角为原点, X向左递增, Y向下递增)', fontsize=14, fontweight='bold')
+        
+        # 获取文件名作为标题
+        import os
+        filename = os.path.basename(parser.json_file) if hasattr(parser, 'json_file') else '未命名文件'
+        self.axes.set_title(f'钢轨探伤B显数据可视化 - {filename}\n(右上角为原点, X向左递增, Y向下递增)', fontsize=14, fontweight='bold')
+        
         self.axes.legend(loc='upper left', fontsize=8, ncol=2)
         self.axes.grid(True, alpha=0.3)
         
@@ -643,11 +693,28 @@ class BScanCanvas(FigureCanvas):
                             actual_depth = displayed_point['depth']
                             break
 
-                    # 如果在displayed_points中找不到匹配的点，则使用B2的计算公式作为默认值
+                    # 如果在displayed_points中找不到匹配的点，则使用对应类型的计算公式
                     if actual_e is None or actual_depth is None:
-                        # 使用B2的计算公式：e + beam_offset / 3 + (depth * cos_horizontal * sin_pitch) / 3
-                        actual_e = p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
-                        actual_depth = p['depth'] * cos_horizontal * cos_pitch
+                        # 先计算原始深度
+                        raw_depth = p['depth'] * cos_horizontal * cos_pitch
+                        # 然后根据显示模式调整深度，处理二次反射
+                        adjusted_depth = parser.calculate_adjusted_depth(channel, raw_depth, display_mode)
+                        
+                        # 检查点是B1还是B2，使用对应的计算公式
+                        # 先尝试在b1_points中查找
+                        is_b1 = any(b1_p['e'] == p['e'] and b1_p['channel'] == p['channel'] 
+                                   and abs(b1_p['depth'] - p['depth']) < 0.1 
+                                   and abs(b1_p['amplitude'] - p['amplitude']) < 0.1 
+                                   for b1_p in parser.b1_points)
+                        
+                        if is_b1:
+                            # B1点使用B1的计算公式
+                            actual_e = p['e'] - beam_offset + (p['depth'] * cos_horizontal * sin_pitch) / 3
+                        else:
+                            # B2点使用B2的计算公式
+                            actual_e = p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
+                        
+                        actual_depth = adjusted_depth
 
                     e_values.append(actual_e)
                     depth_values.append(actual_depth)
@@ -759,6 +826,9 @@ class MainWindow(QMainWindow):
         self.last_subtype_index = 0  # 保存上次选择的子类型索引
         self.last_type_data = None  # 保存上次选择的类型数据（damage或structure）
         
+        # 深度显示模式："V型" 或 "压缩"
+        self.depth_display_mode = "压缩"
+        
         # 创建菜单栏
         self.create_menu_bar()
         
@@ -766,6 +836,12 @@ class MainWindow(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
+        
+        # 创建显示模式切换按钮组
+        self.create_display_mode_buttons()
+        
+        # 创建文件切换按钮组
+        self.create_file_navigation_buttons()
         
         # 创建B显画布
         self.bscan_canvas = BScanCanvas(self, width=12, height=8)
@@ -791,6 +867,26 @@ class MainWindow(QMainWindow):
         # 创建状态栏
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        
+        # 初始化文件列表和当前文件索引
+        self.json_files = []
+        self.current_file_index = -1
+        
+        # 打印当前工作目录
+        import os
+        print(f"当前工作目录: {os.getcwd()}")
+        
+        # 查找test和train文件夹中的.json文件
+        self.find_json_files()
+        
+        # 如果找到文件，打开第一个文件
+        print(f"文件列表长度: {len(self.json_files)}")
+        if self.json_files:
+            print("找到文件，尝试打开第一个文件")
+            self.open_file_from_list(0)
+        else:
+            print("没有找到任何文件")
+        
         self.status_bar.showMessage("就绪")
     
     def create_menu_bar(self):
@@ -842,6 +938,107 @@ class MainWindow(QMainWindow):
         
         self.main_layout.addLayout(slider_layout)
     
+    def find_json_files(self):
+        """查找test和train文件夹中的.json文件"""
+        import os
+        
+        # 清空文件列表
+        self.json_files.clear()
+        
+        # 定义要搜索的文件夹，按优先级排序（test优先于train）
+        folders = ['test', 'train']
+        
+        # 构造data目录路径
+        data_dir = os.path.join(os.getcwd(), 'data')
+        print(f"正在data目录下查找: {data_dir}")
+        
+        for folder in folders:
+            # 构造完整的文件夹路径
+            folder_path = os.path.join(data_dir, folder)
+            print(f"正在查找文件夹: {folder_path}")
+            
+            if os.path.exists(folder_path) and os.path.isdir(folder_path):
+                print(f"找到文件夹: {folder_path}")
+                # 遍历文件夹中的所有文件
+                try:
+                    for filename in os.listdir(folder_path):
+                        file_path = os.path.join(folder_path, filename)
+                        # 检查文件是否为.json文件且不是标注文件
+                        if filename.endswith('.json') and '标注' not in filename:
+                            self.json_files.append(file_path)
+                            print(f"找到文件: {file_path}")
+                except Exception as e:
+                    print(f"遍历文件夹 {folder_path} 时出错: {str(e)}")
+            else:
+                print(f"文件夹不存在或不是目录: {folder_path}")
+        
+        # 对文件列表进行排序
+        self.json_files.sort()
+        print(f"最终文件列表: {self.json_files}")
+    
+    def open_file_from_list(self, index):
+        """从文件列表中打开指定索引的文件"""
+        print(f"尝试打开索引为 {index} 的文件")
+        print(f"文件列表长度: {len(self.json_files)}")
+        
+        if 0 <= index < len(self.json_files):
+            self.current_file_index = index
+            file_path = self.json_files[index]
+            print(f"打开文件: {file_path}")
+            self.open_file_by_path(file_path)
+            self.update_file_nav_buttons()
+        else:
+            print(f"无效的文件索引: {index}")
+    
+    def open_file_by_path(self, file_path):
+        """根据文件路径打开文件"""
+        try:
+            # 创建解析器
+            self.parser = FlawDetectionDataParser(file_path)
+            
+            # 重置标注管理器
+            self.annotation_manager.clear_annotations()
+            
+            # 尝试加载现有的标注文件
+            import os
+            json_dir = os.path.dirname(file_path)
+            json_filename = os.path.basename(file_path)
+            name_without_ext = os.path.splitext(json_filename)[0]
+            annotation_filename = f"{name_without_ext}标注.json"
+            annotation_file_path = os.path.join(json_dir, annotation_filename)
+            
+            if os.path.exists(annotation_file_path):
+                self.annotation_manager.load_annotations(annotation_file_path)
+                self.status_bar.showMessage(
+                    f"已加载标注文件: {annotation_filename}", 3000
+                )
+            
+            # 更新B显画布，传递标注数据和显示模式
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(self.parser, annotations=annotations, display_mode=self.depth_display_mode)
+            
+            # 获取摘要信息
+            summary = self.parser.get_summary()
+            self.status_bar.showMessage(
+                f"文件: {file_path} | 总事件数: {summary['total_events']} | B1点数: {summary['b1_count']} | B2点数: {summary['b2_count']} | 通道: {summary['channels']}"
+            )
+            
+            # 更新滑动条范围
+            max_e = self.parser.encoding_count
+            self.x_slider.setMaximum(max_e)
+            self.x_slider.setValue(max_e)
+            self.x_pos_label.setText(f"当前: {max_e}")
+            self.current_e = max_e
+
+            # 重置标注UI
+            self.reset_annotation_ui()
+            
+            # 更新标注列表
+            self.update_annotations_list()
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开文件失败: {str(e)}")
+    
     def open_file(self):
         """打开JSON文件"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -849,52 +1046,7 @@ class MainWindow(QMainWindow):
         )
         
         if file_path:
-            try:
-                # 创建解析器
-                self.parser = FlawDetectionDataParser(file_path)
-                
-                # 重置标注管理器
-                self.annotation_manager.clear_annotations()
-                
-                # 尝试加载现有的标注文件
-                import os
-                json_dir = os.path.dirname(file_path)
-                json_filename = os.path.basename(file_path)
-                name_without_ext = os.path.splitext(json_filename)[0]
-                annotation_filename = f"{name_without_ext}标注.json"
-                annotation_file_path = os.path.join(json_dir, annotation_filename)
-                
-                if os.path.exists(annotation_file_path):
-                    self.annotation_manager.load_annotations(annotation_file_path)
-                    self.status_bar.showMessage(
-                        f"已加载标注文件: {annotation_filename}", 3000
-                    )
-                
-                # 更新B显画布，传递标注数据
-                annotations = self.annotation_manager.get_annotations()
-                self.bscan_canvas.update_bscan(self.parser, annotations=annotations)
-                
-                # 获取摘要信息
-                summary = self.parser.get_summary()
-                self.status_bar.showMessage(
-                    f"文件: {file_path} | 总事件数: {summary['total_events']} | B1点数: {summary['b1_count']} | B2点数: {summary['b2_count']} | 通道: {summary['channels']}"
-                )
-                
-                # 更新滑动条范围
-                max_e = self.parser.encoding_count
-                self.x_slider.setMaximum(max_e)
-                self.x_slider.setValue(max_e)
-                self.x_pos_label.setText(f"当前: {max_e}")
-                self.current_e = max_e
-
-                # 重置标注UI
-                self.reset_annotation_ui()
-                
-                # 更新标注列表
-                self.update_annotations_list()
-
-            except Exception as e:
-                QMessageBox.critical(self, "错误", f"打开文件失败: {str(e)}")
+            self.open_file_by_path(file_path)
     
     def save_image(self):
         """保存图像"""
@@ -1076,10 +1228,103 @@ class MainWindow(QMainWindow):
                 self.update_annotations_list()
                 # 重新绘制B显，显示所有标注（包括新保存的和未保存的）
                 annotations = self.annotation_manager.get_annotations()
-                self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+                self.bscan_canvas.update_bscan(
+                    self.parser, 
+                    self.display_range, 
+                    self.current_e, 
+                    annotations,
+                    self.depth_display_mode
+                )
             else:
                 QMessageBox.critical(self, "错误", "保存标注失败")
 
+    def create_display_mode_buttons(self):
+        """创建显示模式切换按钮"""
+        # 创建按钮组布局
+        display_mode_layout = QHBoxLayout()
+        
+        # 添加标签
+        display_mode_label = QLabel("深度显示模式:")
+        display_mode_layout.addWidget(display_mode_label)
+        
+        # 创建按钮组
+        self.display_mode_group = QButtonGroup(self)
+        
+        # 创建V型模式按钮
+        self.v_mode_btn = QRadioButton("V型")
+        self.v_mode_btn.toggled.connect(self.on_display_mode_changed)
+        display_mode_layout.addWidget(self.v_mode_btn)
+        self.display_mode_group.addButton(self.v_mode_btn)
+        
+        # 创建压缩模式按钮
+        self.compressed_mode_btn = QRadioButton("压缩")
+        self.compressed_mode_btn.setChecked(True)  # 默认选中压缩模式
+        self.compressed_mode_btn.toggled.connect(self.on_display_mode_changed)
+        display_mode_layout.addWidget(self.compressed_mode_btn)
+        self.display_mode_group.addButton(self.compressed_mode_btn)
+        
+        # 添加到主布局
+        self.main_layout.addLayout(display_mode_layout)
+    
+    def create_file_navigation_buttons(self):
+        """创建文件导航按钮"""
+        # 创建按钮组布局
+        file_nav_layout = QHBoxLayout()
+        
+        # 添加标签
+        file_nav_label = QLabel("文件导航:")
+        file_nav_layout.addWidget(file_nav_label)
+        
+        # 创建上一个按钮
+        self.prev_file_btn = QPushButton("上一个")
+        self.prev_file_btn.clicked.connect(self.on_prev_file)
+        self.prev_file_btn.setEnabled(False)  # 初始禁用
+        file_nav_layout.addWidget(self.prev_file_btn)
+        
+        # 创建下一个按钮
+        self.next_file_btn = QPushButton("下一个")
+        self.next_file_btn.clicked.connect(self.on_next_file)
+        self.next_file_btn.setEnabled(False)  # 初始禁用
+        file_nav_layout.addWidget(self.next_file_btn)
+        
+        # 添加到主布局
+        self.main_layout.addLayout(file_nav_layout)
+    
+    def on_prev_file(self):
+        """上一个文件按钮点击事件"""
+        if self.current_file_index > 0:
+            self.open_file_from_list(self.current_file_index - 1)
+            self.update_file_nav_buttons()
+    
+    def on_next_file(self):
+        """下一个文件按钮点击事件"""
+        if self.current_file_index < len(self.json_files) - 1:
+            self.open_file_from_list(self.current_file_index + 1)
+            self.update_file_nav_buttons()
+    
+    def update_file_nav_buttons(self):
+        """更新文件导航按钮的状态"""
+        self.prev_file_btn.setEnabled(self.current_file_index > 0)
+        self.next_file_btn.setEnabled(self.current_file_index < len(self.json_files) - 1)
+    
+    def on_display_mode_changed(self):
+        """显示模式切换事件处理"""
+        if self.v_mode_btn.isChecked():
+            self.depth_display_mode = "V型"
+        else:
+            self.depth_display_mode = "压缩"
+        
+        # 更新B显图像
+        if self.parser is not None:
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(
+                self.parser, 
+                self.display_range, 
+                self.current_e, 
+                annotations,
+                self.depth_display_mode
+            )
+    
     def on_x_slider_changed(self, value):
         """X轴滑动条值变化时的处理函数"""
         # 滑动条从右向左拖动时，值减小，当前显示的编码值也减小
@@ -1089,7 +1334,13 @@ class MainWindow(QMainWindow):
         if self.parser is not None:
             # 获取当前的标注数据
             annotations = self.annotation_manager.get_annotations()
-            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+            self.bscan_canvas.update_bscan(
+                self.parser, 
+                self.display_range, 
+                self.current_e, 
+                annotations,
+                self.depth_display_mode
+            )
 
 
 
@@ -1225,7 +1476,13 @@ class MainWindow(QMainWindow):
 
             # 重新绘制B显，显示更新后的标注
             annotations = self.annotation_manager.get_annotations()
-            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+            self.bscan_canvas.update_bscan(
+                self.parser, 
+                self.display_range, 
+                self.current_e, 
+                annotations,
+                self.depth_display_mode
+            )
 
             QMessageBox.information(self, "成功", "标注已删除")
         else:
@@ -1252,7 +1509,13 @@ class MainWindow(QMainWindow):
         # 重新绘制B显图像，反映通道可见性变化
         if self.parser is not None:
             annotations = self.annotation_manager.get_annotations()
-            self.bscan_canvas.update_bscan(self.parser, self.display_range, self.current_e, annotations)
+            self.bscan_canvas.update_bscan(
+                self.parser, 
+                self.display_range, 
+                self.current_e, 
+                annotations,
+                self.depth_display_mode
+            )
 
     def create_combined_display(self):
         """创建选中点和已标注结构/伤损的并排显示区域"""
