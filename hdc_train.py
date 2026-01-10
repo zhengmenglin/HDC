@@ -24,44 +24,82 @@ def train_model():
     
     # 1. 配置训练参数
     config = {
-        'd': 10000,  # 超维向量维度
+        'd': 10000,  # 减小超维向量维度，加快训练速度
         'seed': 42,  # 随机种子
         'min_depth': 0.0,  # 最小深度值
-        'max_depth': 300.0,  # 最大深度值
+        'max_depth': 255.0,  # 最大深度值
         'min_amplitude': 0.0,  # 最小幅度值
-        'max_amplitude': 100.0,  # 最大幅度值
-        'num_depth_levels': 301,  # 深度离散级别数
-        'num_amplitude_levels': 101,  # 幅度离散级别数
+        'max_amplitude': 200.0,  # 最大幅度值
+        'num_depth_levels': 301,  # 减小深度离散级别数，加快训练速度
+        'num_amplitude_levels': 51,  # 减小幅度离散级别数，加快训练速度
         'iterations': 5,  # 重训练迭代次数
         'learning_rate': 0.1  # 学习率
     }
     
     # 2. 准备训练数据和标注数据路径
-    train_data_path = os.path.join('data', 'train', '170921_16229片段.xxc.json')
-    annotation_path = os.path.join('data', 'train', '170921_16229片段.xxc标注.json')
+    train_dir = os.path.join('data', 'train')
     
-    if not os.path.exists(train_data_path):
-        print(f"错误：训练数据文件 {train_data_path} 不存在")
-        return
-    
-    if not os.path.exists(annotation_path):
-        print(f"错误：标注数据文件 {annotation_path} 不存在")
-        return
-    
-    # 3. 初始化编码器和数据处理器
+    # 初始化编码器和数据处理器
     print("初始化HDC编码器...")
     encoder = HyperdimensionalEncoder(d=config['d'], seed=config['seed'])
     
     print("初始化B显数据处理器...")
     processor = BScanDataProcessor(encoder)
     
-    # 4. 加载训练数据
-    print(f"加载训练数据：{train_data_path}")
-    samples, _, config_data = processor.load_json_data(train_data_path)
+    # 3. 查找train目录下所有的训练数据文件
+    import glob
+    all_json_files = glob.glob(os.path.join(train_dir, '*.json'))
     
-    # 5. 加载标注数据
-    print(f"加载标注数据：{annotation_path}")
-    damage_regions, normal_regions = processor.load_annotation_data(annotation_path)
+    # 过滤掉标注文件，只保留原始数据文件
+    train_files = []
+    for file_path in all_json_files:
+        file_name = os.path.basename(file_path)
+        if "标注" not in file_name:
+            train_files.append(file_path)
+    
+    if not train_files:
+        print(f"错误：在 {train_dir} 目录中没有找到训练数据文件")
+        return
+    
+    print(f"找到 {len(train_files)} 个训练数据文件")
+    
+    # 4. 加载所有训练数据和标注数据
+    all_samples = []
+    all_damage_regions = []
+    all_normal_regions = []
+    
+    for train_file in train_files:
+        print(f"\n处理训练文件：{train_file}")
+        
+        # 加载训练数据
+        samples, _, config_data = processor.load_json_data(train_file)
+        all_samples.extend(samples)
+        print(f"  加载到 {len(samples)} 个B显数据点，累计 {len(all_samples)} 个")
+        
+        # 查找对应的标注文件
+        file_name = os.path.basename(train_file)
+        name_without_ext = os.path.splitext(file_name)[0]
+        annotation_file = os.path.join(train_dir, f"{name_without_ext}标注.json")
+        
+        if os.path.exists(annotation_file):
+            print(f"  加载标注数据：{annotation_file}")
+            damage_regions, normal_regions = processor.load_annotation_data(annotation_file)
+            all_damage_regions.extend(damage_regions)
+            all_normal_regions.extend(normal_regions)
+            print(f"  加载到 {len(damage_regions)} 个伤损区域和 {len(normal_regions)} 个正常区域")
+        else:
+            print(f"  警告：标注文件 {annotation_file} 不存在，跳过标注加载")
+    
+    # 5. 统计最终数据量
+    print(f"\n数据加载完成，总计：")
+    print(f"  训练数据点：{len(all_samples)}")
+    print(f"  伤损区域：{len(all_damage_regions)}")
+    print(f"  正常区域：{len(all_normal_regions)}")
+    
+    # 使用合并后的数据
+    samples = all_samples
+    damage_regions = all_damage_regions
+    normal_regions = all_normal_regions
     
     # 如果标注数据为空，自动提取潜在伤损区域
     if not damage_regions and not normal_regions:

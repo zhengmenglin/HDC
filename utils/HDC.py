@@ -845,6 +845,9 @@ class HDCClassifier:
         
         detected_regions = []
         
+        # 记录所有相似性得分
+        self.similarity_scores = []
+        
         # 对每个通道进行滑动窗口扫描
         for channel, samples in channel_samples.items():
             # 按编码值排序
@@ -858,6 +861,9 @@ class HDCClassifier:
                 # 预测窗口内的区域
                 predicted_label, similarities = self.predict_region(window_points)
                 max_similarity = max(similarities.values())
+                
+                # 记录相似性得分
+                self.similarity_scores.append(max_similarity)
                 
                 # 如果相似度超过阈值，保存检测结果
                 if max_similarity >= min_similarity:

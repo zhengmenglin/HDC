@@ -41,15 +41,34 @@ def load_model(model_path):
         encoder, classifier, config
     """
     print(f"加载模型：{model_path}")
-    with open(model_path, 'rb') as f:
-        model_data = pickle.load(f)
     
-    encoder = model_data['encoder']
-    classifier = model_data['classifier']
-    config = model_data['config']
+    # 检查文件扩展名
+    import os
+    _, ext = os.path.splitext(model_path)
     
-    print(f"模型加载完成，超维向量维度：{config['d']}")
-    return encoder, classifier, config
+    if ext.lower() == '.json':
+        print(f"错误：{model_path} 是JSON文件，不是模型文件")
+        print("请提供.pkl格式的模型文件")
+        exit(1)
+    
+    try:
+        with open(model_path, 'rb') as f:
+            model_data = pickle.load(f)
+        
+        encoder = model_data['encoder']
+        classifier = model_data['classifier']
+        config = model_data['config']
+        
+        print(f"模型加载完成，超维向量维度：{config['d']}")
+        return encoder, classifier, config
+    except pickle.UnpicklingError:
+        print(f"错误：无法解析文件 {model_path}，这可能不是有效的模型文件")
+        print("请确保提供的是.pkl格式的模型文件")
+        exit(1)
+    except KeyError as e:
+        print(f"错误：模型文件 {model_path} 缺少必要的字段：{e}")
+        print("这可能是一个损坏的模型文件")
+        exit(1)
 
 def process_test_file(test_file, encoder, classifier, config):
     """
@@ -85,12 +104,28 @@ def process_test_file(test_file, encoder, classifier, config):
     print("使用滑动窗口扫描检测伤损...")
     detected_regions = classifier.scan_with_sliding_window(
         samples, 
-        window_size=15, 
-        step=2, 
-        min_similarity=0.52
+        window_size=80, 
+        step=1, 
+        min_similarity=0.515
     )
     
+    # 输出相似性得分分布
     print(f"检测到 {len(detected_regions)} 个潜在伤损区域")
+    
+    # 检查classifier是否有相似性得分记录
+    if hasattr(classifier, 'similarity_scores'):
+        scores = classifier.similarity_scores
+        print(f"相似性得分分布：")
+        print(f"  最小值: {min(scores):.4f}")
+        print(f"  最大值: {max(scores):.4f}")
+        print(f"  平均值: {sum(scores)/len(scores):.4f}")
+        print(f"  中位数: {sorted(scores)[len(scores)//2]:.4f}")
+        
+        # 统计各分数段的数量
+        ranges = [(0.0, 0.3), (0.3, 0.4), (0.4, 0.5), (0.5, 0.52), (0.52, 0.6), (0.6, 1.0)]
+        for r_min, r_max in ranges:
+            count = sum(1 for s in scores if r_min <= s < r_max)
+            print(f"  {r_min:.2f}-{r_max:.2f}: {count}个")
     
     return detected_regions
 
