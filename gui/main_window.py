@@ -725,17 +725,36 @@ class BScanCanvas(FigureCanvas):
                 min_depth = min(depth_values)
                 max_depth = max(depth_values)
 
-                # 绘制灰色框
+                # 根据标注ID判断是手动标注还是自动标注（自动标注ID从100开始）
+                annotation_id = int(annotation['id'])
+                is_auto = annotation_id >= 100
+                
+                # 设置颜色：自动标注使用不同的浅色，手动标注使用灰色
+                if is_auto:
+                    if annotation['type'] == '伤损':
+                        # 自动识别的伤损使用浅红色
+                        box_color = '#FFB6C1'  # 浅粉色
+                        text_color = '#FF6B6B'  # 浅红色
+                    else:
+                        # 自动识别的结构使用浅蓝色
+                        box_color = '#B0E0E6'  # 淡蓝色
+                        text_color = '#6495ED'  # 天蓝色
+                else:
+                    # 手动标注使用灰色
+                    box_color = 'gray'
+                    text_color = 'gray'
+                
+                # 绘制标注框
                 self.axes.plot(
                     [min_e, max_e, max_e, min_e, min_e],
                     [min_depth, min_depth, max_depth, max_depth, min_depth],
-                    color='gray',
+                    color=box_color,
                     linestyle='-',
                     linewidth=2,  # 增加线宽，使其更明显
                     alpha=0.8
                 )
 
-                # 绘制灰色文字（标注名）在框的下方，格式：{类型} {标注ID}: {子类型名称}
+                # 绘制文字（标注名）在框的下方，格式：{类型} {标注ID}: {子类型名称}
                 annotation_name = f"{annotation['type']} {annotation['id']}: {annotation['subtype']['name']}"
                 self.axes.text(
                     (min_e + max_e) / 2,  # 文字水平居中
@@ -744,7 +763,7 @@ class BScanCanvas(FigureCanvas):
                     ha='center',
                     va='top',
                     fontsize=8,
-                    color='gray',
+                    color=text_color,
                     weight='bold',
                     bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', boxstyle='round,pad=0.3')
                 )

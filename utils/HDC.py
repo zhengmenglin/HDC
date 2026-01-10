@@ -81,30 +81,38 @@ class ChannelManager:
     def parse_config(self, config_data):
         """从JSON配置数据解析通道参数"""
         if isinstance(config_data, dict):
-            # 解析BeamAngle、BeamOffset等配置
-            for channel_id in range(1, 10):
-                beam_angle_key = f"BeamAngle{channel_id}"
-                beam_offset_key = f"BeamOffset{channel_id}"
-                
-                if beam_angle_key in config_data:
-                    # 解析角度配置，格式可能为"俯仰,水平"或单个角度
-                    angle_str = config_data[beam_angle_key]
-                    if isinstance(angle_str, str) and ',' in angle_str:
-                        pitch, horizontal = map(float, angle_str.split(','))
-                    else:
-                        pitch = float(angle_str)
-                        horizontal = 0.0  # 默认水平角度为0
-                    
-                    # 更新通道配置
-                    if channel_id in self.channels:
-                        self.channels[channel_id].pitch_angle = pitch
-                        self.channels[channel_id].horizontal_angle = horizontal
-                
-                if beam_offset_key in config_data:
-                    # 解析拼孔值
-                    offset = float(config_data[beam_offset_key])
-                    if channel_id in self.channels:
-                        self.channels[channel_id].offset = offset
+            # 解析BeamAngle配置（列表格式：[通道号1, 角度1, 通道号2, 角度2, ...]）
+            if 'BeamAngle' in config_data and isinstance(config_data['BeamAngle'], list):
+                beam_angle_list = config_data['BeamAngle']
+                for i in range(0, len(beam_angle_list), 2):
+                    if i + 1 < len(beam_angle_list):
+                        channel_id = int(beam_angle_list[i])
+                        pitch = float(beam_angle_list[i+1])
+                        # 更新通道配置
+                        if channel_id in self.channels:
+                            self.channels[channel_id].pitch_angle = pitch
+                            self.channels[channel_id].horizontal_angle = 0.0  # 默认水平角度为0
+            
+            # 解析BeamOffset配置（列表格式：[通道号1, 偏移1, 通道号2, 偏移2, ...]）
+            if 'BeamOffset' in config_data and isinstance(config_data['BeamOffset'], list):
+                beam_offset_list = config_data['BeamOffset']
+                for i in range(0, len(beam_offset_list), 2):
+                    if i + 1 < len(beam_offset_list):
+                        channel_id = int(beam_offset_list[i])
+                        offset = float(beam_offset_list[i+1])
+                        # 更新通道配置
+                        if channel_id in self.channels:
+                            self.channels[channel_id].offset = offset
+            
+            # 解析BeamWay配置（列表格式：[通道号1, 射向1, 侧边1, 通道号2, 射向2, 侧边2, ...]）
+            if 'BeamWay' in config_data and isinstance(config_data['BeamWay'], list):
+                beam_way_list = config_data['BeamWay']
+                # 注意：BeamWay格式为每三个数为一组，依次是通道号、射向、侧边
+                for i in range(0, len(beam_way_list), 3):
+                    if i + 2 < len(beam_way_list):
+                        channel_id = int(beam_way_list[i])
+                        # 射向和侧边信息暂时不使用，只记录通道号
+                        pass
     
     def get_channel_config(self, channel_id):
         """获取指定通道的配置"""
@@ -978,12 +986,14 @@ class BScanDataProcessor:
         
         samples = []
         labels = []
+        encoding_count = 0  # 初始化编码计数
         
         # 解析配置数据（第一个元素通常是配置）
         config_data = None
         if isinstance(data, list) and len(data) > 0:
-            if isinstance(data[0], dict) and 'E' in data[0] and data[0]['E'] == 1:
+            if isinstance(data[0], dict) and 'E' in data[0]:
                 config_data = data[0]
+                encoding_count = config_data['E']  # 从配置获取初始编码计数
                 data = data[1:]  # 剩下的是B显数据
                 
                 # 更新通道配置
@@ -995,13 +1005,17 @@ class BScanDataProcessor:
         # 解析B显数据
         for item in data:
             if isinstance(item, dict):
+                # 检查是否有E字段，更新编码计数
+                if 'E' in item:
+                    encoding_count = item['E']
+                
                 for key, value in item.items():
                     # 解析JSON格式: {"B1":[1,125,80]}
                     if isinstance(value, list) and len(value) >= 3:
                         channel = int(value[0])  # 确保通道号是整数
                         acoustic_range = value[1]  # 原始声程
                         amplitude = value[2]
-                        code = int(key[1:])  # 从B1、B2等中提取编码值
+                        code = encoding_count  # 使用当前编码计数作为编码值
                         
                         # 获取通道配置
                         channel_config = self.bscan_matrix.channel_configs[channel]
@@ -1043,28 +1057,34 @@ class BScanDataProcessor:
         normal_regions = []
         
         # 解析标注数据
-        for item in annotation_data:
+        annotations = annotation_data.get('annotations', [])
+        
+        for item in annotations:
             if isinstance(item, dict):
-                # 假设标注格式包含：type（类型）、points（点列表）、label（标签）
-                region_type = item.get('type', 'damage')
+                # 标注格式：type（类型）、points（点列表）、subtype（子类型）
+                region_type = item.get('type', '')
                 points = item.get('points', [])
-                label_id = item.get('label', 0)
+                subtype = item.get('subtype', {})
+                
+                # 获取标签名称
+                label_name = subtype.get('name', '未知类型')
                 
                 # 转换点格式：从标注坐标转换为B显点格式
                 bscan_points = []
                 for point in points:
-                    if len(point) >= 4:
-                        channel, code, depth, amplitude = point
-                        bscan_points.append((channel, code, depth, amplitude))
+                    if isinstance(point, dict):
+                        e = point.get('e', 0)
+                        channel = point.get('channel', 0)
+                        depth = point.get('depth', 0.0)
+                        amplitude = point.get('amplitude', 0.0)
+                        bscan_points.append((channel, e, depth, amplitude))
                 
-                if region_type == 'damage':
-                    # 获取伤损类型名称
-                    damage_name = self.damage_types.get(label_id, f"其他伤损{label_id}")
-                    damage_regions.append((bscan_points, damage_name))
-                else:
-                    # 获取正常结构类型名称
-                    normal_name = self.normal_types.get(label_id, f"其他结构{label_id}")
-                    normal_regions.append((bscan_points, normal_name))
+                # 根据类型区分伤损和正常区域
+                if region_type == '伤损':
+                    damage_regions.append((bscan_points, label_name))
+                elif region_type == '结构':
+                    # 结构作为正常区域处理
+                    normal_regions.append((bscan_points, label_name))
         
         return damage_regions, normal_regions
     

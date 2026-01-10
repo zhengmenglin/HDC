@@ -138,28 +138,66 @@ def generate_annotation_json(detected_regions, test_file):
     Returns:
         标注JSON数据
     """
-    annotation_data = []
+    annotation_items = []
     
+    # 自动识别的标记ID从100开始
     for i, (region_points, predicted_label, similarity) in enumerate(detected_regions):
+        # 提取点信息，转换为对象格式
+        points = []
+        e_values = []
+        channels = []
+        for point in region_points:
+            channel, e, depth, amplitude = point
+            points.append({
+                "e": int(e),
+                "channel": int(channel),
+                "depth": float(depth),
+                "amplitude": float(amplitude)
+            })
+            e_values.append(e)
+            channels.append(channel)
+        
+        # 计算start_E和end_E
+        start_e = min(e_values)
+        end_e = max(e_values)
+        
+        # 获取唯一通道列表
+        unique_channels = list(set(channels))
+        
+        # 确定类型（中文）和子类型
+        if "伤损" in predicted_label:
+            annotation_type = "伤损"
+            subtype_id = "12"  # 其他伤损
+            subtype_name = predicted_label
+        else:
+            annotation_type = "结构"
+            subtype_id = "105"  # 其他结构
+            subtype_name = predicted_label
+        
         # 转换为标注格式
         annotation_item = {
-            "id": i + 1,
-            "type": "damage" if "伤损" in predicted_label else "normal",
-            "label": predicted_label,
-            "confidence": float(similarity),
-            "points": [list(point) for point in region_points],
-            # 添加边界框信息
-            "bounding_box": {
-                "min_channel": min(point[0] for point in region_points),
-                "max_channel": max(point[0] for point in region_points),
-                "min_code": min(point[1] for point in region_points),
-                "max_code": max(point[1] for point in region_points),
-                "min_depth": min(point[2] for point in region_points),
-                "max_depth": max(point[2] for point in region_points)
+            "id": str(100 + i + 1),  # 自动识别的标记ID从100开始，转换为字符串
+            "type": annotation_type,
+            "subtype": {
+                "id": subtype_id,
+                "name": subtype_name
             },
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "points": points,
+            "start_E": int(start_e),
+            "end_E": int(end_e),
+            "channels": unique_channels,
+            "timestamp": datetime.now().isoformat(),  # 使用ISO格式时间戳
+            "source": "auto",  # 标记来源：自动识别
+            "confidence": float(similarity)  # 保留置信度信息
         }
-        annotation_data.append(annotation_item)
+        annotation_items.append(annotation_item)
+    
+    # 生成完整的标注结构
+    annotation_data = {
+        "annotations": annotation_items,
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0"
+    }
     
     return annotation_data
 
