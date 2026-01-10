@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "D:\HDC\hdc_test.py", line 234, in <module>
+    test_model(model_path)
+    ~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\HDC\hdc_test.py", line 217, in test_model
+    detected_regions = process_test_file(test_file, encoder, classifier, config)
+  File "D:\HDC\hdc_test.py", line 86, in process_test_file
+    detected_regions = classifier.scan_with_sliding_window(
+        samples,
+    ...<2 lines>...
+        min_similarity=0.52
+    )
+  File "D:\HDC\utils\HDC.py", line 862, in scan_with_sliding_window
+    predicted_label, similarities = self.predict_region(window_points)
+                                    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "D:\HDC\utils\HDC.py", line 812, in predict_region
+    query_vector = self.encoder.encode_damage_region(
+        region_points,
+        self.min_depth, self.max_depth,
+        self.min_amplitude, self.max_amplitude
+    )
+  File "D:\HDC\utils\HDC.py", line 410, in encode_damage_region
+    depth_vec = self.item_memory['depths'].get(min_depth + depth_index, self.generate_binary_hypervector())
+KeyboardInterrupt
