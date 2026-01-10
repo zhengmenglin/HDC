@@ -148,9 +148,60 @@ def train_model():
         
         # 进行重训练优化
         print("开始重训练优化...")
+        # 添加训练过程可视化
+        import matplotlib.pyplot as plt
+        import numpy as np
+        
+        # 保存训练过程的错误率
+        error_rates = []
+        
+        # 修改retrain方法的调用，获取训练过程数据
+        # 首先，我们需要修改retrain方法，让它返回训练过程数据
+        # 这里我们先使用现有的retrain方法，然后添加可视化
         classifier.retrain(training_samples, labels, 
                           iterations=config['iterations'], 
                           learning_rate=config['learning_rate'])
+        
+        # 10. 训练可视化（简单版本）
+        print("生成训练过程可视化...")
+        
+        # 绘制训练样本分布
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        # 提取深度和幅度数据
+        depths = [s[2] for s in training_samples]
+        amplitudes = [s[3] for s in training_samples]
+        plt.scatter(depths, amplitudes, alpha=0.5, s=10)
+        plt.xlabel('深度')
+        plt.ylabel('幅度')
+        plt.title('训练样本深度-幅度分布')
+        plt.grid(True)
+        
+        # 绘制标签分布
+        plt.subplot(1, 2, 2)
+        label_counts = {}
+        for label in labels:
+            label_counts[label] = label_counts.get(label, 0) + 1
+        labels_list = list(label_counts.keys())
+        counts_list = list(label_counts.values())
+        plt.bar(labels_list, counts_list)
+        plt.xlabel('标签')
+        plt.ylabel('数量')
+        plt.title('训练样本标签分布')
+        plt.grid(True, axis='y')
+        
+        # 保存训练可视化图表
+        visualization_dir = 'visualizations'
+        if not os.path.exists(visualization_dir):
+            os.makedirs(visualization_dir)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        plt.savefig(os.path.join(visualization_dir, f'training_visualization_{timestamp}.png'))
+        plt.close()
+        print(f"训练可视化图表已保存到：{visualization_dir}/training_visualization_{timestamp}.png")
+        
+        # 简单的训练进度显示
+        print("训练完成！")
     
     # 10. 保存训练好的模型
     model_dir = os.path.join('models')
