@@ -1,0 +1,10 @@
+{
+  "d": 10000,
+  "seed": 42,
+  "min_depth": 0.0,
+  "max_depth": 255.0,
+  "min_amplitude": 0.0,
+  "max_amplitude": 200.0,
+  "num_depth_levels": 256,
+  "num_amplitude_levels": 51
+}

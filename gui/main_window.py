@@ -418,6 +418,22 @@ class BScanCanvas(FigureCanvas):
         b2_points = parser.b2_points
         channels = parser.get_all_channels()
         
+        # 确定当前编码值
+        if current_e is None:
+            # 如果没有提供当前编码值，使用最大编码值
+            all_e_values = [p['e'] for p in b1_points + b2_points]
+            current_e = max(all_e_values + [255], default=255)
+        
+        # 过滤点：只保留当前编码值前后5000个点
+        range_start = current_e - 2000
+        range_end = current_e + 2000
+        
+        # 过滤B1点
+        filtered_b1_points = [p for p in b1_points if range_start <= p['e'] <= range_end]
+        
+        # 过滤B2点
+        filtered_b2_points = [p for p in b2_points if range_start <= p['e'] <= range_end]
+        
         # 绘制B1点
         for channel in channels:
             # 检查通道是否可见
@@ -428,7 +444,7 @@ class BScanCanvas(FigureCanvas):
             sensitivity = 0#parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
-            channel_data = [p for p in b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+            channel_data = [p for p in filtered_b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
             
             if channel_data:
                 # 获取通道的拼孔值，默认为0
@@ -503,7 +519,7 @@ class BScanCanvas(FigureCanvas):
             sensitivity = 0# parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
-            channel_data = [p for p in b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+            channel_data = [p for p in filtered_b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
             
             if channel_data:
                 # 获取通道的拼孔值，默认为0
@@ -612,7 +628,7 @@ class BScanCanvas(FigureCanvas):
             return p['e'] - beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
         
         adjusted_e_values = []
-        for p in b1_points + b2_points:
+        for p in filtered_b1_points + filtered_b2_points:
             adjusted_e_values.append(get_adjusted_e(p))
         
         max_e = max(adjusted_e_values + [255], default=255)
@@ -701,11 +717,11 @@ class BScanCanvas(FigureCanvas):
                         adjusted_depth = parser.calculate_adjusted_depth(channel, raw_depth, display_mode)
                         
                         # 检查点是B1还是B2，使用对应的计算公式
-                        # 先尝试在b1_points中查找
+                        # 先尝试在过滤后的b1_points中查找
                         is_b1 = any(b1_p['e'] == p['e'] and b1_p['channel'] == p['channel'] 
                                    and abs(b1_p['depth'] - p['depth']) < 0.1 
                                    and abs(b1_p['amplitude'] - p['amplitude']) < 0.1 
-                                   for b1_p in parser.b1_points)
+                                   for b1_p in filtered_b1_points)
                         
                         if is_b1:
                             # B1点使用B1的计算公式

@@ -30,10 +30,8 @@ def train_model():
         'max_depth': 255.0,  # 最大深度值
         'min_amplitude': 0.0,  # 最小幅度值
         'max_amplitude': 200.0,  # 最大幅度值
-        'num_depth_levels': 301,  # 减小深度离散级别数，加快训练速度
-        'num_amplitude_levels': 51,  # 减小幅度离散级别数，加快训练速度
-        'iterations': 5,  # 重训练迭代次数
-        'learning_rate': 0.1  # 学习率
+        'num_depth_levels': 256,  # 深度离散级别数，对应0-255的深度范围
+        'num_amplitude_levels': 51  # 幅度离散级别数
     }
     
     # 2. 准备训练数据和标注数据路径
@@ -101,17 +99,6 @@ def train_model():
     damage_regions = all_damage_regions
     normal_regions = all_normal_regions
     
-    # 如果标注数据为空，自动提取潜在伤损区域
-    if not damage_regions and not normal_regions:
-        print("标注数据为空，尝试自动提取潜在伤损区域...")
-        damage_regions = []
-        potential_regions = processor.extract_damage_regions_from_bscan(samples)
-        for region in potential_regions:
-            damage_regions.append((region, "潜在伤损"))
-        
-        # 添加一些正常区域（假设非伤损区域为正常）
-        normal_regions = [([(1, 0, 50, 30)], "正常区域")]  # 示例正常区域，注意是点列表
-    
     print(f"提取到 {len(damage_regions)} 个伤损区域和 {len(normal_regions)} 个正常区域")
     
     # 6. 使用连续映射生成深度和幅度的数值向量
@@ -130,78 +117,6 @@ def train_model():
     # 8. 使用区域进行训练
     print("开始使用区域数据训练模型...")
     classifier.train_with_regions(damage_regions, normal_regions)
-    
-    # 9. 转换样本格式用于重训练
-    training_samples = [(s[0], s[1], s[2], s[3]) for s in samples]  # 只保留需要的字段
-    
-    # 自动生成标签（如果没有标注）
-    if not damage_regions and not normal_regions:
-        print("自动生成训练标签...")
-        labels = []
-        for sample in training_samples:
-            channel, code, depth, amplitude = sample
-            # 简单的标签生成逻辑
-            if amplitude > 60:
-                labels.append("潜在伤损")
-            else:
-                labels.append("正常区域")
-        
-        # 进行重训练优化
-        print("开始重训练优化...")
-        # 添加训练过程可视化
-        import matplotlib.pyplot as plt
-        import numpy as np
-        
-        # 保存训练过程的错误率
-        error_rates = []
-        
-        # 修改retrain方法的调用，获取训练过程数据
-        # 首先，我们需要修改retrain方法，让它返回训练过程数据
-        # 这里我们先使用现有的retrain方法，然后添加可视化
-        classifier.retrain(training_samples, labels, 
-                          iterations=config['iterations'], 
-                          learning_rate=config['learning_rate'])
-        
-        # 10. 训练可视化（简单版本）
-        print("生成训练过程可视化...")
-        
-        # 绘制训练样本分布
-        plt.figure(figsize=(12, 6))
-        plt.subplot(1, 2, 1)
-        # 提取深度和幅度数据
-        depths = [s[2] for s in training_samples]
-        amplitudes = [s[3] for s in training_samples]
-        plt.scatter(depths, amplitudes, alpha=0.5, s=10)
-        plt.xlabel('深度')
-        plt.ylabel('幅度')
-        plt.title('训练样本深度-幅度分布')
-        plt.grid(True)
-        
-        # 绘制标签分布
-        plt.subplot(1, 2, 2)
-        label_counts = {}
-        for label in labels:
-            label_counts[label] = label_counts.get(label, 0) + 1
-        labels_list = list(label_counts.keys())
-        counts_list = list(label_counts.values())
-        plt.bar(labels_list, counts_list)
-        plt.xlabel('标签')
-        plt.ylabel('数量')
-        plt.title('训练样本标签分布')
-        plt.grid(True, axis='y')
-        
-        # 保存训练可视化图表
-        visualization_dir = 'visualizations'
-        if not os.path.exists(visualization_dir):
-            os.makedirs(visualization_dir)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        plt.savefig(os.path.join(visualization_dir, f'training_visualization_{timestamp}.png'))
-        plt.close()
-        print(f"训练可视化图表已保存到：{visualization_dir}/training_visualization_{timestamp}.png")
-        
-        # 简单的训练进度显示
-        print("训练完成！")
     
     # 10. 保存训练好的模型
     model_dir = os.path.join('models')

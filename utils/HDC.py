@@ -1038,7 +1038,13 @@ class BScanDataProcessor:
                             encoding_offset = 0
                         
                         # 计算dB值（假设dB值与幅度值线性相关）
-                        db_value = 20 * np.log10(amplitude / 100) + 50
+                        # 确保amplitude为正数，避免log10计算错误
+                        normalized_amplitude = amplitude / 100
+                        if normalized_amplitude > 0:
+                            db_value = 20 * np.log10(normalized_amplitude) + 50
+                        else:
+                            # 对于0或负数幅度，设置一个默认的dB值（例如最小值）
+                            db_value = -np.inf
                         
                         samples.append((channel, code, depth, amplitude, db_value))
                         
@@ -1186,33 +1192,6 @@ class BScanDataProcessor:
         elif 100 < depth < 130 and amplitude < 50:
             return "道岔"
         return "其他"
-    
-    def create_training_data(self, num_samples=1000):
-        """生成模拟训练数据"""
-        samples = []
-        labels = []
-        
-        # 正常结构数据
-        for _ in range(num_samples // 2):
-            channel = random.randint(1, 9)
-            code = random.randint(0, 100)
-            depth = random.randint(50, 150)
-            amplitude = random.randint(10, 50)
-            db_value = 20 * np.log10(amplitude / 100) + 50
-            samples.append((channel, code, depth, amplitude, db_value))
-            labels.append(self._determine_label(channel, depth, amplitude))
-        
-        # 伤损数据
-        for _ in range(num_samples // 2):
-            channel = random.randint(1, 9)
-            code = random.randint(0, 100)
-            depth = random.randint(100, 200)
-            amplitude = random.randint(60, 100)
-            db_value = 20 * np.log10(amplitude / 100) + 50
-            samples.append((channel, code, depth, amplitude, db_value))
-            labels.append(self._determine_label(channel, depth, amplitude))
-        
-        return samples, labels
     
     def calculate_changes(self, samples):
         """计算数据变化率"""
