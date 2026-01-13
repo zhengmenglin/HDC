@@ -32,19 +32,20 @@ class UltrasonicDataConverter:
             "轨头、轨腰分裂": 8,
             "轨腰水平裂": 9,
             "轨底断裂": 10,
-            "螺孔裂纹": 11
+            "螺孔裂纹": 11,
+            "接头": 12,
+            "螺孔": 13,
+            "导线孔": 14,
+            "焊缝": 15,
+            "鱼鳞伤": 16,
+            "轨底锈蚀": 17,
+            "轨底焊筋": 18,
+            "道岔": 19
         }
 
-        # 正常结构类型映射
+        # 正常结构类型映射 (正常为0)
         self.normal_types = {
-            "接头": 101,
-            "螺孔": 102,
-            "导线孔": 103,
-            "焊缝": 104,
-            "鱼鳞伤": 105,
-            "轨底锈蚀": 106,
-            "轨底焊筋": 107,
-            "道岔": 108
+            "正常": 0
         }
 
         # 通道映射 (0-8对应实际的通道1-9)
@@ -93,157 +94,157 @@ class UltrasonicDataConverter:
 
         return data.get('annotations', [])
 
-    def extract_bscan_data(self, data_list: List[Dict], max_encoding: int = 256) -> np.ndarray:
+    def extract_bscan_data(self, data_list: List[Dict]) -> Dict[int, Dict[int, List]]:
         """
-        从JSON数据中提取B扫描数据
+        从JSON数据中提取B扫描数据，按E值组织
 
         Args:
             data_list: JSON数据列表
-            max_encoding: 最大编码值
 
         Returns:
-            bscan_data: B扫描数据数组 [channels, encodings, features]
-                       features: [depth, amplitude, db_value]
+            e_data: 按E值组织的数据，格式为 {e值: {通道: [深度, 振幅, db值], ...}, ...}
         """
-        # 初始化B扫描矩阵 [9 channels, max_encoding, 3 features]
-        bscan_data = np.zeros((9, max_encoding, 3))
+        e_data = {}
 
         for item in data_list:
-            if 'E' in item and 'B1' in item:
-                encoding = item['E'] - 1  # E从1开始，转换为0-based索引
-                if encoding >= max_encoding:
-                    continue
+            if 'E' in item:
+                e = item['E']
+                if e not in e_data:
+                    e_data[e] = {}
 
-                b1_data = item['B1']
-                if len(b1_data) >= 5:  # 确保有足够的数据
-                    channel = int(b1_data[0]) - 1  # 通道从1开始，转换为0-based
-                    if 0 <= channel < 9:
-                        depth = b1_data[1]
-                        amplitude = b1_data[2]
-                        # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
-                        db_value = b1_data[3] if len(b1_data) > 3 else amplitude
+                # 处理B1数据，支持同一E值对应多个B1
+                if 'B1' in item:
+                    b1_data = item['B1']
+                    # 确保b1_data是列表
+                    if not isinstance(b1_data, list):
+                        # 如果是浮点数或其他非列表类型，跳过
+                        continue
+                    
+                    # 检查b1_data是否是嵌套列表
+                    if b1_data and isinstance(b1_data[0], list):
+                        # 多个B1数据项
+                        for b_item in b1_data:
+                            if len(b_item) >= 5:  # 确保有足够的数据
+                                channel = int(b_item[0])  # 通道直接使用原始值
+                                if 1 <= channel <= 9:  # 通道范围1-9
+                                    depth = b_item[1]
+                                    amplitude = b_item[2]
+                                    # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
+                                    db_value = b_item[3] if len(b_item) > 3 else amplitude
 
-                        bscan_data[channel, encoding] = [depth, amplitude, db_value]
+                                    e_data[e][channel] = [depth, amplitude, db_value]
+                    elif len(b1_data) >= 5:  # 单个B1数据项
+                        channel = int(b1_data[0])  # 通道直接使用原始值
+                        if 1 <= channel <= 9:  # 通道范围1-9
+                            depth = b1_data[1]
+                            amplitude = b1_data[2]
+                            # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
+                            db_value = b1_data[3] if len(b1_data) > 3 else amplitude
 
-        return bscan_data
+                            e_data[e][channel] = [depth, amplitude, db_value]
 
-    def create_sliding_windows(self, bscan_data: np.ndarray, window_size: int = 64,
-                              step: int = 32) -> List[np.ndarray]:
+        return e_data
+
+    def extract_damage_regions(self, annotations: List[Dict]) -> Dict[int, int]:
         """
-        创建滑动窗口数据样本
-
-        Args:
-            bscan_data: B扫描数据 [channels, encodings, features]
-            window_size: 窗口大小
-            step: 滑动步长
-
-        Returns:
-            windows: 窗口数据列表，每个元素为 [channels, window_size, features]
-        """
-        channels, max_encoding, features = bscan_data.shape
-        windows = []
-
-        for start in range(0, max_encoding - window_size + 1, step):
-            end = start + window_size
-            window_data = bscan_data[:, start:end, :]  # [channels, window_size, features]
-            windows.append(window_data)
-
-        return windows
-
-    def extract_damage_regions(self, annotations: List[Dict], bscan_data: np.ndarray) -> List[Tuple]:
-        """
-        从标注数据中提取伤损区域
+        从标注数据中提取伤损区域，按E值映射到标签
 
         Args:
             annotations: 标注列表
-            bscan_data: B扫描数据 [channels, encodings, features]
 
         Returns:
-            damage_regions: 伤损区域列表 [(start_encoding, end_encoding, channel, label), ...]
+            e_labels: E值到标签的映射 {e值: 标签, ...}
         """
-        damage_regions = []
+        e_labels = {}
 
         for annotation in annotations:
-            if annotation.get('type') == '伤损':
-                subtype = annotation.get('subtype', {})
-                flaw_name = subtype.get('name', '')
-                flaw_id = self.flaw_types.get(flaw_name, 0)  # 默认为0（正常）
+            if annotation.get('type') in ['伤损', '结构']:
+                # 确定类型名称和对应的ID映射
+                if annotation.get('type') == '伤损':
+                    subtype = annotation.get('subtype', {})
+                    type_name = subtype.get('name', '')
+                    id_mapping = self.flaw_types
+                else:
+                    subtype = annotation.get('subtype', {})
+                    type_name = subtype.get('name', '')
+                    id_mapping = self.flaw_types  # 结构类型也使用伤损类型映射
+
+                label_id = id_mapping.get(type_name, 0)  # 默认为0（正常）
 
                 points = annotation.get('points', [])
-                if points:
-                    # 计算区域范围
-                    channels = set()
-                    encodings = []
+                for point in points:
+                    e = point.get('e', 0)
+                    if e > 0:
+                        e_labels[e] = label_id
 
-                    for point in points:
-                        channels.add(point.get('channel', 1))
-                        encodings.append(point.get('e', 0))
+        return e_labels
 
-                    if encodings:
-                        min_encoding = min(encodings) - 1  # 转换为0-based
-                        max_encoding = max(encodings) - 1
-                        channel = list(channels)[0]  # 暂时取第一个通道
-
-                        damage_regions.append((min_encoding, max_encoding, channel, flaw_id))
-
-        return damage_regions
-
-    def generate_labels_for_windows(self, windows: List[np.ndarray],
-                                   damage_regions: List[Tuple]) -> List[int]:
-        """
-        为每个窗口生成标签
-
-        Args:
-            windows: 窗口数据列表
-            damage_regions: 伤损区域列表
-
-        Returns:
-            labels: 标签列表
-        """
-        labels = []
-
-        for i, window in enumerate(windows):
-            # 计算窗口的编码范围 (假设每个窗口对应连续的编码位置)
-            window_start = i * 32  # step=32
-            window_end = window_start + 64  # window_size=64
-
-            # 检查窗口是否与任何伤损区域重叠
-            window_label = 0  # 默认为正常
-
-            for region_start, region_end, region_channel, region_label in damage_regions:
-                # 检查是否有重叠
-                if (window_start < region_end and window_end > region_start):
-                    # 检查通道是否匹配
-                    # 暂时简化：如果有重叠就标记为伤损
-                    window_label = region_label
-                    break
-
-            labels.append(window_label)
-
-        return labels
-
-    def convert_to_csv_format(self, windows: List[np.ndarray], labels: List[int],
+    def convert_to_csv_format(self, e_data: Dict[int, Dict[int, List]], e_labels: Dict[int, int],
                             output_file: str):
         """
-        将窗口数据转换为CSV格式（类似EMG数据）
+        将E值数据转换为CSV格式
+        输出格式：编码值 + 9通道深度值 + 类别
 
         Args:
-            windows: 窗口数据列表
-            labels: 标签列表
+            e_data: 按E值组织的数据 {e值: {通道: [深度, 振幅, db值], ...}, ...}
+            e_labels: E值到标签的映射 {e值: 标签, ...}
             output_file: 输出CSV文件路径
         """
-        # 为每个窗口创建一行数据
+        # 为每个E值创建一行数据
         csv_data = []
 
-        for window, label in zip(windows, labels):
-            # 将3D窗口数据展平为1D [channels * window_size * features]
-            flat_data = window.flatten()
+        # 按E值排序
+        sorted_es = sorted(e_data.keys())
 
-            # 创建一行数据：展平的特征数据 + 标签
-            row = list(flat_data) + [label]
+        for e in sorted_es:
+            # 获取当前E值的通道数据
+            channel_data = e_data[e]
+            
+            # 初始化行数据：编码值 + 9通道深度值（初始为0） + 类别
+            row = [e] + [0.0] * 9 + [0]
+            
+            # 填充各通道的深度值
+            for channel in range(1, 10):  # 通道1-9
+                if channel in channel_data:
+                    row[channel] = channel_data[channel][0]  # 第0个元素是深度值
+            
+            # 设置类别
+            row[-1] = e_labels.get(e, 0)  # 默认为0（正常）
+            
             csv_data.append(row)
 
         # 创建DataFrame并保存
+        columns = ['encoding'] + [f'channel_{i}' for i in range(9)] + ['label']
+
+        df = pd.DataFrame(csv_data, columns=columns)
+        df.to_csv(output_file, index=False)
+
+        print(f"Data converted to CSV format: {output_file}")
+        print(f"Number of samples: {len(csv_data)}")
+        print(f"Label distribution: {df['label'].value_counts().to_dict()}")
+
+    def convert_windows_to_csv_format(self, windows: List[Tuple[np.ndarray, int]], output_file: str):
+        """
+        将窗口数据转换为CSV格式
+
+        Args:
+            windows: 窗口数据列表，每个元素为 (window_data, label)
+                    window_data: [channels, window_size, features] 格式
+            output_file: 输出CSV文件路径
+        """
+        csv_data = []
+
+        for window_data, label in windows:
+            # 将窗口数据展平为特征向量
+            # window_data形状: [channels, window_size, features]
+            # 展平后: [channels * window_size * features]
+            features = window_data.flatten()
+            
+            # 创建一行数据
+            row = list(features) + [label]
+            csv_data.append(row)
+
+        # 计算特征数量
         num_features = len(csv_data[0]) - 1 if csv_data else 0
         columns = [f'feature_{i}' for i in range(num_features)] + ['label']
 
@@ -254,6 +255,56 @@ class UltrasonicDataConverter:
         print(f"Number of samples: {len(csv_data)}")
         print(f"Feature dimensions: {num_features}")
         print(f"Label distribution: {df['label'].value_counts().to_dict()}")
+
+    def create_sliding_windows(self, e_data: Dict[int, Dict[int, List]], e_labels: Dict[int, int], window_size: int = 64, step: int = 32) -> List[Tuple[np.ndarray, int]]:
+        """
+        创建滑动窗口数据样本
+
+        Args:
+            e_data: 按E值组织的数据 {e值: {通道: [深度, 振幅, db值], ...}, ...}
+            window_size: 窗口大小
+            step: 滑动步长
+
+        Returns:
+            windows: 窗口数据列表，每个元素为 (window_data, label)
+                    window_data: [channels, window_size, 3] 格式
+        """
+        windows = []
+
+        # 获取所有E值并排序
+        sorted_es = sorted(e_data.keys())
+        total_es = len(sorted_es)
+
+        for start_idx in range(0, total_es - window_size + 1, step):
+            end_idx = start_idx + window_size
+            window_es = sorted_es[start_idx:end_idx]
+
+            # 初始化窗口数据 [channels, window_size, 3]
+            window_data = np.zeros((9, window_size, 3))
+
+            # 填充窗口数据
+            for win_pos, e in enumerate(window_es):
+                channel_data = e_data[e]
+                
+                for channel in range(1, 10):  # 通道1-9
+                    if channel in channel_data:
+                        window_data[channel-1, win_pos] = channel_data[channel]
+
+            # 确定窗口标签（使用窗口内出现最多的标签）
+            window_labels = []
+            for e in window_es:
+                if e in e_labels:
+                    window_labels.append(e_labels[e])
+
+            if window_labels:
+                # 使用出现最多的标签
+                label = max(set(window_labels), key=window_labels.count)
+            else:
+                label = 0  # 默认为正常
+
+            windows.append((window_data, label))
+
+        return windows
 
     def convert_single_file(self, data_file: str, annotation_file: str = None,
                            output_file: str = None, window_size: int = 64, step: int = 32):
@@ -284,33 +335,30 @@ class UltrasonicDataConverter:
             annotations = self.load_annotation_data(annotation_file)
             print(f"Loaded {len(annotations)} annotations")
 
-        # 3. 提取B扫描数据
-        max_encoding = 256  # 可以根据需要调整
-        bscan_data = self.extract_bscan_data(data_list, max_encoding)
-        print(f"B-scan data shape: {bscan_data.shape}")
+        # 3. 提取B扫描数据（按E值组织）
+        e_data = self.extract_bscan_data(data_list)
+        print(f"Extracted data for {len(e_data)} E values")
 
-        # 4. 创建滑动窗口
-        windows = self.create_sliding_windows(bscan_data, window_size, step)
+        # 4. 生成E值到标签的映射
+        e_labels = self.extract_damage_regions(annotations)
+        print(f"Labeled {len(e_labels)} E values with damage information")
+
+        # 5. 创建滑动窗口
+        windows = self.create_sliding_windows(e_data, e_labels, window_size, step)
         print(f"Generated {len(windows)} window samples")
 
-        # 5. 生成标签
-        damage_regions = self.extract_damage_regions(annotations, bscan_data)
-        labels = self.generate_labels_for_windows(windows, damage_regions)
-
         # 6. 转换为CSV格式
-        self.convert_to_csv_format(windows, labels, output_file)
+        self.convert_windows_to_csv_format(windows, output_file)
 
         return output_file
 
-    def batch_convert(self, data_dir: str, output_dir: str, window_size: int = 64, step: int = 32):
+    def batch_convert(self, data_dir: str, output_dir: str):
         """
         批量转换目录中的所有数据文件
 
         Args:
             data_dir: 数据目录路径
             output_dir: 输出目录路径
-            window_size: 窗口大小
-            step: 滑动步长
         """
         data_path = Path(data_dir)
         output_path = Path(output_dir)
@@ -336,8 +384,7 @@ class UltrasonicDataConverter:
 
             try:
                 result_file = self.convert_single_file(
-                    str(data_file), str(annotation_file), str(output_file),
-                    window_size, step
+                    str(data_file), str(annotation_file), str(output_file)
                 )
                 converted_files.append(result_file)
             except Exception as e:
@@ -355,8 +402,6 @@ def main():
     parser.add_argument('--data_dir', help='数据目录路径（批量转换）')
     parser.add_argument('--output_file', help='输出CSV文件路径')
     parser.add_argument('--output_dir', default='hdc_data', help='输出目录路径')
-    parser.add_argument('--window_size', type=int, default=64, help='窗口大小')
-    parser.add_argument('--step', type=int, default=32, help='滑动步长')
 
     args = parser.parse_args()
 
@@ -365,12 +410,11 @@ def main():
     if args.data_file:
         # 转换单个文件
         converter.convert_single_file(
-            args.data_file, args.annotation_file, args.output_file,
-            args.window_size, args.step
+            args.data_file, args.annotation_file, args.output_file
         )
     elif args.data_dir:
         # 批量转换
-        converter.batch_convert(args.data_dir, args.output_dir, args.window_size, args.step)
+        converter.batch_convert(args.data_dir, args.output_dir)
     else:
         print("请指定 --data_file 或 --data_dir 参数")
 

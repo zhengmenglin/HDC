@@ -163,14 +163,15 @@ class UltrasonicHDCClassifier:
                 sample_vectors.append(sample_vector)
 
             # 捆绑同类所有样本向量
-            if sample_vectors:
-                if len(sample_vectors) == 1:
-                    # 只有一个样本时，直接使用该向量
-                    class_vector = sample_vectors[0]
-                else:
-                    # 多个样本时进行捆绑 - 先堆叠再捆绑
-                    stacked_vectors = torch.stack(sample_vectors, dim=0)
-                    class_vector = torchhd.bundle(stacked_vectors, normalize=True)
+                if sample_vectors:
+                    if len(sample_vectors) == 1:
+                        # 只有一个样本时，直接使用该向量
+                        class_vector = sample_vectors[0]
+                    else:
+                        # 多个样本时进行捆绑 - 依次捆绑所有向量
+                        class_vector = sample_vectors[0]
+                        for i in range(1, len(sample_vectors)):
+                            class_vector = torchhd.bundle(class_vector, sample_vectors[i])
                 self.class_vectors[label] = class_vector
                 self.class_labels[label] = label
 
@@ -198,8 +199,9 @@ class UltrasonicHDCClassifier:
         # 计算与每个类别向量的相似度
         similarities = {}
         for label, class_vector in self.class_vectors.items():
-            similarity = torchhd.cosine_similarity(query_vector, class_vector).item()
-            similarities[label] = similarity
+            similarity = torchhd.cosine_similarity(query_vector, class_vector)
+            # 取平均值作为相似度，处理多个通道的情况
+            similarities[label] = similarity.mean().item()
 
         # 选择相似度最高的类别
         if similarities:
@@ -252,7 +254,8 @@ class UltrasonicHDCClassifier:
         Args:
             filepath: 模型文件路径
         """
-        model_data = torch.load(filepath)
+        # 在PyTorch 2.6+中，torch.load默认weights_only=True，需要设置为False来加载包含自定义类型的模型
+        model_data = torch.load(filepath, weights_only=False)
 
         # 恢复编码器状态
         self.encoder = UltrasonicHDCEncoder(out_features=model_data['d'])

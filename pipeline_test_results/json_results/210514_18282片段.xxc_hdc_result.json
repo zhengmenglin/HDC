@@ -1,0 +1,9 @@
+{
+  "annotations": [],
+  "metadata": {
+    "source_file": "d:\\HDC\\data\\test\\210514_18282片段.xxc.json",
+    "prediction_model": "UltrasonicHDC",
+    "total_predictions": 14,
+    "damage_predictions": 0
+  }
+}

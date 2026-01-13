@@ -185,10 +185,24 @@ def convert_predictions_to_json(predictions: List[Dict], original_data_dir: str,
         original_file = None
 
         # 找到对应的原始数据文件
-        for ext in ['.json', '.xxc']:
-            candidate = csv_path.parent / csv_path.name.replace('_hdc.csv', ext)
+        # 1. 尝试从文件名中提取原始文件名，然后在original_data_dir中查找
+        base_name = csv_path.stem.replace('_hdc', '')
+        
+        for ext in ['.json', '.xxc.json']:
+            # 先在original_data_dir中查找
+            candidate = Path(original_data_dir) / f"{base_name}{ext}"
             if candidate.exists():
                 original_file = candidate
+                break
+            
+            # 如果找不到，尝试在original_data_dir的子目录中查找
+            for subdir in ['train', 'test']:
+                candidate = Path(original_data_dir) / subdir / f"{base_name}{ext}"
+                if candidate.exists():
+                    original_file = candidate
+                    break
+            
+            if original_file:
                 break
 
         if not original_file:
