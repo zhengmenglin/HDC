@@ -101,8 +101,10 @@ def train_model():
     
     print(f"提取到 {len(damage_regions)} 个伤损区域和 {len(normal_regions)} 个正常区域")
     
-    # 6. 使用连续映射生成深度和幅度的数值向量
+    # 6. 使用连续映射生成编码值、深度和幅度的数值向量
     print("生成连续映射的数值向量...")
+    # 编码值范围：0 到 最大值（根据训练数据中的编码值范围确定）
+    encoder.continuous_mapping(0.0, 1000.0, 1001, 'codes')  # 编码值范围0-1000
     encoder.continuous_mapping(config['min_depth'], config['max_depth'], 
                               config['num_depth_levels'], 'depths')
     encoder.continuous_mapping(config['min_amplitude'], config['max_amplitude'], 

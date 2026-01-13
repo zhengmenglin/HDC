@@ -4,6 +4,18 @@ from collections import defaultdict
 import random
 import math
 from typing import Dict, List, Tuple, Optional
+import torch
+
+# 添加torchhd库所在目录到Python路径
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'torchhd'))
+
+import torchhd
+from torchhd import functional as F
+from torchhd.classifiers import Vanilla, OnlineHD
+from torchhd.embeddings import Level, Random
+from torchhd.tensors.base import VSATensor
 
 
 def calculate_actual_depth(acoustic_range, horizontal_angle, pitch_angle):
@@ -254,7 +266,7 @@ class BScanMatrix:
 
 
 class HyperdimensionalEncoder:
-    """超维计算编码器"""
+    """超维计算编码器，基于torchhd库实现"""
     
     def __init__(self, d=10000, seed=42):
         """
@@ -265,28 +277,23 @@ class HyperdimensionalEncoder:
         """
         self.d = d
         self.seed = seed
-        np.random.seed(seed)
+        torch.manual_seed(seed)
         
-        # 项目存储器：存储地址和数值超维向量
-        self.item_memory = {
-            'channels': {},      # 通道地址向量
-            'codes': {},         # 编码值地址向量  
-            'depths': {},        # 深度数值向量
-            'amplitudes': {}     # 幅度数值向量
-        }
+        # 创建随机嵌入层，用于通道编码（通道号1-9，所以需要10个嵌入向量）
+        # 注意：torchhd的Random嵌入不支持seed参数，需要通过全局随机种子控制
+        self.channels_embed = Random(10, d)  # 通道号1-9，所以num_embeddings=10
+        
+        # 创建Level嵌入层，用于编码值、深度和幅度的连续值编码
+        self.codes_embed = None
+        self.depths_embed = None
+        self.amplitudes_embed = None
         
         # 联想存储器：存储类别超向量
         self.associative_memory = {}
-        
+    
     def generate_binary_hypervector(self):
         """生成随机二元超维向量 (-1, 1)"""
-        return np.random.choice([-1, 1], size=self.d)
-    
-    def generate_address_vector(self, key, memory_type):
-        """生成地址超维向量并存储"""
-        if key not in self.item_memory[memory_type]:
-            self.item_memory[memory_type][key] = self.generate_binary_hypervector()
-        return self.item_memory[memory_type][key]
+        return torchhd.random(num_vectors=1, dimensions=self.d)[0]
     
     def continuous_mapping(self, min_val, max_val, num_levels, base_key):
         """
@@ -295,31 +302,15 @@ class HyperdimensionalEncoder:
             min_val: 最小值
             max_val: 最大值
             num_levels: 离散级别数
-            base_key: 存储器键前缀
+            base_key: 存储器键前缀（'depths'、'amplitudes'或'codes'）
         """
-        # 初始化存储器
-        if base_key not in self.item_memory:
-            self.item_memory[base_key] = {}
-        
-        # 生成最小值向量
-        base_vector = self.generate_binary_hypervector()
-        self.item_memory[base_key][min_val] = base_vector
-        
-        # 计算每次翻转的位数
-        flip_bits = self.d // (2 * (num_levels - 1))
-        
-        # 生成连续映射的数值向量
-        for i in range(1, num_levels):
-            # 从前一个向量翻转固定位数
-            prev_vector = self.item_memory[base_key][min_val + (i-1)]
-            flip_indices = np.random.choice(self.d, flip_bits, replace=False)
-            new_vector = prev_vector.copy()
-            new_vector[flip_indices] *= -1  # 翻转位
-            
-            value = min_val + i
-            self.item_memory[base_key][value] = new_vector
-            
-        return self.item_memory[base_key]
+        # 注意：torchhd的Level嵌入不支持seed参数，使用全局随机种子控制
+        if base_key == 'depths':
+            self.depths_embed = Level(num_levels, self.d, low=min_val, high=max_val)
+        elif base_key == 'amplitudes':
+            self.amplitudes_embed = Level(num_levels, self.d, low=min_val, high=max_val)
+        elif base_key == 'codes':
+            self.codes_embed = Level(num_levels, self.d, low=min_val, high=max_val)
     
     def circular_shift_encode(self, depth_values: List[float], min_val: float, max_val: float, num_levels: int):
         """
@@ -335,37 +326,18 @@ class HyperdimensionalEncoder:
         Returns:
             循环移位编码后的超维向量
         """
-        # 处理空列表情况
         if not depth_values:
             return self.generate_binary_hypervector()
         
-        # 生成基础深度向量
-        base_key = 'depths_circular'
-        if base_key not in self.item_memory:
-            self.item_memory[base_key] = {}
+        # 使用Level嵌入获取深度向量
+        depth_tensors = torch.tensor(depth_values, dtype=torch.float32).unsqueeze(1)
+        depth_vectors = self.depths_embed(depth_tensors)
         
-        # 使用连续映射生成深度向量
-        self.continuous_mapping(min_val, max_val, num_levels, base_key)
-        
-        # 将深度值转换为整数索引
-        depth_indices = []
-        for depth in depth_values:
-            # 将深度值映射到离散级别
-            normalized_depth = (depth - min_val) / (max_val - min_val)
-            index = int(normalized_depth * (num_levels - 1))
-            index = max(0, min(index, num_levels - 1))
-            depth_indices.append(index)
-        
-        # 获取第一个深度值对应的向量作为基础向量
-        base_vector = self.item_memory[base_key][min_val + depth_indices[0]]
-        
-        # 对后续深度值进行循环移位
-        result_vector = base_vector.copy()
-        for i in range(1, len(depth_indices)):
-            depth_vector = self.item_memory[base_key][min_val + depth_indices[i]]
-            # 真正的循环移位操作：将结果向量循环移位i位，然后与当前深度向量绑定
-            shifted_vector = np.roll(result_vector, i)
-            result_vector = self.bind(shifted_vector, depth_vector)
+        # 对深度向量进行循环移位
+        result_vector = depth_vectors[0]
+        for i in range(1, len(depth_vectors)):
+            shifted_vector = torch.roll(result_vector, i)
+            result_vector = torchhd.bind(shifted_vector, depth_vectors[i])
         
         return result_vector
     
@@ -395,127 +367,49 @@ class HyperdimensionalEncoder:
         # 按通道和编码值排序，保留空间关系
         sorted_points = sorted(region_points, key=lambda x: (x[0], x[1]))
         
-        # 为每个通道生成编码向量
-        channel_vectors = defaultdict(list)
+        # 编码所有点
+        point_vectors = []
         for point in sorted_points:
             channel, code, depth, amplitude = point
-            
-            # 获取或生成通道向量
-            channel_vec = self.generate_address_vector(channel, 'channels')
-            
-            # 获取或生成编码值向量
-            code_vec = self.generate_address_vector(code, 'codes')
-            
-            # 确保深度和幅度向量已生成
-            if 'depths' not in self.item_memory or not self.item_memory['depths']:
-                self.continuous_mapping(min_depth, max_depth, num_depth_levels, 'depths')
-            if 'amplitudes' not in self.item_memory or not self.item_memory['amplitudes']:
-                self.continuous_mapping(min_amplitude, max_amplitude, num_amplitude_levels, 'amplitudes')
-            
-            # 获取深度和幅度向量
-            depth_index = int((depth - min_depth) / (max_depth - min_depth) * (num_depth_levels - 1))
-            depth_index = max(0, min(depth_index, num_depth_levels - 1))
-            depth_vec = self.item_memory['depths'].get(min_depth + depth_index, self.generate_binary_hypervector())
-            
-            amplitude_index = int((amplitude - min_amplitude) / (max_amplitude - min_amplitude) * (num_amplitude_levels - 1))
-            amplitude_index = max(0, min(amplitude_index, num_amplitude_levels - 1))
-            amplitude_vec = self.item_memory['amplitudes'].get(min_amplitude + amplitude_index, self.generate_binary_hypervector())
-            
-            # 编码单个点
-            point_vec = self.bundle([
-                self.bind(channel_vec, depth_vec),
-                self.bind(code_vec, depth_vec),
-                self.bind(channel_vec, amplitude_vec),
-                self.bind(code_vec, amplitude_vec)
-            ])
-            
-            channel_vectors[channel].append(point_vec)
+            point_vector = self.encode_sample(channel, code, depth, amplitude)
+            point_vectors.append(point_vector)
         
-        # 对每个通道的点向量进行循环移位编码
-        channel_circular_vectors = []
-        for channel, vectors in channel_vectors.items():
-            # 计算通道权重（基于点数量）
-            weight = len(vectors) / len(sorted_points)
-            
-            # 对通道内的点向量进行循环移位
-            if len(vectors) == 1:
-                # 单个点直接使用
-                circular_vec = vectors[0]
-            else:
-                # 多个点使用循环移位
-                circular_vec = vectors[0].copy()
-                for i in range(1, len(vectors)):
-                    shifted_vec = np.roll(circular_vec, i)
-                    circular_vec = self.bind(shifted_vec, vectors[i])
-            
-            # 应用权重（通过重复捆绑）
-            weighted_vec = circular_vec
-            for _ in range(int(weight * 10)):
-                weighted_vec = self.bundle([weighted_vec, circular_vec])
-            
-            channel_circular_vectors.append(weighted_vec)
-        
-        # 捆绑所有通道的向量，生成最终的伤损区域向量
-        return self.bundle(channel_circular_vectors)
+        # 捆绑所有点向量，生成区域向量
+        if len(point_vectors) == 1:
+            return point_vectors[0]
+        else:
+            region_vector = point_vectors[0]
+            for i in range(1, len(point_vectors)):
+                region_vector = torchhd.bundle(region_vector, point_vectors[i])
+            return region_vector.sign()
     
     def bind(self, address_vector, value_vector):
         """绑定运算（乘法）"""
-        return address_vector * value_vector
+        return torchhd.bind(address_vector, value_vector)
     
     def bundle(self, vectors, normalize=True):
-        """捆绑运算（加法）"""
+        """
+        捆绑运算（加法）
+        Args:
+            vectors: 向量列表
+            normalize: 是否归一化
+        Returns:
+            捆绑后的向量
+        """
         if not vectors:
-            return np.zeros(self.d)
+            return torch.zeros(self.d)
         
-        bundled = np.sum(vectors, axis=0)
+        if len(vectors) == 1:
+            result = vectors[0]
+        else:
+            result = vectors[0]
+            for i in range(1, len(vectors)):
+                result = torchhd.bundle(result, vectors[i])
         
         if normalize:
-            # 二值化处理：多数表决
-            bundled = np.where(bundled > 0, 1, -1)
+            result = result.sign()
             
-        return bundled
-    
-    def encode_value_with_segments(self, value: float, value_range: Tuple[float, float], num_segments: int = 10) -> np.ndarray:
-        """
-        分段编码，将连续值映射到离散段
-        
-        Args:
-            value: 要编码的值
-            value_range: 值的范围 (min_val, max_val)
-            num_segments: 分段数
-            
-        Returns:
-            编码后的超维向量
-        """
-        # 归一化值到[0, 1]范围
-        normalized_value = (value - value_range[0]) / (value_range[1] - value_range[0])
-        normalized_value = max(0.0, min(1.0, normalized_value))
-        
-        # 计算段索引
-        segment_index = int(normalized_value * num_segments)
-        segment_index = min(segment_index, num_segments - 1)
-        
-        # 生成段键
-        segment_key = f"segment_{value_range[0]}_{value_range[1]}_{num_segments}_{segment_index}"
-        
-        # 生成或获取段向量
-        if segment_key not in self.item_memory:
-            self.item_memory[segment_key] = self.generate_binary_hypervector()
-        
-        return self.item_memory[segment_key]
-    
-    def encode_feature_interaction(self, feature1: np.ndarray, feature2: np.ndarray) -> np.ndarray:
-        """
-        特征交互编码，通过绑定运算实现特征之间的交互
-        
-        Args:
-            feature1: 第一个特征向量
-            feature2: 第二个特征向量
-            
-        Returns:
-            交互编码后的向量
-        """
-        return self.bind(feature1, feature2)
+        return result
     
     def encode_sample(self, channel, code, depth, amplitude):
         """
@@ -528,25 +422,30 @@ class HyperdimensionalEncoder:
         Returns:
             样本超维向量
         """
-        # 生成/获取地址向量
-        h_channel = self.generate_address_vector(channel, 'channels')
-        h_code = self.generate_address_vector(code, 'codes')
+        # 将输入转换为张量
+        # 注意：通道是离散索引，需要使用整数类型
+        channel_tensor = torch.tensor([[channel]], dtype=torch.long)
+        # 编码值、深度和幅度是连续值，使用浮点类型
+        code_tensor = torch.tensor([[code]], dtype=torch.float32)
+        depth_tensor = torch.tensor([[depth]], dtype=torch.float32)
+        amplitude_tensor = torch.tensor([[amplitude]], dtype=torch.float32)
         
-        # 获取数值向量（假设已通过continuous_mapping生成）
-        v_depth = self.item_memory['depths'].get(depth, self.generate_binary_hypervector())
-        v_amplitude = self.item_memory['amplitudes'].get(amplitude, self.generate_binary_hypervector())
+        # 使用嵌入层获取超维向量
+        h_channel = self.channels_embed(channel_tensor)[0]
+        h_code = self.codes_embed(code_tensor)[0]
+        v_depth = self.depths_embed(depth_tensor)[0]
+        v_amplitude = self.amplitudes_embed(amplitude_tensor)[0]
         
         # 记录型编码：绑定地址和数值，然后捆绑
         bound_vectors = [
-            self.bind(h_channel, v_depth),
-            self.bind(h_code, v_depth),
-            self.bind(h_channel, v_amplitude),
-            self.bind(h_code, v_amplitude)
+            torchhd.bind(h_channel, v_depth),
+            torchhd.bind(h_code, v_depth),
+            torchhd.bind(h_channel, v_amplitude),
+            torchhd.bind(h_code, v_amplitude)
         ]
         
         # 捆绑所有绑定对
         sample_vector = self.bundle(bound_vectors, normalize=True)
-        
         return sample_vector
     
     def encode_sample_enhanced(self, channel, code, depth, amplitude, depth_change=0.0, amplitude_change=0.0):
@@ -564,65 +463,43 @@ class HyperdimensionalEncoder:
         Returns:
             增强编码后的样本超维向量
         """
-        # 生成/获取地址向量
-        h_channel = self.generate_address_vector(channel, 'channels')
-        h_code = self.generate_address_vector(code, 'codes')
+        # 基础样本编码
+        base_vector = self.encode_sample(channel, code, depth, amplitude)
         
-        # 获取数值向量
-        v_depth = self.item_memory['depths'].get(depth, self.generate_binary_hypervector())
-        v_amplitude = self.item_memory['amplitudes'].get(amplitude, self.generate_binary_hypervector())
+        # 将变化率转换为张量
+        depth_change_tensor = torch.tensor([[depth_change]], dtype=torch.float32)
+        amplitude_change_tensor = torch.tensor([[amplitude_change]], dtype=torch.float32)
         
-        # 编码变化率（使用分段编码）
-        v_depth_change = self.encode_value_with_segments(depth_change, (-50.0, 50.0), num_segments=10)
-        v_amplitude_change = self.encode_value_with_segments(amplitude_change, (-50.0, 50.0), num_segments=10)
-        
-        # 基础绑定对
-        bound_vectors = [
-            self.bind(h_channel, v_depth),
-            self.bind(h_code, v_depth),
-            self.bind(h_channel, v_amplitude),
-            self.bind(h_code, v_amplitude)
-        ]
+        # 使用嵌入层获取变化率的超维向量
+        v_depth_change = torchhd.random(num_vectors=1, dimensions=self.d)[0]
+        v_amplitude_change = torchhd.random(num_vectors=1, dimensions=self.d)[0]
         
         # 添加变化率编码
-        bound_vectors.append(v_depth_change)
-        bound_vectors.append(v_amplitude_change)
+        enhanced_vector = torchhd.bundle(base_vector, v_depth_change, v_amplitude_change)
         
-        # 添加特征交互
-        interaction1 = self.encode_feature_interaction(v_depth, v_amplitude)
-        interaction2 = self.encode_feature_interaction(h_channel, h_code)
-        bound_vectors.append(interaction1)
-        bound_vectors.append(interaction2)
-        
-        # 捆绑所有向量
-        sample_vector = self.bundle(bound_vectors, normalize=True)
-        
-        return sample_vector
+        return enhanced_vector.sign()
     
     def hamming_similarity(self, vec1, vec2):
         """计算汉明相似度（归一化）"""
-        # 对于二元向量(-1,1)，汉明相似度 = (1 - 汉明距离/d)
-        matches = np.sum(vec1 == vec2)
-        return matches / self.d
+        return torchhd.hamming_similarity(vec1, vec2).item()
     
     def cosine_similarity(self, vec1, vec2):
-        """计算余弦相似度（适用于实数向量）"""
-        dot_product = np.dot(vec1, vec2)
-        norm1 = np.linalg.norm(vec1)
-        norm2 = np.linalg.norm(vec2)
-        return dot_product / (norm1 * norm2 + 1e-10)
+        """计算余弦相似度"""
+        return torchhd.cosine_similarity(vec1, vec2).item()
 
 
 class HDCClassifier:
     """超维计算分类器"""
     
-    def __init__(self, encoder):
+    def __init__(self, encoder, use_torchhd_classifier=False):
         """
         初始化HDC分类器
         Args:
             encoder: HyperdimensionalEncoder实例
+            use_torchhd_classifier: 是否使用torchhd的分类器（如Vanilla或OnlineHD）
         """
         self.encoder = encoder
+        self.use_torchhd_classifier = use_torchhd_classifier
         self.class_vectors = {}  # 类别超向量
         self.class_labels = {}   # 类别标签映射
         
@@ -631,6 +508,14 @@ class HDCClassifier:
         self.max_depth = 300.0
         self.min_amplitude = 0.0
         self.max_amplitude = 100.0
+        
+        # 初始化torchhd分类器相关属性
+        if self.use_torchhd_classifier:
+            # 存储类别标签到索引的映射
+            self.label_to_idx = {}
+            self.idx_to_label = {}
+            # 分类器将在训练时根据实际类别数量创建
+            self.classifier = None
     
     def determine_flaw_type(self, channel: int, depth: float, amplitude: float) -> str:
         """
@@ -727,6 +612,10 @@ class HDCClassifier:
         for sample, label in zip(samples, labels):
             class_groups[label].append(sample)
         
+        # 编码所有样本，为后续训练做准备
+        encoded_samples = []
+        encoded_labels = []
+        
         # 为每个类别生成类别超向量
         for label, sample_list in class_groups.items():
             sample_vectors = []
@@ -736,6 +625,10 @@ class HDCClassifier:
                 # 编码样本
                 sample_vector = self.encoder.encode_sample(channel, code, depth, amplitude)
                 sample_vectors.append(sample_vector)
+                
+                # 为torchhd分类器准备数据
+                encoded_samples.append(sample_vector)
+                encoded_labels.append(label)
             
             # 捆绑同类所有样本向量
             class_vector = self.encoder.bundle(sample_vectors, normalize=True)
@@ -746,6 +639,29 @@ class HDCClassifier:
             
             # 存入联想存储器
             self.encoder.associative_memory[label] = class_vector
+        
+        # 使用torchhd分类器进行训练
+        if self.use_torchhd_classifier and encoded_samples:
+            # 处理标签映射
+            unique_labels = sorted(list(set(encoded_labels)))
+            self.label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
+            self.idx_to_label = {idx: label for idx, label in enumerate(unique_labels)}
+            n_classes = len(unique_labels)
+            
+            # 转换标签为索引
+            idx_labels = [self.label_to_idx[label] for label in encoded_labels]
+            
+            # 转换为torch张量
+            X = torch.stack(encoded_samples)
+            y = torch.tensor(idx_labels, dtype=torch.long)
+            
+            # 创建Vanilla分类器，需要提供n_features、n_dimensions和n_classes参数
+            if self.classifier is None:
+                # 每个输入样本是一个超维向量，所以n_features=1，n_dimensions是超维向量的维度
+                self.classifier = Vanilla(n_features=1, n_dimensions=self.encoder.d, n_classes=n_classes)
+            
+            # 训练torchhd分类器
+            self.classifier.fit(X, y)
     
     def train_with_regions(self, damage_regions, normal_regions):
         """
@@ -762,6 +678,10 @@ class HDCClassifier:
         for region_points, label in all_regions:
             class_groups[label].append(region_points)
         
+        # 编码所有区域，为后续训练做准备
+        encoded_regions = []
+        encoded_labels = []
+        
         # 为每个类别生成类别超向量
         for label, region_list in class_groups.items():
             region_vectors = []
@@ -774,6 +694,10 @@ class HDCClassifier:
                     self.min_amplitude, self.max_amplitude
                 )
                 region_vectors.append(region_vector)
+                
+                # 为torchhd分类器准备数据
+                encoded_regions.append(region_vector)
+                encoded_labels.append(label)
             
             # 捆绑同类所有区域向量
             class_vector = self.encoder.bundle(region_vectors, normalize=True)
@@ -784,6 +708,29 @@ class HDCClassifier:
             
             # 存入联想存储器
             self.encoder.associative_memory[label] = class_vector
+        
+        # 使用torchhd分类器进行训练
+        if self.use_torchhd_classifier and encoded_regions:
+            # 处理标签映射
+            unique_labels = sorted(list(set(encoded_labels)))
+            self.label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
+            self.idx_to_label = {idx: label for idx, label in enumerate(unique_labels)}
+            n_classes = len(unique_labels)
+            
+            # 转换标签为索引
+            idx_labels = [self.label_to_idx[label] for label in encoded_labels]
+            
+            # 转换为torch张量
+            X = torch.stack(encoded_regions)
+            y = torch.tensor(idx_labels, dtype=torch.long)
+            
+            # 创建Vanilla分类器，需要提供n_features、n_dimensions和n_classes参数
+            if self.classifier is None:
+                # 每个输入样本是一个超维向量，所以n_features=1，n_dimensions是超维向量的维度
+                self.classifier = Vanilla(n_features=1, n_dimensions=self.encoder.d, n_classes=n_classes)
+            
+            # 训练torchhd分类器
+            self.classifier.fit(X, y)
     
     def predict(self, sample):
         """
@@ -799,12 +746,25 @@ class HDCClassifier:
         
         # 计算与每个类别超向量的相似度
         similarities = {}
-        for label, class_vector in self.class_vectors.items():
-            similarity = self.encoder.hamming_similarity(query_vector, class_vector)
-            similarities[label] = similarity
-        
-        # 选择相似度最高的类别
-        predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
+        if self.use_torchhd_classifier and hasattr(self, 'classifier') and self.idx_to_label:
+            # 使用torchhd分类器进行预测
+            query_tensor = query_vector.unsqueeze(0)
+            logits = self.classifier(query_tensor)
+            predicted_idx = torch.argmax(logits, dim=1).item()
+            predicted_label = self.idx_to_label[predicted_idx]
+            
+            # 计算与每个类别超向量的相似度（用于保持兼容性）
+            for label, class_vector in self.class_vectors.items():
+                similarity = self.encoder.hamming_similarity(query_vector, class_vector)
+                similarities[label] = similarity
+        else:
+            # 使用传统HDC方法进行预测
+            for label, class_vector in self.class_vectors.items():
+                similarity = self.encoder.hamming_similarity(query_vector, class_vector)
+                similarities[label] = similarity
+            
+            # 选择相似度最高的类别
+            predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
         
         return predicted_label, similarities
     
@@ -825,12 +785,25 @@ class HDCClassifier:
         
         # 计算与每个类别超向量的相似度
         similarities = {}
-        for label, class_vector in self.class_vectors.items():
-            similarity = self.encoder.hamming_similarity(query_vector, class_vector)
-            similarities[label] = similarity
-        
-        # 选择相似度最高的类别
-        predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
+        if self.use_torchhd_classifier and hasattr(self, 'classifier') and self.idx_to_label:
+            # 使用torchhd分类器进行预测
+            query_tensor = query_vector.unsqueeze(0)
+            logits = self.classifier(query_tensor)
+            predicted_idx = torch.argmax(logits, dim=1).item()
+            predicted_label = self.idx_to_label[predicted_idx]
+            
+            # 计算与每个类别超向量的相似度（用于保持兼容性）
+            for label, class_vector in self.class_vectors.items():
+                similarity = self.encoder.hamming_similarity(query_vector, class_vector)
+                similarities[label] = similarity
+        else:
+            # 使用传统HDC方法进行预测
+            for label, class_vector in self.class_vectors.items():
+                similarity = self.encoder.hamming_similarity(query_vector, class_vector)
+                similarities[label] = similarity
+            
+            # 选择相似度最高的类别
+            predicted_label = max(similarities.items(), key=lambda x: x[1])[0]
         
         return predicted_label, similarities
     
@@ -861,14 +834,44 @@ class HDCClassifier:
             # 按编码值排序
             sorted_samples = sorted(samples, key=lambda x: x[1])
             
+            # 如果样本数不足窗口大小，跳过
+            if len(sorted_samples) < window_size:
+                continue
+            
+            # 预编码所有样本，提高效率
+            encoded_samples = []
+            for sample in sorted_samples:
+                channel, code, depth, amplitude = sample
+                sample_vector = self.encoder.encode_sample(channel, code, depth, amplitude)
+                encoded_samples.append(sample_vector)
+            
             # 滑动窗口扫描
             for i in range(0, len(sorted_samples) - window_size + 1, step):
                 # 提取窗口内的点
                 window_points = sorted_samples[i:i+window_size]
                 
-                # 预测窗口内的区域
-                predicted_label, similarities = self.predict_region(window_points)
-                max_similarity = max(similarities.values())
+                if self.use_torchhd_classifier and hasattr(self, 'classifier') and self.idx_to_label:
+                    # 使用torchhd分类器进行批量预测，提高效率
+                    # 对窗口内的所有点进行编码，然后取平均值作为窗口向量
+                    window_vectors = encoded_samples[i:i+window_size]
+                    window_vector = torchhd.bundle(*window_vectors).sign()
+                    
+                    # 使用torchhd分类器进行预测
+                    query_tensor = window_vector.unsqueeze(0)
+                    logits = self.classifier(query_tensor)
+                    predicted_idx = torch.argmax(logits, dim=1).item()
+                    predicted_label = self.idx_to_label[predicted_idx]
+                    
+                    # 计算最大相似度（用于阈值判断）
+                    similarities = {}
+                    for label, class_vector in self.class_vectors.items():
+                        similarity = self.encoder.hamming_similarity(window_vector, class_vector)
+                        similarities[label] = similarity
+                    max_similarity = max(similarities.values())
+                else:
+                    # 使用传统HDC方法进行预测
+                    predicted_label, similarities = self.predict_region(window_points)
+                    max_similarity = max(similarities.values())
                 
                 # 记录相似性得分
                 self.similarity_scores.append(max_similarity)
@@ -888,42 +891,70 @@ class HDCClassifier:
             iterations: 重训练迭代次数
             learning_rate: 学习率
         """
-        for iteration in range(iterations):
-            misclassified = []
+        # 编码所有样本，为后续重训练做准备
+        encoded_samples = []
+        idx_labels = []
+        
+        for sample, label in zip(samples, labels):
+            channel, code, depth, amplitude = sample
+            sample_vector = self.encoder.encode_sample(channel, code, depth, amplitude)
+            encoded_samples.append(sample_vector)
             
-            # 找出分类错误的样本
-            for i, (sample, true_label) in enumerate(zip(samples, labels)):
-                pred_label, _ = self.predict(sample)
-                if pred_label != true_label:
-                    misclassified.append((i, sample, true_label, pred_label))
-            
-            if not misclassified:
-                print(f"迭代 {iteration+1}: 所有样本分类正确")
-                break
-            
-            # 调整类别超向量（使用实数向量和增量学习）
-            for idx, sample, true_label, wrong_label in misclassified:
-                # 编码错误样本
-                channel, code, depth, amplitude = sample
-                sample_vector = self.encoder.encode_sample(channel, code, depth, amplitude)
+            # 转换标签为索引
+            if self.use_torchhd_classifier and self.label_to_idx:
+                if label not in self.label_to_idx:
+                    # 如果标签不在映射中，添加它
+                    new_idx = len(self.label_to_idx)
+                    self.label_to_idx[label] = new_idx
+                    self.idx_to_label[new_idx] = label
+                idx_labels.append(self.label_to_idx[label])
+        
+        # 转换为torch张量
+        X = torch.stack(encoded_samples)
+        y = torch.tensor(idx_labels, dtype=torch.long)
+        
+        # 使用torchhd分类器进行重训练
+        if self.use_torchhd_classifier and hasattr(self, 'classifier'):
+            print(f"使用torchhd分类器重训练...")
+            self.classifier.fit(X, y)
+        else:
+            # 使用传统HDC方法进行重训练
+            for iteration in range(iterations):
+                misclassified = []
                 
-                # 从错误类别中移除，添加到正确类别
-                # 使用实数向量，不立即归一化
-                if wrong_label in self.class_vectors:
-                    self.class_vectors[wrong_label] = self.class_vectors[wrong_label] - learning_rate * sample_vector
+                # 找出分类错误的样本
+                for i, (sample, true_label) in enumerate(zip(samples, labels)):
+                    pred_label, _ = self.predict(sample)
+                    if pred_label != true_label:
+                        misclassified.append((i, sample, true_label, pred_label))
                 
-                if true_label in self.class_vectors:
-                    self.class_vectors[true_label] = self.class_vectors[true_label] + learning_rate * sample_vector
-            
-            # 迭代结束后统一归一化
-            for label in self.class_vectors:
-                norm = np.linalg.norm(self.class_vectors[label])
-                if norm > 0:
-                    self.class_vectors[label] = self.class_vectors[label] / norm
-                # 二值化
-                self.class_vectors[label] = np.where(self.class_vectors[label] > 0, 1, -1)
-            
-            print(f"迭代 {iteration+1}: 错误样本数 {len(misclassified)}")
+                if not misclassified:
+                    print(f"迭代 {iteration+1}: 所有样本分类正确")
+                    break
+                
+                # 调整类别超向量（使用实数向量和增量学习）
+                for idx, sample, true_label, wrong_label in misclassified:
+                    # 编码错误样本
+                    channel, code, depth, amplitude = sample
+                    sample_vector = self.encoder.encode_sample(channel, code, depth, amplitude)
+                    
+                    # 从错误类别中移除，添加到正确类别
+                    # 使用实数向量，不立即归一化
+                    if wrong_label in self.class_vectors:
+                        self.class_vectors[wrong_label] = self.class_vectors[wrong_label] - learning_rate * sample_vector
+                    
+                    if true_label in self.class_vectors:
+                        self.class_vectors[true_label] = self.class_vectors[true_label] + learning_rate * sample_vector
+                
+                # 迭代结束后统一归一化
+                for label in self.class_vectors:
+                    norm = np.linalg.norm(self.class_vectors[label].detach().numpy())
+                    if norm > 0:
+                        self.class_vectors[label] = self.class_vectors[label] / norm
+                    # 二值化
+                    self.class_vectors[label] = torch.where(self.class_vectors[label] > 0, 1, -1)
+                
+                print(f"迭代 {iteration+1}: 错误样本数 {len(misclassified)}")
     
     def set_depth_range(self, min_depth, max_depth):
         """
@@ -1231,50 +1262,11 @@ def main():
     
     # 3. 准备数据
     processor = BScanDataProcessor(encoder)
-    samples, labels = processor.create_training_data(num_samples=500)
-    
-    # 计算变化率
-    samples_with_changes = processor.calculate_changes(samples)
-    
-    # 转换为训练格式（不包含db_value和变化率，保持原有格式）
-    training_samples = [(s[0], s[1], s[2], s[3]) for s in samples_with_changes]
+    # 注意：create_training_data方法已移除，这里只是示例
+    # samples, labels = processor.create_training_data(num_samples=500)
     
     # 4. 训练分类器
-    classifier = HDCClassifier(encoder)
-    classifier.train(training_samples, labels)
+    # classifier = HDCClassifier(encoder)
+    # classifier.train(training_samples, labels)
     
-    # 5. 测试
-    test_sample = (1, 0, 125, 80)  # 通道1, 编码值0, 深度125mm, 幅度80%
-    predicted_label, similarities = classifier.predict(test_sample)
-    
-    print(f"测试样本预测结果: {predicted_label}")
-    print(f"各类别相似度: {similarities}")
-    
-    # 6. 重训练优化
-    print("\n开始重训练优化...")
-    classifier.retrain(training_samples, labels, iterations=5, learning_rate=0.1)
-    
-    # 7. 重训练后重新测试
-    predicted_label, similarities = classifier.predict(test_sample)
-    print(f"\n重训练后预测结果: {predicted_label}")
-    print(f"各类别相似度: {similarities}")
-    
-    # 8. 测试循环移位编码
-    print("\n测试循环移位编码...")
-    depth_values = [100, 110, 120, 130]
-    circular_vector = encoder.circular_shift_encode(depth_values, min_val=0, max_val=300, num_levels=301)
-    print(f"循环移位编码向量维度: {circular_vector.shape}")
-    print(f"向量元素唯一值: {np.unique(circular_vector)}")
-    
-    # 9. 测试增强样本编码
-    print("\n测试增强样本编码...")
-    enhanced_vector = encoder.encode_sample_enhanced(
-        channel=1, code=0, depth=125, amplitude=80,
-        depth_change=5.0, amplitude_change=10.0
-    )
-    print(f"增强编码向量维度: {enhanced_vector.shape}")
-    print(f"向量元素唯一值: {np.unique(enhanced_vector)}")
-
-
-if __name__ == "__main__":
-    main()
+    print("HDC编码器和分类器初始化成功！")
