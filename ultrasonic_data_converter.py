@@ -315,8 +315,8 @@ class UltrasonicDataConverter:
             data_file: 原始数据文件路径
             annotation_file: 标注文件路径（可选）
             output_file: 输出CSV文件路径（可选）
-            window_size: 窗口大小
-            step: 滑动步长
+            window_size: 窗口大小（保留参数，兼容旧接口）
+            step: 滑动步长（保留参数，兼容旧接口）
         """
         # 设置默认输出文件名
         if output_file is None:
@@ -343,12 +343,8 @@ class UltrasonicDataConverter:
         e_labels = self.extract_damage_regions(annotations)
         print(f"Labeled {len(e_labels)} E values with damage information")
 
-        # 5. 创建滑动窗口
-        windows = self.create_sliding_windows(e_data, e_labels, window_size, step)
-        print(f"Generated {len(windows)} window samples")
-
-        # 6. 转换为CSV格式
-        self.convert_windows_to_csv_format(windows, output_file)
+        # 5. 转换为CSV格式（直接生成原始格式，由模型训练时生成滑动窗口）
+        self.convert_to_csv_format(e_data, e_labels, output_file)
 
         return output_file
 

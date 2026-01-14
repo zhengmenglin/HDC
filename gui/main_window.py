@@ -741,18 +741,28 @@ class BScanCanvas(FigureCanvas):
                 min_depth = min(depth_values)
                 max_depth = max(depth_values)
 
-                # 根据标注ID判断是手动标注还是自动标注（自动标注ID从100开始）
+                # 根据标注ID判断是手动标注、自动标注还是HDC标注
                 annotation_id = int(annotation['id'])
                 is_auto = annotation_id >= 100
+                is_hdc = annotation_id >= 100  # HDC标注ID从100开始
                 
-                # 设置颜色：自动标注使用不同的浅色，手动标注使用灰色
-                if is_auto:
+                # 设置颜色：HDC标注使用独特颜色，自动标注使用不同的浅色，手动标注使用灰色
+                if is_hdc:
                     if annotation['type'] == '伤损':
-                        # 自动识别的伤损使用浅红色
+                        # HDC识别的伤损使用亮绿色
+                        box_color = '#90EE90'  # 亮绿色
+                        text_color = '#006400'  # 深绿色
+                    else:
+                        # HDC识别的结构使用亮蓝色
+                        box_color = '#87CEFA'  # 亮蓝色
+                        text_color = '#00008B'  # 深蓝色
+                elif is_auto:
+                    if annotation['type'] == '伤损':
+                        # 其他自动识别的伤损使用浅红色
                         box_color = '#FFB6C1'  # 浅粉色
                         text_color = '#FF6B6B'  # 浅红色
                     else:
-                        # 自动识别的结构使用浅蓝色
+                        # 其他自动识别的结构使用浅蓝色
                         box_color = '#B0E0E6'  # 淡蓝色
                         text_color = '#6495ED'  # 天蓝色
                 else:
@@ -998,8 +1008,8 @@ class MainWindow(QMainWindow):
                 try:
                     for filename in os.listdir(folder_path):
                         file_path = os.path.join(folder_path, filename)
-                        # 检查文件是否为.json文件且不是标注文件
-                        if filename.endswith('.json') and '标注' not in filename:
+                        # 检查文件是否为.json文件且不是标注文件，同时跳过hdc结尾的.json文件
+                        if filename.endswith('.json') and '标注' not in filename and not filename.endswith('_hdc.json'):
                             self.json_files.append(file_path)
                             print(f"找到文件: {file_path}")
                 except Exception as e:
@@ -1039,6 +1049,8 @@ class MainWindow(QMainWindow):
             json_dir = os.path.dirname(file_path)
             json_filename = os.path.basename(file_path)
             name_without_ext = os.path.splitext(json_filename)[0]
+            
+            # 1. 加载常规标注文件（标注.json）
             annotation_filename = f"{name_without_ext}标注.json"
             annotation_file_path = os.path.join(json_dir, annotation_filename)
             
@@ -1046,6 +1058,16 @@ class MainWindow(QMainWindow):
                 self.annotation_manager.load_annotations(annotation_file_path)
                 self.status_bar.showMessage(
                     f"已加载标注文件: {annotation_filename}", 3000
+                )
+            
+            # 2. 加载HDC标注文件（hdc.json）
+            hdc_annotation_filename = f"{name_without_ext}_hdc.json"
+            hdc_annotation_file_path = os.path.join(json_dir, hdc_annotation_filename)
+            
+            if os.path.exists(hdc_annotation_file_path):
+                self.annotation_manager.load_annotations(hdc_annotation_file_path)
+                self.status_bar.showMessage(
+                    f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )
             
             # 更新B显画布，传递标注数据和显示模式
@@ -1384,33 +1406,18 @@ class MainWindow(QMainWindow):
         if self.parser is None:
             return
 
-        import os
-        from gui.annotation_manager import AnnotationManager
-        json_file_path = self.parser.json_file
-        json_dir = os.path.dirname(json_file_path)
-        json_filename = os.path.basename(json_file_path)
-
-        # 去掉扩展名，添加"标注"后缀
-        name_without_ext = os.path.splitext(json_filename)[0]
-        annotation_filename = f"{name_without_ext}标注.json"
-        annotation_file_path = os.path.join(json_dir, annotation_filename)
-
         # 清空当前标注列表
         self.annotations_list.clear()
         self.annotations_list.addItem("请选择标注", None)
 
-        # 加载标注文件到临时管理器，避免影响内存中的未保存标注
-        if os.path.exists(annotation_file_path):
-            # 创建临时标注管理器，仅用于加载文件中的标注
-            temp_manager = AnnotationManager()
-            temp_manager.load_annotations(annotation_file_path)
-            file_annotations = temp_manager.get_annotations()
-            
-            # 显示文件中的标注
-            for annotation in file_annotations:
-                # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
-                annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
-                self.annotations_list.addItem(annotation_name, annotation['id'])
+        # 获取所有已加载的标注（包括HDC标注）
+        all_annotations = self.annotation_manager.get_annotations()
+        
+        # 显示所有标注
+        for annotation in all_annotations:
+            # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
+            annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
+            self.annotations_list.addItem(annotation_name, annotation['id'])
 
     def on_annotation_selected(self, index):
         """当选择标注时更新详情"""

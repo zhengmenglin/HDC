@@ -16,10 +16,9 @@ import shutil
 # 添加项目路径
 sys.path.append('.')
 
+# 导入超声波HDC程序
+from ultrasonic_hdc_emg_style import train_model, predict_model
 from ultrasonic_data_converter import UltrasonicDataConverter
-from ultrasonic_hd_classifier import UltrasonicHDCClassifier
-from ultrasonic_hdc_train import load_csv_data, train_model
-from ultrasonic_hdc_predict import predict_with_model, convert_predictions_to_json
 
 def test_full_pipeline():
     """测试完整管道"""
@@ -57,11 +56,9 @@ def test_full_pipeline():
             if '标注' in data_file.name:
                 continue
                 
-            # 查找对应的标注文件
+            # 查找对应的标注文件（可选）
             annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
-            if not annotation_file.exists():
-                print(f"警告: 未找到{data_file.name}的标注文件，跳过")
-                continue
+            annotation_path = str(annotation_file) if annotation_file.exists() else None
             
             # 检查是否已存在CSV文件
             output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
@@ -70,13 +67,16 @@ def test_full_pipeline():
                 train_csv_files.append(str(output_csv))
                 continue
             
-            # 转换文件
+            # 转换文件，即使没有标注文件也转换
             try:
                 result_file = converter.convert_single_file(
-                    str(data_file), str(annotation_file), str(output_csv)
+                    str(data_file), annotation_path, str(output_csv)
                 )
                 train_csv_files.append(str(output_csv))
-                print(f"✓ 转换完成: {data_file.name}")
+                if annotation_path:
+                    print(f"✓ 转换完成: {data_file.name} (使用标注文件)")
+                else:
+                    print(f"✓ 转换完成: {data_file.name} (无标注文件，label列全为0)")
             except Exception as e:
                 print(f"✗ 转换失败 {data_file.name}: {e}")
                 continue
@@ -102,11 +102,9 @@ def test_full_pipeline():
             if '标注' in data_file.name:
                 continue
                 
-            # 查找对应的标注文件
+            # 查找对应的标注文件（可选）
             annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
-            if not annotation_file.exists():
-                print(f"警告: 未找到{data_file.name}的标注文件，跳过")
-                continue
+            annotation_path = str(annotation_file) if annotation_file.exists() else None
             
             # 检查是否已存在CSV文件
             output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
@@ -115,13 +113,16 @@ def test_full_pipeline():
                 test_csv_files.append(str(output_csv))
                 continue
             
-            # 转换文件
+            # 转换文件，即使没有标注文件也转换
             try:
                 result_file = converter.convert_single_file(
-                    str(data_file), str(annotation_file), str(output_csv)
+                    str(data_file), annotation_path, str(output_csv)
                 )
                 test_csv_files.append(str(output_csv))
-                print(f"✓ 转换完成: {data_file.name}")
+                if annotation_path:
+                    print(f"✓ 转换完成: {data_file.name} (使用标注文件)")
+                else:
+                    print(f"✓ 转换完成: {data_file.name} (无标注文件，label列全为0)")
             except Exception as e:
                 print(f"✗ 转换失败 {data_file.name}: {e}")
                 continue
@@ -134,25 +135,18 @@ def test_full_pipeline():
         
         # 3. 模型训练
         print("\n=== Step 3: 模型训练 ===")
-        print(f"使用 {len(train_csv_files)} 个训练文件")
+        print(f"使用 {TRAIN_DATA_DIR} 目录下的所有CSV文件进行训练")
         print(f"超向量维度: {DIMENSIONS}")
         
-        # 生成模型文件名
-        model_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_file = OUTPUT_DIR / f"hdc_model_{model_timestamp}.pth"
-        
         try:
-            trained_model_path = train_model(
-                train_csv_files,
-                model_output=str(model_file),
-                d=DIMENSIONS
-            )
+            # 使用新的训练函数
+            train_success = train_model()
             
-            if not trained_model_path or not os.path.exists(trained_model_path):
+            if not train_success:
                 print("[FAIL] 模型训练失败")
                 return False
             
-            print(f"✓ 模型训练成功，保存路径: {trained_model_path}")
+            print(f"✓ 模型训练成功")
         except Exception as e:
             print(f"[FAIL] 模型训练失败: {e}")
             import traceback
@@ -161,83 +155,53 @@ def test_full_pipeline():
         
         # 4. 模型预测
         print("\n=== Step 4: 模型预测 ===")
-        print(f"使用 {len(test_csv_files)} 个测试文件")
+        print(f"使用 {TEST_DATA_DIR} 目录下的所有CSV文件进行预测")
         
         try:
-            predictions = predict_with_model(
-                str(model_file),
-                test_csv_files,
-                output_dir=str(OUTPUT_DIR)
-            )
+            # 使用新的预测函数
+            predict_success = predict_model()
             
-            if not predictions:
+            if not predict_success:
                 print("[FAIL] 模型预测失败")
                 return False
             
-            print(f"✓ 模型预测完成，处理了 {len(predictions)} 个样本")
+            print(f"✓ 模型预测完成")
         except Exception as e:
             print(f"[FAIL] 模型预测失败: {e}")
             import traceback
             traceback.print_exc()
             return False
         
-        # 5. 结果评估
-        print("\n=== Step 5: 结果评估 ===")
-        
-        # 统计预测结果
-        pred_labels = [p['predicted_label'] for p in predictions]
-        true_labels = [p['original_label'] for p in predictions]
-        
-        # 计算准确率
-        correct = sum(1 for pred, true in zip(pred_labels, true_labels) if pred == true)
-        accuracy = correct / len(predictions) if predictions else 0
-        
-        # 统计各类别结果
-        unique_labels = sorted(set(true_labels + pred_labels))
-        label_stats = {}
-        for label in unique_labels:
-            total = true_labels.count(label)
-            correct_pred = sum(1 for pred, true in zip(pred_labels, true_labels) if true == label and pred == true)
-            precision = correct_pred / pred_labels.count(label) if pred_labels.count(label) > 0 else 0
-            recall = correct_pred / total if total > 0 else 0
-            
-            label_stats[label] = {
-                'total': total,
-                'correct': correct_pred,
-                'precision': precision,
-                'recall': recall
-            }
-        
-        # 输出评估结果
-        print(f"测试样本总数: {len(predictions)}")
-        print(f"准确率: {accuracy:.4f} ({correct}/{len(predictions)})")
-        print("\n各类别详细统计:")
-        print(f"{'标签':<8} {'总数':<6} {'正确':<6} {'精确率':<10} {'召回率':<10}")
-        print("-"*40)
-        for label, stats in label_stats.items():
-            print(f"{label:<8} {stats['total']:<6} {stats['correct']:<6} {stats['precision']:<10.4f} {stats['recall']:<10.4f}")
-        
-        # 6. 结果转换为JSON
-        print("\n=== Step 6: 结果转换为JSON ===")
+        # 5. CSV到HDC JSON转换
+        print("\n=== Step 5: CSV到HDC JSON转换 ===")
         try:
-            convert_predictions_to_json(
-                predictions,
-                str(TEST_DATA_DIR),
-                str(OUTPUT_DIR / "json_results")
-            )
-            print(f"✓ JSON结果转换完成")
+            # 导入CSV到HDC JSON转换器
+            from csv_to_hdc_json import CsvToHdcJsonConverter
+            
+            converter = CsvToHdcJsonConverter()
+            
+            # 转换所有测试CSV文件
+            print(f"将 {TEST_DATA_DIR} 目录下的CSV文件转换为hdc.json格式")
+            converter.batch_convert(str(TEST_DATA_DIR), eps=5.0, min_samples=5)
+            
+            print(f"✓ CSV到HDC JSON转换完成")
         except Exception as e:
-            print(f"[WARN] JSON结果转换失败: {e}")
+            print(f"[FAIL] CSV到HDC JSON转换失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
         
-
+        # 6. 结果评估
+        print("\n=== Step 6: 结果评估 ===")
+        print("注意：当前版本的评估需要手动检查生成的_hdc.csv文件和hdc.json文件")
+        print("预测结果已保存到每个测试文件对应的_hdc.csv文件中")
+        print("HDC JSON文件已保存到每个测试文件对应的_hdc.json文件中")
         
         # 输出最终结果
         print("\n" + "="*50)
         print("=== 完整超声波HDC管道测试完成 ===")
         print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"模型文件: {model_file}")
-        print(f"预测结果目录: {OUTPUT_DIR}")
-        print(f"准确率: {accuracy:.4f}")
+        print(f"预测结果已保存到 {TEST_DATA_DIR} 目录下的_hdc.csv文件中")
         print("="*50)
         
         return True

@@ -9,6 +9,7 @@ from torchhd.models import Centroid
 from pathlib import Path
 import pandas as pd
 import numpy as np
+import os
 
 # ======================================
 # 设备设置
@@ -37,8 +38,13 @@ SUBSAMPLES = torch.arange(0, WINDOW, int(WINDOW / DOWNSAMPLE))
 # N-gram大小，用于捕获序列数据的时序关系
 N_GRAM_SIZE = 4
 
-# 数据文件路径
-csv_file = Path(r"d:\HDC\data\train\接头3.cap_hdc.csv")
+# 数据目录
+TRAIN_DIR = Path(r"d:\HDC\data\train")
+TEST_DIR = Path(r"d:\HDC\data\test")
+# 模型保存路径
+MODEL_PATH = Path(r"d:\HDC\models\hdc_model.pth")
+# 确保模型目录存在
+MODEL_PATH.parent.mkdir(exist_ok=True)
 
 
 # ======================================
@@ -63,75 +69,87 @@ class UltrasonicDataset(data.Dataset):
     """超声波数据集类，用于加载和处理超声波数据
     
     Args:
-        csv_file: CSV文件路径
-        indices: 样本索引列表
+        data_dir: 数据目录路径
         transform: 数据转换函数
+        is_train: 是否为训练模式
     """
-    def __init__(self, csv_file, indices, transform=None):
-        self.csv_file = csv_file
-        self.indices = indices
+    def __init__(self, data_dir, transform=None, is_train=True):
+        self.data_dir = data_dir
         self.transform = transform
+        self.is_train = is_train
         self.samples = []  # 存储所有样本
         self.labels = []   # 存储对应标签
+        self.file_info = []  # 存储每个样本对应的文件名和索引信息
         
         # 加载所有数据
         self._load_all_data()
     
     def _load_all_data(self):
-        """加载所有数据并生成滑动窗口样本"""
-        print(f"正在加载数据文件: {self.csv_file}")
+        """加载所有数据并生成样本"""
+        print(f"正在加载 {self.data_dir} 目录下的所有CSV文件")
         
-        # 读取CSV数据
-        df = pd.read_csv(self.csv_file)
+        # 获取所有CSV文件
+        csv_files = list(self.data_dir.glob("*.csv"))
+        print(f"找到 {len(csv_files)} 个CSV文件")
         
-        # 按编码值排序，确保数据的时序连续性
-        df = df.sort_values(by='encoding')
-        
-        # 提取通道数据和标签
-        channel_data = df[[f'channel_{i}' for i in range(CHANNELS)]].values
-        labels = df['label'].values
-        encodings = df['encoding'].values
-        
-        print(f"从 {self.csv_file} 加载了 {len(encodings)} 个编码值")
-        
-        # 确保有足够的数据生成至少一个窗口
-        if len(encodings) < WINDOW:
-            print(f"警告: 数据不足，无法生成窗口。需要 {WINDOW} 个编码值，仅获得 {len(encodings)} 个")
-            return
-        
-        # 生成所有可能的滑动窗口样本
-        all_samples = []
-        all_labels = []
-        
-        # 滑动窗口生成循环
-        for start in range(0, len(encodings) - WINDOW + 1, WINDOW):
-            end = start + WINDOW
+        for csv_file in csv_files:
+            print(f"\n正在处理文件: {csv_file.name}")
             
-            # 提取窗口内的通道数据，形状为 [window_size, channels]
-            window_data = channel_data[start:end]
+            # 读取CSV数据
+            df = pd.read_csv(csv_file)
             
-            # 转换为float32格式
-            sample = window_data.astype(np.float32)
+            # 按编码值排序，确保数据的时序连续性
+            df = df.sort_values(by='encoding')
             
-            # 确定窗口标签，使用窗口内出现最多的标签
-            window_labels = labels[start:end]
-            if len(window_labels) > 0:
-                label = max(set(window_labels), key=list(window_labels).count)
-            else:
-                label = 0
+            # 提取通道数据和标签
+            channel_data = df[[f'channel_{i}' for i in range(CHANNELS)]].values
+            labels = df['label'].values if 'label' in df.columns else [0] * len(df)
+            encodings = df['encoding'].values
             
-            all_samples.append(sample)
-            all_labels.append(label)
+            print(f"从 {csv_file.name} 加载了 {len(encodings)} 个编码值")
+            
+            # 确保有足够的数据生成至少一个窗口
+            if len(encodings) < WINDOW:
+                print(f"警告: 数据不足，无法生成窗口。需要 {WINDOW} 个编码值，仅获得 {len(encodings)} 个")
+                continue
+            
+            # 生成所有可能的滑动窗口样本
+            file_samples = []
+            file_labels = []
+            file_indices = []
+            
+            # 滑动窗口生成循环
+            for start in range(0, len(encodings) - WINDOW + 1, WINDOW):
+                end = start + WINDOW
+                
+                # 提取窗口内的通道数据，形状为 [window_size, channels]
+                window_data = channel_data[start:end]
+                
+                # 转换为float32格式
+                sample = window_data.astype(np.float32)
+                
+                # 确定窗口标签，使用窗口内出现最多的标签
+                window_labels = labels[start:end]
+                if len(window_labels) > 0:
+                    label = max(set(window_labels), key=list(window_labels).count)
+                else:
+                    label = 0
+                
+                file_samples.append(sample)
+                file_labels.append(label)
+                # 保存文件信息和窗口索引
+                file_indices.append((str(csv_file), start, end))
+            
+            # 将当前文件的样本添加到总样本列表
+            self.samples.extend(file_samples)
+            self.labels.extend(file_labels)
+            self.file_info.extend(file_indices)
+            
+            print(f"从 {csv_file.name} 生成了 {len(file_samples)} 个窗口样本")
         
-        print(f"共生成 {len(all_samples)} 个窗口样本")
-        if all_labels:
-            print(f"标签分布: {np.bincount(all_labels)}")
-        
-        # 根据索引选择样本，用于划分训练集和测试集
-        self.samples = [all_samples[i] for i in self.indices]
-        self.labels = [all_labels[i] for i in self.indices]
-        
-        print(f"当前数据集包含 {len(self.samples)} 个样本")
+        print(f"\n所有文件处理完成，共生成 {len(self.samples)} 个窗口样本")
+        if self.labels:
+            print(f"标签分布: {np.bincount(self.labels)}")
     
     def __len__(self):
         """返回数据集大小"""
@@ -202,43 +220,25 @@ class Encoder(nn.Module):
 
 
 # ======================================
-# 实验函数
+# 训练函数
 # ======================================
-def experiment():
-    """训练和评估HDC模型"""
-    print("开始超声波HDC实验...")
+def train_model():
+    """使用训练数据训练HDC模型"""
+    print("开始模型训练...")
     
-    # 计算总共有多少个窗口样本
-    print("正在生成样本...")
+    # 加载训练数据集
+    train_ds = UltrasonicDataset(TRAIN_DIR, transform=transform, is_train=True)
     
-    # 先读取数据计算样本数量
-    df = pd.read_csv(csv_file)
-    encodings = df['encoding'].values
-    total_samples = len(range(0, len(encodings) - WINDOW + 1, WINDOW))
-    print(f"总共有 {total_samples} 个可能的窗口样本")
+    # 创建数据加载器
+    train_ld = data.DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
     
-    # 创建索引并随机分配到训练和测试集
-    indices = list(range(total_samples))
-    np.random.shuffle(indices)
-    
-    # 70%训练，30%测试
-    train_size = int(total_samples * 0.7)
-    train_indices = indices[:train_size]
-    test_indices = indices[train_size:]
-    
-    # 加载数据集
-    print(f"创建数据集：{len(train_indices)} 个训练样本，{len(test_indices)} 个测试样本")
-    train_ds = UltrasonicDataset(csv_file, train_indices, transform=transform)
-    test_ds = UltrasonicDataset(csv_file, test_indices, transform=transform)
+    # 检查数据集是否为空
+    if len(train_ds) == 0:
+        print("错误: 训练数据集为空！")
+        return False
     
     # 获取所有唯一标签，确保模型包含所有可能的类别
-    all_labels = []
-    if train_ds.labels:
-        all_labels.extend(train_ds.labels)
-    if test_ds.labels:
-        all_labels.extend(test_ds.labels)
-    
-    # 计算实际类别数量
+    all_labels = train_ds.labels
     if all_labels:
         max_label = max(all_labels)
         num_classes = int(max_label + 1)  # 转换为Python原生int类型
@@ -246,15 +246,6 @@ def experiment():
     else:
         num_classes = 1
         print("警告: 未找到标签，使用 1 个类别")
-    
-    # 创建数据加载器
-    train_ld = data.DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
-    test_ld = data.DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
-    
-    # 检查数据集是否为空
-    if len(train_ds) == 0:
-        print("错误: 训练数据集为空！")
-        return
     
     # 初始化编码器
     # 样本形状: [DOWNSAMPLE, channels]
@@ -278,29 +269,125 @@ def experiment():
             # 更新模型质心
             model.add(sample_hv, targets)
     
-    # 评估模型
-    print("正在评估模型...")
-    accuracy = torchmetrics.Accuracy("multiclass", num_classes=num_classes)
+    # 归一化模型
+    model.normalize()
     
+    # 保存模型和编码器
+    torch.save({
+        'encoder_state_dict': encode.state_dict(),
+        'model_state_dict': model.state_dict(),
+        'num_classes': num_classes,
+        'sample_shape': sample_shape
+    }, MODEL_PATH)
+    
+    print(f"模型训练完成，已保存到: {MODEL_PATH}")
+    return True
+
+
+# ======================================
+# 预测函数
+# ======================================
+def predict_model():
+    """使用训练好的模型对测试数据进行预测"""
+    print("开始模型预测...")
+    
+    # 检查模型文件是否存在
+    if not MODEL_PATH.exists():
+        print(f"错误: 模型文件不存在 {MODEL_PATH}")
+        return False
+    
+    # 加载模型和编码器
+    checkpoint = torch.load(MODEL_PATH, weights_only=False)
+    
+    # 初始化编码器和模型
+    sample_shape = checkpoint['sample_shape']
+    encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1])
+    encode.load_state_dict(checkpoint['encoder_state_dict'])
+    encode = encode.to(device)
+    encode.eval()
+    
+    num_classes = checkpoint['num_classes']
+    model = Centroid(DIMENSIONS, num_classes)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.to(device)
+    model.eval()
+    
+    # 加载测试数据集
+    test_ds = UltrasonicDataset(TEST_DIR, transform=transform, is_train=False)
+    
+    # 创建数据加载器
+    test_ld = data.DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
+    
+    # 检查数据集是否为空
+    if len(test_ds) == 0:
+        print("错误: 测试数据集为空！")
+        return False
+    
+    # 执行预测
+    print("正在对测试数据进行预测...")
+    predictions = []
     with torch.no_grad():
-        # 归一化模型
-        model.normalize()
-        
-        # 测试模型
-        for samples, targets in tqdm(test_ld, desc="测试中"):
+        for samples, targets in tqdm(test_ld, desc="预测中"):
             samples = samples.to(device)
             
             # 生成超维向量
             sample_hv = encode(samples)
             # 模型预测
             output = model(sample_hv, dot=True)
-            # 更新准确率指标
-            accuracy.update(output.cpu(), targets)
+            # 获取预测标签
+            pred_label = torch.argmax(output, dim=1).cpu().item()
+            predictions.append(pred_label)
     
-    # 打印测试准确率
-    print(f"测试准确率: {(accuracy.compute().item() * 100):.3f}%")
+    # 保存预测结果
+    print("正在保存预测结果...")
+    
+    # 按文件分组预测结果
+    file_predictions = {}
+    for idx, pred_label in enumerate(predictions):
+        file_path, start, end = test_ds.file_info[idx]
+        file_key = Path(file_path).name
+        if file_key not in file_predictions:
+            file_predictions[file_key] = []
+        file_predictions[file_key].append((start, end, pred_label))
+    
+    # 为每个文件生成预测结果CSV
+    for file_name, pred_info in file_predictions.items():
+        # 读取原始文件
+        original_file = TEST_DIR / file_name
+        df = pd.read_csv(original_file)
+        
+        # 创建预测结果列
+        df['predicted_label'] = df['label'] if 'label' in df.columns else 0
+        
+        # 根据预测结果更新标签
+        for start, end, pred_label in pred_info:
+            df.loc[start:end-1, 'predicted_label'] = pred_label
+        
+        # 保存带预测结果的CSV文件，确保只添加一个hdc后缀
+        output_file = TEST_DIR / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
+        df.to_csv(output_file, index=False)
+        print(f"已保存预测结果到: {output_file}")
+    
+    print("所有预测结果已保存")
+    return True
+
+
+# ======================================
+# 主函数
+# ======================================
+def main():
+    """训练模型并进行预测"""
+    # 训练模型
+    if not train_model():
+        return
+    
+    # 进行预测
+    if not predict_model():
+        return
+    
+    print("\n=== 训练和预测完成 ===")
 
 
 if __name__ == "__main__":
-    # 运行实验
-    experiment()
+    # 运行主函数
+    main()
