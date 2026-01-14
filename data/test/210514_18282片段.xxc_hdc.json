@@ -1,3 +1,98 @@
 {
-  "annotations": []
+  "annotations": [
+    {
+      "id": "1000",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 897,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 898,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 899,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 900,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 905,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 907,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 908,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 909,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 910,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 912,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 913,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 914,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 915,
+          "channel": 8,
+          "depth": 152.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 897,
+      "end_E": 915,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-01-14T15:12:02.076058"
+    }
+  ]
 }
