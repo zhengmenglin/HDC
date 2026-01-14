@@ -60,12 +60,8 @@ def test_full_pipeline():
             annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
             annotation_path = str(annotation_file) if annotation_file.exists() else None
             
-            # 检查是否已存在CSV文件
+            # 强制重新转换所有文件
             output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
-            if output_csv.exists():
-                print(f"✓ CSV文件已存在，跳过转换: {data_file.name}")
-                train_csv_files.append(str(output_csv))
-                continue
             
             # 转换文件，即使没有标注文件也转换
             try:
@@ -106,12 +102,8 @@ def test_full_pipeline():
             annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
             annotation_path = str(annotation_file) if annotation_file.exists() else None
             
-            # 检查是否已存在CSV文件
+            # 强制重新转换所有文件
             output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
-            if output_csv.exists():
-                print(f"✓ CSV文件已存在，跳过转换: {data_file.name}")
-                test_csv_files.append(str(output_csv))
-                continue
             
             # 转换文件，即使没有标注文件也转换
             try:
