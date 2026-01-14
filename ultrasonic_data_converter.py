@@ -122,7 +122,7 @@ class UltrasonicDataConverter:
                     
                     # 检查b1_data是否是嵌套列表
                     if b1_data and isinstance(b1_data[0], list):
-                        # 多个B1数据项
+                        # 情况1：嵌套列表，每个子列表是一个B1数据项
                         for b_item in b1_data:
                             if len(b_item) >= 5:  # 确保有足够的数据
                                 channel = int(b_item[0])  # 通道直接使用原始值
@@ -133,15 +133,19 @@ class UltrasonicDataConverter:
                                     db_value = b_item[3] if len(b_item) > 3 else amplitude
 
                                     e_data[e][channel] = [depth, amplitude, db_value]
-                    elif len(b1_data) >= 5:  # 单个B1数据项
-                        channel = int(b1_data[0])  # 通道直接使用原始值
-                        if 1 <= channel <= 9:  # 通道范围1-9
-                            depth = b1_data[1]
-                            amplitude = b1_data[2]
-                            # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
-                            db_value = b1_data[3] if len(b1_data) > 3 else amplitude
+                    elif len(b1_data) >= 5:  # 扁平列表，每5个元素是一个B1数据项
+                        # 情况2：扁平列表，包含多个B1数据项
+                        # 例如: [2.0,136.0,100.0,257.0,176.0,8.0,126.0,100.0,257.0,176.0] 代表两个B1数据项
+                        for i in range(0, len(b1_data), 5):
+                            if i + 4 < len(b1_data):  # 确保有足够的数据（i到i+4共5个元素）
+                                channel = int(b1_data[i])  # 通道直接使用原始值
+                                if 1 <= channel <= 9:  # 通道范围1-9
+                                    depth = b1_data[i+1]
+                                    amplitude = b1_data[i+2]
+                                    # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
+                                    db_value = b1_data[i+3] if len(b1_data) > i+3 else amplitude
 
-                            e_data[e][channel] = [depth, amplitude, db_value]
+                                    e_data[e][channel] = [depth, amplitude, db_value]
 
         return e_data
 

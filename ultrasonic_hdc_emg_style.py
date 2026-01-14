@@ -28,13 +28,11 @@ NUM_LEVELS = 21
 # 批处理大小，每次训练使用的样本数
 BATCH_SIZE = 1
 # 窗口大小，每个样本包含的编码值数量
-WINDOW = 256
+WINDOW = 128
+# 滑动窗口步长
+STEP = 64
 # 通道数，超声波传感器的通道数量
 CHANNELS = 9
-# 降采样因子，减少数据维度
-DOWNSAMPLE = 5
-# 降采样索引，用于从窗口中选择采样点
-SUBSAMPLES = torch.arange(0, WINDOW, int(WINDOW / DOWNSAMPLE))
 # N-gram大小，用于捕获序列数据的时序关系
 N_GRAM_SIZE = 4
 
@@ -47,19 +45,7 @@ MODEL_PATH = Path(r"d:\HDC\models\hdc_model.pth")
 MODEL_PATH.parent.mkdir(exist_ok=True)
 
 
-# ======================================
-# 数据转换函数
-# ======================================
-def transform(x):
-    """降采样转换，减少数据维度
-    
-    Args:
-        x: 输入数据，形状为 [window_size, channels]
-        
-    Returns:
-        降采样后的数据，形状为 [downsample_size, channels]
-    """
-    return x[SUBSAMPLES]
+
 
 
 # ======================================
@@ -70,12 +56,10 @@ class UltrasonicDataset(data.Dataset):
     
     Args:
         data_dir: 数据目录路径
-        transform: 数据转换函数
         is_train: 是否为训练模式
     """
-    def __init__(self, data_dir, transform=None, is_train=True):
+    def __init__(self, data_dir, is_train=True):
         self.data_dir = data_dir
-        self.transform = transform
         self.is_train = is_train
         self.samples = []  # 存储所有样本
         self.labels = []   # 存储对应标签
@@ -119,7 +103,7 @@ class UltrasonicDataset(data.Dataset):
             file_indices = []
             
             # 滑动窗口生成循环
-            for start in range(0, len(encodings) - WINDOW + 1, WINDOW):
+            for start in range(0, len(encodings) - WINDOW + 1, STEP):
                 end = start + WINDOW
                 
                 # 提取窗口内的通道数据，形状为 [window_size, channels]
@@ -171,10 +155,6 @@ class UltrasonicDataset(data.Dataset):
         # 转换为PyTorch张量
         sample = torch.from_numpy(sample)
         
-        # 应用数据转换
-        if self.transform:
-            sample = self.transform(sample)
-        
         return sample, label
 
 
@@ -188,14 +168,17 @@ class Encoder(nn.Module):
         out_features: 输出超维向量的维度
         timestamps: 输入时序数据的时间戳数量
         channels: 输入数据的通道数量
+        n_gram_size: n-gram大小，用于捕获时序关系
     """
-    def __init__(self, out_features, timestamps, channels):
+    def __init__(self, out_features, timestamps, channels, n_gram_size=N_GRAM_SIZE):
         super(Encoder, self).__init__()
         
         # 通道嵌入层，将每个通道映射到超维空间
         self.channels = embeddings.Random(channels, out_features)
         # 信号嵌入层，将连续信号值映射到超维空间
         self.signals = embeddings.Level(NUM_LEVELS, out_features, high=20)
+        # n-gram大小
+        self.n_gram_size = n_gram_size
     
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """前向传播，将输入转换为超维向量
@@ -214,7 +197,7 @@ class Encoder(nn.Module):
         # 使用multiset聚合样本
         samples = torchhd.multiset(samples)
         # 使用n-gram捕获时序关系
-        sample_hv = torchhd.ngrams(samples, n=N_GRAM_SIZE)
+        sample_hv = torchhd.ngrams(samples, n=self.n_gram_size)
         # 硬量化，将超维向量转换为二进制向量
         return torchhd.hard_quantize(sample_hv)
 
@@ -222,12 +205,16 @@ class Encoder(nn.Module):
 # ======================================
 # 训练函数
 # ======================================
-def train_model():
-    """使用训练数据训练HDC模型"""
-    print("开始模型训练...")
+def train_model(n_gram_size=N_GRAM_SIZE):
+    """使用训练数据训练HDC模型
+    
+    Args:
+        n_gram_size: N-gram大小，用于捕获时序关系
+    """
+    print(f"开始模型训练... (N_GRAM_SIZE: {n_gram_size}, 窗口大小: {WINDOW}, 滑动步长: {STEP})")
     
     # 加载训练数据集
-    train_ds = UltrasonicDataset(TRAIN_DIR, transform=transform, is_train=True)
+    train_ds = UltrasonicDataset(TRAIN_DIR, is_train=True)
     
     # 创建数据加载器
     train_ld = data.DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
@@ -248,9 +235,9 @@ def train_model():
         print("警告: 未找到标签，使用 1 个类别")
     
     # 初始化编码器
-    # 样本形状: [DOWNSAMPLE, channels]
+    # 样本形状: [downsample_factor, channels]
     sample_shape = train_ds[0][0].shape
-    encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1])
+    encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1], n_gram_size=n_gram_size)
     encode = encode.to(device)
     
     # 初始化模型，使用Centroid（质心）模型
@@ -277,7 +264,8 @@ def train_model():
         'encoder_state_dict': encode.state_dict(),
         'model_state_dict': model.state_dict(),
         'num_classes': num_classes,
-        'sample_shape': sample_shape
+        'sample_shape': sample_shape,
+        'n_gram_size': n_gram_size
     }, MODEL_PATH)
     
     print(f"模型训练完成，已保存到: {MODEL_PATH}")
@@ -287,8 +275,12 @@ def train_model():
 # ======================================
 # 预测函数
 # ======================================
-def predict_model():
-    """使用训练好的模型对测试数据进行预测"""
+def predict_model(data_dir=TEST_DIR):
+    """使用训练好的模型对数据进行预测
+    
+    Args:
+        data_dir: 预测数据目录，默认使用测试数据目录
+    """
     print("开始模型预测...")
     
     # 检查模型文件是否存在
@@ -299,9 +291,13 @@ def predict_model():
     # 加载模型和编码器
     checkpoint = torch.load(MODEL_PATH, weights_only=False)
     
+    # 获取模型训练时的N_GRAM_SIZE
+    n_gram_size = checkpoint.get('n_gram_size', N_GRAM_SIZE)
+    print(f"预测时使用模型训练参数: N_GRAM_SIZE={n_gram_size}, 窗口大小: {WINDOW}, 滑动步长: {STEP}")
+    
     # 初始化编码器和模型
     sample_shape = checkpoint['sample_shape']
-    encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1])
+    encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1], n_gram_size=n_gram_size)
     encode.load_state_dict(checkpoint['encoder_state_dict'])
     encode = encode.to(device)
     encode.eval()
@@ -312,19 +308,19 @@ def predict_model():
     model = model.to(device)
     model.eval()
     
-    # 加载测试数据集
-    test_ds = UltrasonicDataset(TEST_DIR, transform=transform, is_train=False)
+    # 加载数据集，使用与训练时相同的窗口大小和滑动步长
+    test_ds = UltrasonicDataset(data_dir, is_train=False)
     
     # 创建数据加载器
     test_ld = data.DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
     
     # 检查数据集是否为空
     if len(test_ds) == 0:
-        print("错误: 测试数据集为空！")
+        print(f"错误: {data_dir} 目录下的数据集为空！")
         return False
     
     # 执行预测
-    print("正在对测试数据进行预测...")
+    print(f"正在对 {data_dir} 目录下的数据进行预测...")
     predictions = []
     with torch.no_grad():
         for samples, targets in tqdm(test_ld, desc="预测中"):
@@ -353,7 +349,7 @@ def predict_model():
     # 为每个文件生成预测结果CSV
     for file_name, pred_info in file_predictions.items():
         # 读取原始文件
-        original_file = TEST_DIR / file_name
+        original_file = data_dir / file_name
         df = pd.read_csv(original_file)
         
         # 创建预测结果列
@@ -364,7 +360,7 @@ def predict_model():
             df.loc[start:end-1, 'predicted_label'] = pred_label
         
         # 保存带预测结果的CSV文件，确保只添加一个hdc后缀
-        output_file = TEST_DIR / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
+        output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
         df.to_csv(output_file, index=False)
         print(f"已保存预测结果到: {output_file}")
     

@@ -128,11 +128,38 @@ class AnnotationManager:
                     # 先收集所有已存在的ID
                     existing_ids = set(anno["id"] for anno in self.annotations)
                     
-                    # 只添加新的标注（ID不存在的）
+                    # 计算当前最大ID，用于生成新ID
+                    current_max_id = max(int(anno["id"]) for anno in self.annotations) if self.annotations else 0
+                    next_id = current_max_id + 1
+                    
+                    # 处理每个加载的标注
                     for anno in loaded_annotations:
                         if anno["id"] not in existing_ids:
+                            # ID不存在，直接添加
                             self.annotations.append(anno)
                             existing_ids.add(anno["id"])
+                            # 更新最大ID
+                            if int(anno["id"]) > current_max_id:
+                                current_max_id = int(anno["id"])
+                                next_id = current_max_id + 1
+                        else:
+                            # ID已存在，生成新的唯一ID
+                            new_id = str(next_id)
+                            while new_id in existing_ids:
+                                next_id += 1
+                                new_id = str(next_id)
+                            
+                            # 更新标注的ID
+                            anno_copy = anno.copy()
+                            anno_copy["id"] = new_id
+                            
+                            # 添加到标注列表
+                            self.annotations.append(anno_copy)
+                            existing_ids.add(new_id)
+                            
+                            # 更新ID计数器
+                            next_id += 1
+                            current_max_id = next_id - 1
                 
                 # 更新ID计数器
                 if self.annotations:

@@ -1065,7 +1065,7 @@ class MainWindow(QMainWindow):
             hdc_annotation_file_path = os.path.join(json_dir, hdc_annotation_filename)
             
             if os.path.exists(hdc_annotation_file_path):
-                self.annotation_manager.load_annotations(hdc_annotation_file_path)
+                self.annotation_manager.load_annotations(hdc_annotation_file_path, replace=False)
                 self.status_bar.showMessage(
                     f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )

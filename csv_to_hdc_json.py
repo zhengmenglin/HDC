@@ -115,7 +115,7 @@ class CsvToHdcJsonConverter:
             hdc.json格式的字典
         """
         annotations = []
-        cluster_id = 100  # 自动标注ID从100开始
+        cluster_id = 1000  # 自动标注ID从1000开始，减少与手动标注ID冲突的概率
         
         # 检查是否有predicted_label列，优先使用预测结果
         label_col = 'predicted_label' if 'predicted_label' in clustered_df.columns else 'label'
