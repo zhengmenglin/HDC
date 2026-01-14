@@ -103,6 +103,42 @@ class CsvToHdcJsonConverter:
         
         return df
     
+    def extract_beam_offset(self, original_json_path: str) -> Dict[int, float]:
+        """
+        从原始JSON文件中提取拼孔值（BeamOffset）
+        
+        Args:
+            original_json_path: 原始JSON文件路径
+            
+        Returns:
+            通道到拼孔值的映射
+        """
+        beam_offset_map = {}
+        
+        if not os.path.exists(original_json_path):
+            return beam_offset_map
+        
+        try:
+            with open(original_json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # 提取配置信息（第一个元素通常是配置）
+            if data and isinstance(data[0], dict):
+                config_item = data[0]
+                if 'E' in config_item and isinstance(config_item['E'], int) and config_item['E'] == 1:
+                    if 'BeamOffset' in config_item and isinstance(config_item['BeamOffset'], list):
+                        beam_offset = config_item['BeamOffset']
+                        # BeamOffset格式：[通道号, 拼孔值, 通道号, 拼孔值, ...]
+                        for i in range(0, len(beam_offset), 2):
+                            if i + 1 < len(beam_offset):
+                                channel = int(beam_offset[i])
+                                offset = beam_offset[i + 1]
+                                beam_offset_map[channel] = offset
+        except Exception as e:
+            print(f"提取拼孔值时出错: {e}")
+        
+        return beam_offset_map
+    
     def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str) -> Dict:
         """
         生成hdc.json格式的数据
@@ -119,6 +155,16 @@ class CsvToHdcJsonConverter:
         
         # 检查是否有predicted_label列，优先使用预测结果
         label_col = 'predicted_label' if 'predicted_label' in clustered_df.columns else 'label'
+        
+        # 从原始JSON文件中提取拼孔值
+        # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
+        csv_path = Path(original_csv_path)
+        # 处理文件名：例如 1_hdc.csv -> 1.json
+        original_stem = csv_path.stem.replace('_hdc', '')
+        original_json_path = str(csv_path.parent / f"{original_stem}.json")
+        # 提取拼孔值映射
+        beam_offset_map = self.extract_beam_offset(original_json_path)
+        print(f"Using beam offset map: {beam_offset_map} for {original_csv_path}")
         
         # 按簇分组
         for cluster in clustered_df['cluster'].unique():
@@ -145,8 +191,13 @@ class CsvToHdcJsonConverter:
                         break
                 
                 if channel is not None and depth is not None:
+                    # 获取该通道的拼孔值
+                    offset = beam_offset_map.get(channel, 0)
+                    # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                    original_e = int(row['encoding']) + offset
+                    
                     points.append({
-                        "e": int(row['encoding']),
+                        "e": original_e,
                         "channel": channel,
                         "depth": float(depth),
                         "amplitude": 100.0  # 默认幅度值

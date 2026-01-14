@@ -50,6 +50,9 @@ class UltrasonicDataConverter:
 
         # 通道映射 (0-8对应实际的通道1-9)
         self.channel_mapping = {i: i+1 for i in range(9)}
+        
+        # 拼孔值映射 (通道到拼孔值的映射)
+        self.beam_offset_map = {}
 
     def load_json_data(self, json_file: str) -> Tuple[List[Dict], Dict]:
         """
@@ -74,6 +77,17 @@ class UltrasonicDataConverter:
             if 'E' in config_item and isinstance(config_item['E'], int) and config_item['E'] == 1:
                 config = config_item
                 data_list = data[1:]  # 跳过配置项
+                
+                # 提取拼孔值（BeamOffset）并创建通道到拼孔值的映射
+                if 'BeamOffset' in config_item and isinstance(config_item['BeamOffset'], list):
+                    beam_offset = config_item['BeamOffset']
+                    # BeamOffset格式：[通道号, 拼孔值, 通道号, 拼孔值, ...]
+                    for i in range(0, len(beam_offset), 2):
+                        if i + 1 < len(beam_offset):
+                            channel = int(beam_offset[i])
+                            offset = beam_offset[i + 1]
+                            self.beam_offset_map[channel] = offset
+                    print(f"Loaded beam offset map: {self.beam_offset_map}")
             else:
                 data_list = data
 
@@ -205,7 +219,26 @@ class UltrasonicDataConverter:
             channel_data = e_data[e]
             
             # 初始化行数据：编码值 + 9通道深度值（初始为0） + 类别
-            row = [e] + [0.0] * 9 + [0]
+            # 编码值初始化为原始E值，后续根据通道拼孔值调整
+            # 注意：由于每个E值可能对应多个通道，这里使用最小的编码值
+            # 作为该行的编码值，确保与原始数据一致
+            encoding_values = []
+            
+            # 先收集所有通道的编码值
+            for channel in range(1, 10):  # 通道1-9
+                if channel in channel_data:
+                    # 计算该通道的编码值：编码值 = 原始E值 - 对应通道的拼孔值
+                    offset = self.beam_offset_map.get(channel, 0)
+                    encoding_values.append(e - offset)
+            
+            # 如果没有通道数据，使用原始E值作为编码值
+            if encoding_values:
+                # 使用最小的编码值作为该行的编码值
+                encoding = min(encoding_values)
+            else:
+                encoding = e
+            
+            row = [encoding] + [0.0] * 9 + [0]
             
             # 填充各通道的深度值
             for channel in range(1, 10):  # 通道1-9
