@@ -48,8 +48,7 @@ class UltrasonicDataConverter:
             "正常": 0
         }
 
-        # 通道映射 (0-8对应实际的通道1-9)
-        self.channel_mapping = {i: i+1 for i in range(9)}
+        # 通道直接使用0-8，不再映射
         
         # 拼孔值映射 (通道到拼孔值的映射)
         self.beam_offset_map = {}
@@ -140,7 +139,7 @@ class UltrasonicDataConverter:
                         for b_item in b1_data:
                             if len(b_item) >= 5:  # 确保有足够的数据
                                 channel = int(b_item[0])  # 通道直接使用原始值
-                                if 1 <= channel <= 9:  # 通道范围1-9
+                                if 0 <= channel <= 8:  # 通道范围0-8
                                     depth = b_item[1]
                                     amplitude = b_item[2]
                                     # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
@@ -153,7 +152,7 @@ class UltrasonicDataConverter:
                         for i in range(0, len(b1_data), 5):
                             if i + 4 < len(b1_data):  # 确保有足够的数据（i到i+4共5个元素）
                                 channel = int(b1_data[i])  # 通道直接使用原始值
-                                if 1 <= channel <= 9:  # 通道范围1-9
+                                if 0 <= channel <= 8:  # 通道范围0-8
                                     depth = b1_data[i+1]
                                     amplitude = b1_data[i+2]
                                     # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
@@ -225,7 +224,7 @@ class UltrasonicDataConverter:
             encoding_values = []
             
             # 先收集所有通道的编码值
-            for channel in range(1, 10):  # 通道1-9
+            for channel in range(9):  # 通道0-8
                 if channel in channel_data:
                     # 计算该通道的编码值：编码值 = 原始E值 - 对应通道的拼孔值
                     offset = self.beam_offset_map.get(channel, 0)
@@ -241,9 +240,9 @@ class UltrasonicDataConverter:
             row = [encoding] + [0.0] * 9 + [0]
             
             # 填充各通道的深度值
-            for channel in range(1, 10):  # 通道1-9
+            for channel in range(9):  # 通道0-8
                 if channel in channel_data:
-                    row[channel] = channel_data[channel][0]  # 第0个元素是深度值
+                    row[channel+1] = channel_data[channel][0]  # 第0个元素是深度值，row[0]是编码值，通道数据从row[1]开始
             
             # 设置类别
             row[-1] = e_labels.get(e, 0)  # 默认为0（正常）
@@ -323,9 +322,9 @@ class UltrasonicDataConverter:
             for win_pos, e in enumerate(window_es):
                 channel_data = e_data[e]
                 
-                for channel in range(1, 10):  # 通道1-9
+                for channel in range(9):  # 通道0-8
                     if channel in channel_data:
-                        window_data[channel-1, win_pos] = channel_data[channel]
+                        window_data[channel, win_pos] = channel_data[channel]
 
             # 确定窗口标签（使用窗口内出现最多的标签）
             window_labels = []

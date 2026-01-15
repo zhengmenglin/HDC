@@ -186,7 +186,7 @@ class CsvToHdcJsonConverter:
                 depth = None
                 for i in range(9):
                     if row[f'channel_{i}'] != 0:
-                        channel = i + 1  # 通道号从1开始
+                        channel = i  # 通道号直接使用0-8
                         depth = row[f'channel_{i}']
                         break
                 

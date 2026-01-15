@@ -352,21 +352,26 @@ def predict_model(data_dir=TEST_DIR):
     
     # 为每个文件生成预测结果CSV
     for file_name, pred_info in file_predictions.items():
-        # 读取原始文件
-        original_file = data_dir / file_name
-        df = pd.read_csv(original_file)
-        
-        # 创建预测结果列
-        df['predicted_label'] = df['label'] if 'label' in df.columns else 0
-        
-        # 根据预测结果更新标签
-        for start, end, pred_label in pred_info:
-            df.loc[start:end-1, 'predicted_label'] = pred_label
-        
-        # 保存带预测结果的CSV文件，确保只添加一个hdc后缀
-        output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
-        df.to_csv(output_file, index=False)
-        print(f"已保存预测结果到: {output_file}")
+        try:
+            # 读取原始文件
+            original_file = data_dir / file_name
+            df = pd.read_csv(original_file)
+            
+            # 创建预测结果列
+            df['predicted_label'] = df['label'] if 'label' in df.columns else 0
+            
+            # 根据预测结果更新标签
+            for start, end, pred_label in pred_info:
+                df.loc[start:end-1, 'predicted_label'] = pred_label
+            
+            # 保存带预测结果的CSV文件，确保只添加一个hdc后缀
+            output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
+            df.to_csv(output_file, index=False)
+            print(f"已保存预测结果到: {output_file}")
+        except PermissionError as e:
+            print(f"警告: 无法写入文件 {file_name}，权限不足: {e}")
+        except Exception as e:
+            print(f"警告: 处理文件 {file_name} 时出错: {e}")
     
     print("所有预测结果已保存")
     return True

@@ -714,7 +714,7 @@ class BScanCanvas(FigureCanvas):
                         # 先计算原始深度
                         raw_depth = p['depth'] * cos_horizontal * cos_pitch
                         # 然后根据显示模式调整深度，处理二次反射
-                        adjusted_depth = parser.calculate_adjusted_depth(channel, raw_depth, display_mode)
+                        adjusted_depth = parser.calculate_adjusted_depth(p['channel'], raw_depth, display_mode)
                         
                         # 检查点是B1还是B2，使用对应的计算公式
                         # 先尝试在过滤后的b1_points中查找
@@ -741,12 +741,13 @@ class BScanCanvas(FigureCanvas):
                 min_depth = min(depth_values)
                 max_depth = max(depth_values)
 
-                # 根据标注ID判断是手动标注、自动标注还是HDC标注
+                # 根据标注ID判断是手动标注还是HDC标注
+                # HDC标注ID从100开始
                 annotation_id = int(annotation['id'])
-                is_auto = annotation_id >= 100
-                is_hdc = annotation_id >= 100  # HDC标注ID从100开始
+                is_hdc = annotation_id >= 100
                 
-                # 设置颜色：HDC标注使用独特颜色，自动标注使用不同的浅色，手动标注使用灰色
+                # 设置颜色：HDC标注使用独特颜色，手动标注使用灰色
+                # 统一处理逻辑，仅在颜色上区分
                 if is_hdc:
                     if annotation['type'] == '伤损':
                         # HDC识别的伤损使用亮绿色
@@ -756,15 +757,6 @@ class BScanCanvas(FigureCanvas):
                         # HDC识别的结构使用亮蓝色
                         box_color = '#87CEFA'  # 亮蓝色
                         text_color = '#00008B'  # 深蓝色
-                elif is_auto:
-                    if annotation['type'] == '伤损':
-                        # 其他自动识别的伤损使用浅红色
-                        box_color = '#FFB6C1'  # 浅粉色
-                        text_color = '#FF6B6B'  # 浅红色
-                    else:
-                        # 其他自动识别的结构使用浅蓝色
-                        box_color = '#B0E0E6'  # 淡蓝色
-                        text_color = '#6495ED'  # 天蓝色
                 else:
                     # 手动标注使用灰色
                     box_color = 'gray'

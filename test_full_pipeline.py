@@ -272,7 +272,7 @@ def test_accuracy():
     
     测试不同的窗口大小和滑动窗口步长，计算识别正确率
     正确率定义为：识别正确的点数 / 所有识别出的点数
-    只在训练数据集上进行预测和准确率计算
+    使用train数据训练，对test和train数据都进行预测
     """
     print("\n=== 开始准确率测试 ===")
     print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -281,7 +281,28 @@ def test_accuracy():
     # 配置参数
     DIMENSIONS = 10000
     TRAIN_DATA_DIR = Path(r"d:\HDC\data\train")
+    TEST_DATA_DIR = Path(r"d:\HDC\data\test")
     OUTPUT_DIR = Path("accuracy_test_results")
+    
+    # 测试开始时删除train和test目录下所有hdc.json和hdc.csv文件
+    print("\n=== 删除旧的hdc.json和hdc.csv文件 ===")
+    for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
+        print(f"清理目录: {data_dir}")
+        # 删除hdc.csv文件
+        for file_path in data_dir.glob("*_hdc.csv"):
+            try:
+                file_path.unlink()
+                print(f"✓ 删除文件: {file_path.name}")
+            except Exception as e:
+                print(f"✗ 删除文件失败 {file_path.name}: {e}")
+        # 删除hdc.json文件
+        for file_path in data_dir.glob("*_hdc.json"):
+            try:
+                file_path.unlink()
+                print(f"✓ 删除文件: {file_path.name}")
+            except Exception as e:
+                print(f"✗ 删除文件失败 {file_path.name}: {e}")
+    print("=== 清理完成 ===")
     
     # 创建输出目录
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -300,12 +321,24 @@ def test_accuracy():
         for ext in ['*.json', '*.xxc.json']:
             train_files.extend(TRAIN_DATA_DIR.glob(ext))
         
+        # 获取所有测试数据文件
+        test_files = []
+        for ext in ['*.json', '*.xxc.json']:
+            test_files.extend(TEST_DATA_DIR.glob(ext))
+        
         # 过滤掉标注文件
         train_files = [f for f in train_files if '标注' not in f.name]
+        test_files = [f for f in test_files if '标注' not in f.name]
         
         if not train_files:
             print("错误: 没有找到训练数据文件")
             return False
+        
+        if not test_files:
+            print("警告: 没有找到测试数据文件，将只使用训练数据测试")
+        
+        # 合并训练和测试文件用于最终测试
+        all_test_files = train_files + test_files
         
         # 为每个测试配置训练模型并计算准确率
         for config in test_configs:
@@ -315,12 +348,32 @@ def test_accuracy():
             
             print(f"\n--- 测试配置: 窗口大小={window}, 滑动步长={step}, N_GRAM_SIZE={n_gram} ---")
             
-            # 1. 数据转换：训练数据
-            print("\n1. 转换训练数据...")
+            # 1. 数据转换：训练数据和测试数据
+            print("\n1. 数据转换...")
             converter = UltrasonicDataConverter()
             
             # 转换训练数据
+            print("\n1.1 转换训练数据...")
             for data_file in train_files:
+                if '标注' in data_file.name:
+                    continue
+                
+                annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
+                annotation_path = str(annotation_file) if annotation_file.exists() else None
+                
+                output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
+                
+                try:
+                    converter.convert_single_file(
+                        str(data_file), annotation_path, str(output_csv)
+                    )
+                except Exception as e:
+                    print(f"✗ 转换失败 {data_file.name}: {e}")
+                    continue
+            
+            # 转换测试数据
+            print("\n1.2 转换测试数据...")
+            for data_file in test_files:
                 if '标注' in data_file.name:
                     continue
                 
@@ -350,8 +403,25 @@ def test_accuracy():
                 traceback.print_exc()
                 continue
             
-            # 3. 模型预测（在训练数据集上进行预测）
+            # 3. 模型预测：先预测test，再预测train
             print("\n3. 模型预测...")
+            
+            # 预测测试数据
+            if test_files:
+                print("\n3.1 预测测试数据...")
+                try:
+                    predict_success = predict_model(data_dir=TEST_DATA_DIR)
+                    if not predict_success:
+                        print("✗ 模型预测失败")
+                        continue
+                except Exception as e:
+                    print(f"✗ 模型预测失败: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+            
+            # 预测训练数据
+            print("\n3.2 预测训练数据...")
             try:
                 predict_success = predict_model(data_dir=TRAIN_DATA_DIR)
                 if not predict_success:
@@ -368,7 +438,10 @@ def test_accuracy():
             total_accuracy = 0.0
             file_count = 0
             
-            for data_file in train_files:
+            # 合并训练和测试文件
+            all_files = train_files + test_files
+            
+            for data_file in all_files:
                 if '标注' in data_file.name:
                     continue
                 
@@ -395,6 +468,30 @@ def test_accuracy():
                 avg_accuracy = 0.0
             
             print(f"\n  平均准确率: {avg_accuracy:.4f}")
+            
+            # 5. CSV到HDC JSON转换
+            print("\n5. CSV到HDC JSON转换...")
+            try:
+                # 导入CSV到HDC JSON转换器
+                from csv_to_hdc_json import CsvToHdcJsonConverter
+                
+                converter = CsvToHdcJsonConverter()
+                
+                # 转换所有测试CSV文件
+                if test_files:
+                    print(f"将 {TEST_DATA_DIR} 目录下的CSV文件转换为hdc.json格式")
+                    converter.batch_convert(str(TEST_DATA_DIR), eps=5.0, min_samples=5)
+                
+                # 转换所有训练CSV文件
+                print(f"将 {TRAIN_DATA_DIR} 目录下的CSV文件转换为hdc.json格式")
+                converter.batch_convert(str(TRAIN_DATA_DIR), eps=5.0, min_samples=5)
+                
+                print(f"✓ CSV到HDC JSON转换完成")
+            except Exception as e:
+                print(f"[FAIL] CSV到HDC JSON转换失败: {e}")
+                import traceback
+                traceback.print_exc()
+                # 继续执行，不中断测试
             
             # 保存测试结果
             test_results.append({
@@ -449,23 +546,14 @@ def main():
     print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*50)
     
-    # 选择测试类型
-    print("请选择测试类型:")
-    print("1. 完整管道测试")
-    print("2. 准确率测试")
-    
-    choice = input("输入选择 (1或2): ").strip()
-    
-    if choice == "1":
-        success = test_full_pipeline()
-    elif choice == "2":
-        success = test_accuracy()
-    else:
-        print("无效选择，退出测试")
-        success = False
+    # 直接运行方案2：准确率测试
+    success = test_accuracy()
     
     if success:
         print("\n✓ 测试成功完成！")
+        # 测试结束后自动运行main.py
+        print("\n=== 运行main.py ===")
+        os.system("python main.py")
         sys.exit(0)
     else:
         print("\n✗ 测试失败！")
