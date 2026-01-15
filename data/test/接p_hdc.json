@@ -63,6 +63,12 @@
           "amplitude": 100.0
         },
         {
+          "e": 196,
+          "channel": 6,
+          "depth": 103.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 192,
           "channel": 6,
           "depth": 108.0,
@@ -171,6 +177,12 @@
           "amplitude": 100.0
         },
         {
+          "e": 481,
+          "channel": 6,
+          "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 510,
           "channel": 6,
           "depth": 107.0,
@@ -237,36 +249,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 292,
-          "channel": 6,
-          "depth": 187.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 318,
-          "channel": 6,
-          "depth": 193.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 326,
-          "channel": 6,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 327,
-          "channel": 6,
-          "depth": 190.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 328,
-          "channel": 6,
-          "depth": 188.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 293,
           "channel": 6,
           "depth": 193.0,
@@ -303,6 +285,36 @@
           "amplitude": 100.0
         },
         {
+          "e": 303,
+          "channel": 6,
+          "depth": 193.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 318,
+          "channel": 6,
+          "depth": 193.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 326,
+          "channel": 6,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 327,
+          "channel": 6,
+          "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 328,
+          "channel": 6,
+          "depth": 188.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 333,
           "channel": 6,
           "depth": 108.0,
@@ -330,12 +342,6 @@
           "e": 337,
           "channel": 6,
           "depth": 103.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 341,
-          "channel": 6,
-          "depth": 95.0,
           "amplitude": 100.0
         },
         {
@@ -450,6 +456,12 @@
           "e": 421,
           "channel": 6,
           "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 292,
+          "channel": 6,
+          "depth": 187.0,
           "amplitude": 100.0
         },
         {
@@ -673,7 +685,23 @@
           "channel": 6,
           "depth": 92.0,
           "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 186,
+      "end_E": 733,
+      "channels": [
+        6
+      ],
+      "timestamp": "2026-01-15T15:51:00.239952"
+    },
+    {
+      "id": "1039",
+      "type": "伤损",
+      "subtype": {
+        "id": "11",
+        "name": "螺孔裂纹"
+      },
+      "points": [
         {
           "e": 522,
           "channel": 6,
@@ -691,13 +719,23 @@
           "channel": 6,
           "depth": 190.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 525,
-          "channel": 6,
-          "depth": 191.0,
-          "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 522,
+      "end_E": 524,
+      "channels": [
+        6
+      ],
+      "timestamp": "2026-01-15T15:51:00.317298"
+    },
+    {
+      "id": "1040",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
         {
           "e": 549,
           "channel": 6,
@@ -769,7 +807,23 @@
           "channel": 6,
           "depth": 92.0,
           "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 549,
+      "end_E": 575,
+      "channels": [
+        6
+      ],
+      "timestamp": "2026-01-15T15:51:00.320607"
+    },
+    {
+      "id": "1045",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
         {
           "e": 630,
           "channel": 6,
@@ -795,11 +849,33 @@
           "amplitude": 100.0
         },
         {
+          "e": 635,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 632,
           "channel": 6,
           "depth": 100.0,
           "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 630,
+      "end_E": 635,
+      "channels": [
+        6
+      ],
+      "timestamp": "2026-01-15T15:51:00.329867"
+    },
+    {
+      "id": "1051",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
         {
           "e": 668,
           "channel": 6,
@@ -835,7 +911,23 @@
           "channel": 6,
           "depth": 92.0,
           "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 668,
+      "end_E": 673,
+      "channels": [
+        6
+      ],
+      "timestamp": "2026-01-15T15:51:00.340238"
+    },
+    {
+      "id": "1054",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
         {
           "e": 707,
           "channel": 6,
@@ -879,15 +971,15 @@
           "amplitude": 100.0
         }
       ],
-      "start_E": 186,
-      "end_E": 733,
+      "start_E": 707,
+      "end_E": 713,
       "channels": [
         6
       ],
-      "timestamp": "2026-01-15T15:19:00.934353"
+      "timestamp": "2026-01-15T15:51:00.345859"
     },
     {
-      "id": "1058",
+      "id": "1060",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -947,26 +1039,14 @@
           "channel": 6,
           "depth": 107.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 820,
-          "channel": 6,
-          "depth": 107.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 821,
-          "channel": 6,
-          "depth": 106.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 792,
-      "end_E": 821,
+      "end_E": 819,
       "channels": [
         6
       ],
-      "timestamp": "2026-01-15T15:19:01.048319"
+      "timestamp": "2026-01-15T15:51:00.357485"
     },
     {
       "id": "1001",
@@ -1318,14 +1398,14 @@
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:00.936328"
+      "timestamp": "2026-01-15T15:51:00.241920"
     },
     {
       "id": "1006",
       "type": "伤损",
       "subtype": {
-        "id": "13",
-        "name": "螺孔"
+        "id": "11",
+        "name": "螺孔裂纹"
       },
       "points": [
         {
@@ -1591,7 +1671,23 @@
           "channel": 7,
           "depth": 109.0,
           "amplitude": 100.0
-        },
+        }
+      ],
+      "start_E": 465,
+      "end_E": 761,
+      "channels": [
+        7
+      ],
+      "timestamp": "2026-01-15T15:51:00.256360"
+    },
+    {
+      "id": "1009",
+      "type": "伤损",
+      "subtype": {
+        "id": "13",
+        "name": "螺孔"
+      },
+      "points": [
         {
           "e": 472,
           "channel": 7,
@@ -1737,12 +1833,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 526,
-          "channel": 7,
-          "depth": 114.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 478,
           "channel": 7,
           "depth": 193.0,
@@ -1767,33 +1857,27 @@
           "amplitude": 100.0
         },
         {
-          "e": 482,
-          "channel": 7,
-          "depth": 194.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 484,
           "channel": 7,
           "depth": 194.0,
           "amplitude": 100.0
         },
         {
-          "e": 503,
+          "e": 507,
+          "channel": 7,
+          "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 540,
           "channel": 7,
           "depth": 189.0,
           "amplitude": 100.0
         },
         {
-          "e": 504,
+          "e": 550,
           "channel": 7,
-          "depth": 193.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 507,
-          "channel": 7,
-          "depth": 190.0,
+          "depth": 192.0,
           "amplitude": 100.0
         },
         {
@@ -1851,27 +1935,9 @@
           "amplitude": 100.0
         },
         {
-          "e": 537,
-          "channel": 7,
-          "depth": 191.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 538,
-          "channel": 7,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 539,
           "channel": 7,
           "depth": 194.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 540,
-          "channel": 7,
-          "depth": 189.0,
           "amplitude": 100.0
         },
         {
@@ -1884,12 +1950,6 @@
           "e": 549,
           "channel": 7,
           "depth": 191.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 550,
-          "channel": 7,
-          "depth": 192.0,
           "amplitude": 100.0
         },
         {
@@ -1929,12 +1989,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 565,
-          "channel": 7,
-          "depth": 190.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 566,
           "channel": 7,
           "depth": 192.0,
@@ -1968,84 +2022,6 @@
           "e": 576,
           "channel": 7,
           "depth": 189.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 577,
-          "channel": 7,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 608,
-          "channel": 7,
-          "depth": 190.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 609,
-          "channel": 7,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 610,
-          "channel": 7,
-          "depth": 193.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 631,
-          "channel": 7,
-          "depth": 190.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 632,
-          "channel": 7,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 633,
-          "channel": 7,
-          "depth": 194.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 634,
-          "channel": 7,
-          "depth": 96.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 636,
-          "channel": 7,
-          "depth": 100.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 637,
-          "channel": 7,
-          "depth": 101.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 638,
-          "channel": 7,
-          "depth": 103.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 639,
-          "channel": 7,
-          "depth": 103.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 670,
-          "channel": 7,
-          "depth": 110.0,
           "amplitude": 100.0
         },
         {
@@ -2160,6 +2136,78 @@
           "e": 679,
           "channel": 7,
           "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 608,
+          "channel": 7,
+          "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 609,
+          "channel": 7,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 610,
+          "channel": 7,
+          "depth": 193.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 631,
+          "channel": 7,
+          "depth": 190.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 632,
+          "channel": 7,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 633,
+          "channel": 7,
+          "depth": 194.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 634,
+          "channel": 7,
+          "depth": 96.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 636,
+          "channel": 7,
+          "depth": 100.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 637,
+          "channel": 7,
+          "depth": 101.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 638,
+          "channel": 7,
+          "depth": 103.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 639,
+          "channel": 7,
+          "depth": 103.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 670,
+          "channel": 7,
+          "depth": 110.0,
           "amplitude": 100.0
         },
         {
@@ -2425,23 +2473,17 @@
           "channel": 7,
           "depth": 107.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1038,
-          "channel": 7,
-          "depth": 109.0,
-          "amplitude": 100.0
         }
       ],
-      "start_E": 465,
-      "end_E": 1038,
+      "start_E": 472,
+      "end_E": 1037,
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:00.950547"
+      "timestamp": "2026-01-15T15:51:00.261762"
     },
     {
-      "id": "1034",
+      "id": "1035",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -2507,35 +2549,17 @@
           "channel": 7,
           "depth": 190.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 768,
-          "channel": 7,
-          "depth": 191.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 769,
-          "channel": 7,
-          "depth": 193.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 770,
-          "channel": 7,
-          "depth": 194.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 732,
-      "end_E": 770,
+      "end_E": 767,
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:01.002168"
+      "timestamp": "2026-01-15T15:51:00.310394"
     },
     {
-      "id": "1039",
+      "id": "1041",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -2620,10 +2644,10 @@
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:01.011348"
+      "timestamp": "2026-01-15T15:51:00.321577"
     },
     {
-      "id": "1046",
+      "id": "1048",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -2696,10 +2720,10 @@
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:01.024169"
+      "timestamp": "2026-01-15T15:51:00.334754"
     },
     {
-      "id": "1019",
+      "id": "1020",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -2772,10 +2796,10 @@
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:00.976193"
+      "timestamp": "2026-01-15T15:51:00.284711"
     },
     {
-      "id": "1060",
+      "id": "1062",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -2802,12 +2826,6 @@
         },
         {
           "e": 1098,
-          "channel": 7,
-          "depth": 103.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1099,
           "channel": 7,
           "depth": 103.0,
           "amplitude": 100.0
@@ -2854,7 +2872,7 @@
       "channels": [
         7
       ],
-      "timestamp": "2026-01-15T15:19:01.052263"
+      "timestamp": "2026-01-15T15:51:00.361297"
     },
     {
       "id": "1002",
@@ -3088,12 +3106,6 @@
         },
         {
           "e": 326,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 327,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4041,18 +4053,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 535,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 537,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 474,
           "channel": 8,
           "depth": 86.0,
@@ -4401,6 +4401,12 @@
           "amplitude": 100.0
         },
         {
+          "e": 493,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 494,
           "channel": 8,
           "depth": 192.0,
@@ -4431,25 +4437,7 @@
           "amplitude": 100.0
         },
         {
-          "e": 493,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 495,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 515,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 518,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4467,6 +4455,18 @@
           "amplitude": 100.0
         },
         {
+          "e": 522,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 523,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 524,
           "channel": 8,
           "depth": 192.0,
@@ -4479,7 +4479,49 @@
           "amplitude": 100.0
         },
         {
+          "e": 526,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 536,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 537,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 538,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 539,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 540,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 542,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 543,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4522,6 +4564,48 @@
         },
         {
           "e": 550,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 552,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 553,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 554,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 555,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 556,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 557,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 558,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4575,156 +4659,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 576,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 577,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 579,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 584,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 585,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 586,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 587,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 588,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 516,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 517,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 522,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 523,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 526,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 536,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 539,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 540,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 542,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 543,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 552,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 553,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 554,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 555,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 556,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 557,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 558,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 568,
           "channel": 8,
           "depth": 192.0,
@@ -4767,7 +4701,25 @@
           "amplitude": 100.0
         },
         {
+          "e": 576,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 577,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 578,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 579,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4786,6 +4738,36 @@
         },
         {
           "e": 583,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 584,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 585,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 586,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 587,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 588,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -4864,12 +4846,6 @@
         },
         {
           "e": 603,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 604,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -5907,12 +5883,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 1049,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 715,
           "channel": 8,
           "depth": 192.0,
@@ -6027,18 +5997,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 779,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 780,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 748,
           "channel": 8,
           "depth": 192.0,
@@ -6105,6 +6063,18 @@
           "amplitude": 100.0
         },
         {
+          "e": 779,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 780,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
           "e": 782,
           "channel": 8,
           "depth": 192.0,
@@ -6160,14 +6130,14 @@
         }
       ],
       "start_E": 282,
-      "end_E": 1049,
+      "end_E": 1048,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:00.941327"
+      "timestamp": "2026-01-15T15:51:00.246785"
     },
     {
-      "id": "1040",
+      "id": "1042",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -6318,10 +6288,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.012627"
+      "timestamp": "2026-01-15T15:51:00.322862"
     },
     {
-      "id": "1042",
+      "id": "1044",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -6634,10 +6604,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.016859"
+      "timestamp": "2026-01-15T15:51:00.327096"
     },
     {
-      "id": "1045",
+      "id": "1047",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -6782,10 +6752,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.021439"
+      "timestamp": "2026-01-15T15:51:00.331797"
     },
     {
-      "id": "1047",
+      "id": "1049",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -6846,10 +6816,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.025029"
+      "timestamp": "2026-01-15T15:51:00.335626"
     },
     {
-      "id": "1050",
+      "id": "1052",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -6940,10 +6910,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.031362"
+      "timestamp": "2026-01-15T15:51:00.341188"
     },
     {
-      "id": "1053",
+      "id": "1055",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -7028,10 +6998,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.037425"
+      "timestamp": "2026-01-15T15:51:00.346945"
     },
     {
-      "id": "1055",
+      "id": "1057",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -7074,10 +7044,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.042059"
+      "timestamp": "2026-01-15T15:51:00.351630"
     },
     {
-      "id": "1057",
+      "id": "1059",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -7164,6 +7134,12 @@
         },
         {
           "e": 1040,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1049,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -7546,10 +7522,10 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.046475"
+      "timestamp": "2026-01-15T15:51:00.355683"
     },
     {
-      "id": "1062",
+      "id": "1064",
       "type": "伤损",
       "subtype": {
         "id": "11",
@@ -7880,7 +7856,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-15T15:19:01.056266"
+      "timestamp": "2026-01-15T15:51:00.365334"
     }
   ]
 }

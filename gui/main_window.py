@@ -555,7 +555,7 @@ class BScanCanvas(FigureCanvas):
                 # 计算调整后的编码值和深度值
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
-                e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                e_vals = [p['e'] - beam_offset + (p['depth'] * cos_horizontal * sin_pitch)/3  for p in channel_data]
                 # 先计算原始深度
                 raw_depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 # 然后根据显示模式调整深度，处理二次反射
