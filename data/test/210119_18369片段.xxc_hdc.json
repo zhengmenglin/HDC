@@ -4,580 +4,262 @@
       "id": "1000",
       "type": "伤损",
       "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
+        "id": "13",
+        "name": "螺孔"
       },
       "points": [
         {
-          "e": 723,
+          "e": 834,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 726,
+          "e": 835,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 727,
+          "e": 836,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 728,
+          "e": 837,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 730,
+          "e": 838,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 839,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 840,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 842,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 843,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 844,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 845,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 846,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 847,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 848,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 849,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 850,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 852,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 853,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 854,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 855,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 856,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 857,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 858,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 859,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 860,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 864,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 865,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 723,
-      "end_E": 730,
+      "start_E": 834,
+      "end_E": 865,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-14T15:12:02.062073"
+      "timestamp": "2026-01-15T09:24:53.898266"
     },
     {
       "id": "1001",
       "type": "伤损",
       "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
+        "id": "13",
+        "name": "螺孔"
       },
       "points": [
         {
-          "e": 732,
-          "channel": 7,
-          "depth": 78.0,
+          "e": 820,
+          "channel": 4,
+          "depth": 88.0,
           "amplitude": 100.0
         },
         {
-          "e": 733,
-          "channel": 7,
-          "depth": 79.0,
+          "e": 822,
+          "channel": 4,
+          "depth": 87.0,
           "amplitude": 100.0
         },
         {
-          "e": 734,
-          "channel": 7,
+          "e": 823,
+          "channel": 4,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 824,
+          "channel": 4,
           "depth": 81.0,
           "amplitude": 100.0
         },
         {
-          "e": 735,
-          "channel": 7,
-          "depth": 83.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 736,
-          "channel": 7,
-          "depth": 84.0,
+          "e": 825,
+          "channel": 4,
+          "depth": 81.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 732,
-      "end_E": 736,
+      "start_E": 820,
+      "end_E": 825,
       "channels": [
-        7
+        4
       ],
-      "timestamp": "2026-01-14T15:12:02.062656"
+      "timestamp": "2026-01-15T09:24:53.898810"
     },
     {
       "id": "1002",
       "type": "伤损",
       "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
+        "id": "13",
+        "name": "螺孔"
       },
       "points": [
-        {
-          "e": 738,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 739,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 740,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 742,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 743,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 744,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 745,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 746,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 747,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 748,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 738,
-      "end_E": 748,
-      "channels": [
-        8
-      ],
-      "timestamp": "2026-01-14T15:12:02.063410"
-    },
-    {
-      "id": "1003",
-      "type": "伤损",
-      "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
-      },
-      "points": [
-        {
-          "e": 759,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 760,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 762,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 763,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 764,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 765,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 766,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 767,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 768,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 769,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 772,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 773,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 774,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 775,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 776,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 777,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 778,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 779,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 780,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 782,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 783,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 784,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 785,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 786,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 787,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 788,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 759,
-      "end_E": 788,
-      "channels": [
-        8
-      ],
-      "timestamp": "2026-01-14T15:12:02.064795"
-    },
-    {
-      "id": "1004",
-      "type": "伤损",
-      "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
-      },
-      "points": [
-        {
-          "e": 794,
-          "channel": 6,
-          "depth": 80.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 795,
-          "channel": 6,
-          "depth": 79.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 796,
-          "channel": 6,
-          "depth": 77.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 797,
-          "channel": 6,
-          "depth": 76.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 798,
-          "channel": 6,
-          "depth": 76.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 794,
-      "end_E": 798,
-      "channels": [
-        6
-      ],
-      "timestamp": "2026-01-14T15:12:02.065649"
-    },
-    {
-      "id": "1005",
-      "type": "伤损",
-      "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
-      },
-      "points": [
-        {
-          "e": 799,
-          "channel": 6,
-          "depth": 90.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 800,
-          "channel": 6,
-          "depth": 88.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 801,
-          "channel": 6,
-          "depth": 86.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 802,
-          "channel": 6,
-          "depth": 85.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 803,
-          "channel": 6,
-          "depth": 82.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 799,
-      "end_E": 803,
-      "channels": [
-        6
-      ],
-      "timestamp": "2026-01-14T15:12:02.066192"
-    },
-    {
-      "id": "1006",
-      "type": "伤损",
-      "subtype": {
-        "id": "11",
-        "name": "螺孔裂纹"
-      },
-      "points": [
-        {
-          "e": 823,
-          "channel": 6,
-          "depth": 38.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 824,
-          "channel": 6,
-          "depth": 36.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 825,
-          "channel": 6,
-          "depth": 35.0,
-          "amplitude": 100.0
-        },
         {
           "e": 826,
-          "channel": 6,
-          "depth": 33.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 827,
-          "channel": 6,
-          "depth": 31.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 828,
-          "channel": 6,
-          "depth": 30.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 829,
-          "channel": 6,
-          "depth": 28.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 830,
-          "channel": 6,
-          "depth": 26.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 823,
-      "end_E": 830,
-      "channels": [
-        6
-      ],
-      "timestamp": "2026-01-14T15:12:02.066821"
-    },
-    {
-      "id": "1007",
-      "type": "伤损",
-      "subtype": {
-        "id": "13",
-        "name": "螺孔"
-      },
-      "points": [
-        {
-          "e": 922,
-          "channel": 4,
-          "depth": 88.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 924,
-          "channel": 4,
-          "depth": 87.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 925,
-          "channel": 4,
-          "depth": 85.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 926,
-          "channel": 4,
-          "depth": 81.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 927,
-          "channel": 4,
-          "depth": 81.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 922,
-      "end_E": 927,
-      "channels": [
-        4
-      ],
-      "timestamp": "2026-01-14T15:12:02.067332"
-    },
-    {
-      "id": "1008",
-      "type": "伤损",
-      "subtype": {
-        "id": "13",
-        "name": "螺孔"
-      },
-      "points": [
-        {
-          "e": 928,
           "channel": 4,
           "depth": 78.0,
           "amplitude": 100.0
         },
         {
-          "e": 929,
+          "e": 827,
           "channel": 4,
           "depth": 76.0,
           "amplitude": 100.0
         },
         {
-          "e": 930,
+          "e": 828,
           "channel": 4,
           "depth": 75.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 928,
-      "end_E": 930,
+      "start_E": 826,
+      "end_E": 828,
       "channels": [
         4
       ],
-      "timestamp": "2026-01-14T15:12:02.067767"
+      "timestamp": "2026-01-15T09:24:53.899285"
     },
     {
-      "id": "1009",
+      "id": "1003",
       "type": "伤损",
       "subtype": {
         "id": "13",
@@ -585,134 +267,42 @@
       },
       "points": [
         {
-          "e": 946,
+          "e": 844,
           "channel": 4,
           "depth": 38.0,
           "amplitude": 100.0
         },
         {
-          "e": 947,
+          "e": 845,
           "channel": 4,
           "depth": 38.0,
           "amplitude": 100.0
         },
         {
-          "e": 948,
+          "e": 846,
           "channel": 4,
           "depth": 35.0,
           "amplitude": 100.0
         },
         {
-          "e": 949,
+          "e": 847,
           "channel": 4,
           "depth": 35.0,
           "amplitude": 100.0
         },
         {
-          "e": 950,
+          "e": 848,
           "channel": 4,
           "depth": 33.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 946,
-      "end_E": 950,
+      "start_E": 844,
+      "end_E": 848,
       "channels": [
         4
       ],
-      "timestamp": "2026-01-14T15:12:02.068260"
-    },
-    {
-      "id": "1010",
-      "type": "伤损",
-      "subtype": {
-        "id": "13",
-        "name": "螺孔"
-      },
-      "points": [
-        {
-          "e": 958,
-          "channel": 6,
-          "depth": 94.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 959,
-          "channel": 6,
-          "depth": 92.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 960,
-          "channel": 6,
-          "depth": 90.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 962,
-          "channel": 6,
-          "depth": 87.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 963,
-          "channel": 6,
-          "depth": 86.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 958,
-      "end_E": 963,
-      "channels": [
-        6
-      ],
-      "timestamp": "2026-01-14T15:12:02.068769"
-    },
-    {
-      "id": "1011",
-      "type": "伤损",
-      "subtype": {
-        "id": "13",
-        "name": "螺孔"
-      },
-      "points": [
-        {
-          "e": 984,
-          "channel": 5,
-          "depth": 119.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 985,
-          "channel": 5,
-          "depth": 112.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 986,
-          "channel": 5,
-          "depth": 114.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 987,
-          "channel": 5,
-          "depth": 116.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 988,
-          "channel": 5,
-          "depth": 119.0,
-          "amplitude": 100.0
-        }
-      ],
-      "start_E": 984,
-      "end_E": 988,
-      "channels": [
-        5
-      ],
-      "timestamp": "2026-01-14T15:12:02.069266"
+      "timestamp": "2026-01-15T09:24:53.899807"
     }
   ]
 }

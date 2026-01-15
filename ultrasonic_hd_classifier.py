@@ -3,6 +3,11 @@
 基于torchhd库实现，参考EMG手势识别的数据处理方式
 """
 
+import sys
+import os
+# 添加torchhd库的父目录到Python路径
+sys.path.append(os.path.join(os.path.dirname(__file__), 'torchhd'))
+
 import torch
 import torch.nn as nn
 import torchhd

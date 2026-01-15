@@ -1,3 +1,8 @@
+import sys
+import os
+# 添加torchhd库的父目录到Python路径
+sys.path.append(os.path.join(os.path.dirname(__file__), 'torchhd'))
+
 import torch
 import torch.nn as nn
 import torch.utils.data as data
@@ -9,7 +14,6 @@ from torchhd.models import Centroid
 from pathlib import Path
 import pandas as pd
 import numpy as np
-import os
 
 # ======================================
 # 设备设置
