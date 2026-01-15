@@ -32,9 +32,10 @@ NUM_LEVELS = 21
 # 批处理大小，每次训练使用的样本数
 BATCH_SIZE = 1
 # 窗口大小，每个样本包含的编码值数量
-WINDOW = 128
-# 滑动窗口步长
-STEP = 64
+# 根据用户要求，平均11行构成一个伤损或结构，所以使用12行
+WINDOW = 12
+# 滑动窗口步长，根据用户要求改为1窗
+STEP = 1
 # 通道数，超声波传感器的通道数量
 CHANNELS = 9
 # N-gram大小，用于捕获序列数据的时序关系
@@ -91,7 +92,18 @@ class UltrasonicDataset(data.Dataset):
             
             # 提取通道数据和标签
             channel_data = df[[f'channel_{i}' for i in range(CHANNELS)]].values
-            labels = df['label'].values if 'label' in df.columns else [0] * len(df)
+            
+            # 检查是否有多通道标签
+            if all([f'label_{i}' in df.columns for i in range(CHANNELS)]):
+                # 使用多通道标签
+                labels = df[[f'label_{i}' for i in range(CHANNELS)]].values
+                print(f"使用多通道标签，形状: {labels.shape}")
+            else:
+                # 使用单通道标签（向后兼容）
+                labels = df['label'].values if 'label' in df.columns else [0] * len(df)
+                # 扩展为多通道标签格式
+                labels = np.tile(labels[:, np.newaxis], (1, CHANNELS))
+                print(f"使用单通道标签并扩展为多通道格式，形状: {labels.shape}")
             encodings = df['encoding'].values
             
             print(f"从 {csv_file.name} 加载了 {len(encodings)} 个编码值")
@@ -119,9 +131,18 @@ class UltrasonicDataset(data.Dataset):
                 # 确定窗口标签，使用窗口内出现最多的标签
                 window_labels = labels[start:end]
                 if len(window_labels) > 0:
-                    label = max(set(window_labels), key=list(window_labels).count)
+                    if window_labels.ndim == 2:  # 多通道标签
+                        # 对每个通道分别计算出现最多的标签
+                        label = []
+                        for channel in range(window_labels.shape[1]):
+                            channel_labels = window_labels[:, channel]
+                            channel_label = max(set(channel_labels), key=list(channel_labels).count)
+                            label.append(channel_label)
+                        label = np.array(label)
+                    else:  # 单通道标签
+                        label = max(set(window_labels), key=list(window_labels).count)
                 else:
-                    label = 0
+                    label = np.zeros(CHANNELS) if labels.ndim == 2 else 0
                 
                 file_samples.append(sample)
                 file_labels.append(label)
@@ -228,15 +249,21 @@ def train_model(n_gram_size=N_GRAM_SIZE):
         print("错误: 训练数据集为空！")
         return False
     
+    # 检查标签是否为多通道
+    is_multichannel = isinstance(train_ds.labels[0], np.ndarray)
+    print(f"检测到 {'多通道' if is_multichannel else '单通道'} 标签")
+    
     # 获取所有唯一标签，确保模型包含所有可能的类别
-    all_labels = train_ds.labels
-    if all_labels:
-        max_label = max(all_labels)
-        num_classes = int(max_label + 1)  # 转换为Python原生int类型
-        print(f"检测到 {num_classes} 个唯一类别（标签 0 到 {max_label}）")
-    else:
-        num_classes = 1
-        print("警告: 未找到标签，使用 1 个类别")
+    all_labels = []
+    for label in train_ds.labels:
+        if is_multichannel:
+            all_labels.extend(label)
+        else:
+            all_labels.append(label)
+    
+    max_label = max(all_labels)
+    num_classes = int(max_label + 1)  # 转换为Python原生int类型
+    print(f"检测到 {num_classes} 个唯一类别（标签 0 到 {max_label}）")
     
     # 初始化编码器
     # 样本形状: [downsample_factor, channels]
@@ -244,9 +271,18 @@ def train_model(n_gram_size=N_GRAM_SIZE):
     encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1], n_gram_size=n_gram_size)
     encode = encode.to(device)
     
-    # 初始化模型，使用Centroid（质心）模型
-    model = Centroid(DIMENSIONS, num_classes)
-    model = model.to(device)
+    # 初始化模型，使用多个Centroid（质心）模型，每个通道一个
+    models = []
+    if is_multichannel:
+        for channel in range(CHANNELS):
+            model = Centroid(DIMENSIONS, num_classes)
+            model = model.to(device)
+            models.append(model)
+    else:
+        # 单通道标签，只需要一个模型
+        model = Centroid(DIMENSIONS, num_classes)
+        model = model.to(device)
+        models.append(model)
     
     # 训练模型
     print("正在训练模型...")
@@ -257,20 +293,30 @@ def train_model(n_gram_size=N_GRAM_SIZE):
             
             # 生成超维向量
             sample_hv = encode(samples)
-            # 更新模型质心
-            model.add(sample_hv, targets)
+            
+            if is_multichannel:
+                # 多通道标签，为每个通道更新对应的模型
+                for channel in range(CHANNELS):
+                    channel_targets = targets[:, channel].long()
+                    models[channel].add(sample_hv, channel_targets)
+            else:
+                # 单通道标签，只需要更新一个模型
+                models[0].add(sample_hv, targets.long())
     
     # 归一化模型
-    model.normalize()
+    for model in models:
+        model.normalize()
     
     # 保存模型和编码器
-    torch.save({
+    state_dict = {
         'encoder_state_dict': encode.state_dict(),
-        'model_state_dict': model.state_dict(),
+        'model_state_dicts': [model.state_dict() for model in models],
         'num_classes': num_classes,
         'sample_shape': sample_shape,
-        'n_gram_size': n_gram_size
-    }, MODEL_PATH)
+        'n_gram_size': n_gram_size,
+        'is_multichannel': is_multichannel
+    }
+    torch.save(state_dict, MODEL_PATH)
     
     print(f"模型训练完成，已保存到: {MODEL_PATH}")
     return True
@@ -297,9 +343,11 @@ def predict_model(data_dir=TEST_DIR):
     
     # 获取模型训练时的N_GRAM_SIZE
     n_gram_size = checkpoint.get('n_gram_size', N_GRAM_SIZE)
+    is_multichannel = checkpoint.get('is_multichannel', False)
     print(f"预测时使用模型训练参数: N_GRAM_SIZE={n_gram_size}, 窗口大小: {WINDOW}, 滑动步长: {STEP}")
+    print(f"模型支持 {'多通道' if is_multichannel else '单通道'} 标签")
     
-    # 初始化编码器和模型
+    # 初始化编码器
     sample_shape = checkpoint['sample_shape']
     encode = Encoder(DIMENSIONS, sample_shape[0], sample_shape[1], n_gram_size=n_gram_size)
     encode.load_state_dict(checkpoint['encoder_state_dict'])
@@ -307,10 +355,16 @@ def predict_model(data_dir=TEST_DIR):
     encode.eval()
     
     num_classes = checkpoint['num_classes']
-    model = Centroid(DIMENSIONS, num_classes)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(device)
-    model.eval()
+    
+    # 初始化多个模型，每个通道一个
+    models = []
+    model_state_dicts = checkpoint['model_state_dicts']
+    for state_dict in model_state_dicts:
+        model = Centroid(DIMENSIONS, num_classes)
+        model.load_state_dict(state_dict)
+        model = model.to(device)
+        model.eval()
+        models.append(model)
     
     # 加载数据集，使用与训练时相同的窗口大小和滑动步长
     test_ds = UltrasonicDataset(data_dir, is_train=False)
@@ -332,11 +386,22 @@ def predict_model(data_dir=TEST_DIR):
             
             # 生成超维向量
             sample_hv = encode(samples)
-            # 模型预测
-            output = model(sample_hv, dot=True)
-            # 获取预测标签
-            pred_label = torch.argmax(output, dim=1).cpu().item()
-            predictions.append(pred_label)
+            
+            if is_multichannel:
+                # 多通道预测，为每个通道生成预测结果
+                pred_labels = []
+                for channel in range(CHANNELS):
+                    # 使用对应通道的模型进行预测
+                    output = models[channel](sample_hv, dot=True)
+                    # 获取预测标签
+                    pred_label = torch.argmax(output, dim=1).cpu().item()
+                    pred_labels.append(pred_label)
+                predictions.append(pred_labels)
+            else:
+                # 单通道预测
+                output = models[0](sample_hv, dot=True)
+                pred_label = torch.argmax(output, dim=1).cpu().item()
+                predictions.append(pred_label)
     
     # 保存预测结果
     print("正在保存预测结果...")
@@ -357,12 +422,24 @@ def predict_model(data_dir=TEST_DIR):
             original_file = data_dir / file_name
             df = pd.read_csv(original_file)
             
-            # 创建预测结果列
-            df['predicted_label'] = df['label'] if 'label' in df.columns else 0
+            # 添加预测结果列
+            if is_multichannel:
+                # 多通道预测结果，添加predicted_label_0到predicted_label_8列
+                for channel in range(CHANNELS):
+                    df[f'predicted_label_{channel}'] = df[f'label_{channel}'] if f'label_{channel}' in df.columns else 0
+            else:
+                # 单通道预测结果，添加predicted_label列
+                df['predicted_label'] = df['label'] if 'label' in df.columns else 0
             
             # 根据预测结果更新标签
             for start, end, pred_label in pred_info:
-                df.loc[start:end-1, 'predicted_label'] = pred_label
+                if is_multichannel:
+                    # 多通道预测结果
+                    for channel in range(CHANNELS):
+                        df.loc[start:end-1, f'predicted_label_{channel}'] = pred_label[channel]
+                else:
+                    # 单通道预测结果
+                    df.loc[start:end-1, 'predicted_label'] = pred_label
             
             # 保存带预测结果的CSV文件，确保只添加一个hdc后缀
             output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"

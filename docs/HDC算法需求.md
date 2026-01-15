@@ -398,3 +398,7 @@ flowchart TD
 这样保证所有原始数据拼孔后作为输入，避免了不同数据不同拼孔值带来的影响。
 数据增强可以从拼孔值入手改变，随机改变一个或多个拼孔值生成增强数据。
 
+encoding,channel_0,channel_1,channel_2,channel_3,channel_4,channel_5,channel_6,channel_7,channel_8,label_0,label_1,label_2,label_3,label_4,label_5,label_6,label_7,label_8,predicted_label_0,predicted_label_1,predicted_label_2,predicted_label_3,predicted_label_4,predicted_label_5,predicted_label_6,predicted_label_7,predicted_label_8
+
+
+1.当前拼孔和逆拼孔有问题，一个e多个通道拼孔值不同所以应该是整列数据向上或向下平移，空余部分补零。2.每个通道都要有单独的标记。毕竟数据表注就是以点为单位。所以csv数据格式变成这样.3.csv转json时聚类算法要参考怎么画点，可以把画点的转换抽离成函数，同时被显示和聚类前调用  4.训练和预测的窗口大小还需要重新确定。在改完上面几点后，根据csv里面手动标记来确定。比如发现平均11行构成一个伤损或者结构，那么就用11或者12行*9通道个点作为一个窗口输入，然后进行滑窗每次滑1窗。

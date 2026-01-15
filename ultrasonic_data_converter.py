@@ -162,17 +162,17 @@ class UltrasonicDataConverter:
 
         return e_data
 
-    def extract_damage_regions(self, annotations: List[Dict]) -> Dict[int, int]:
+    def extract_damage_regions(self, annotations: List[Dict]) -> Dict[int, Dict[int, int]]:
         """
-        从标注数据中提取伤损区域，按E值映射到标签
+        从标注数据中提取伤损区域，按E值和通道映射到标签
 
         Args:
             annotations: 标注列表
 
         Returns:
-            e_labels: E值到标签的映射 {e值: 标签, ...}
+            e_channel_labels: E值到通道标签的映射 {e值: {通道: 标签, ...}, ...}
         """
-        e_labels = {}
+        e_channel_labels = {}
 
         for annotation in annotations:
             if annotation.get('type') in ['伤损', '结构']:
@@ -192,56 +192,102 @@ class UltrasonicDataConverter:
                 for point in points:
                     e = point.get('e', 0)
                     if e > 0:
-                        e_labels[e] = label_id
+                        channel = point.get('channel', 0)
+                        if e not in e_channel_labels:
+                            e_channel_labels[e] = {}
+                        e_channel_labels[e][channel] = label_id
 
-        return e_labels
+        return e_channel_labels
 
-    def convert_to_csv_format(self, e_data: Dict[int, Dict[int, List]], e_labels: Dict[int, int],
+    def convert_to_csv_format(self, e_data: Dict[int, Dict[int, List]], e_channel_labels: Dict[int, Dict[int, int]],
                             output_file: str):
         """
         将E值数据转换为CSV格式
-        输出格式：编码值 + 9通道深度值 + 类别
+        输出格式：编码值 + 9通道深度值 + 9通道标签
 
         Args:
             e_data: 按E值组织的数据 {e值: {通道: [深度, 振幅, db值], ...}, ...}
-            e_labels: E值到标签的映射 {e值: 标签, ...}
+            e_channel_labels: E值到通道标签的映射 {e值: {通道: 标签, ...}, ...}
             output_file: 输出CSV文件路径
         """
-        # 为每个E值创建一行数据
-        csv_data = []
-
-        # 按E值排序
+        # 获取所有E值并排序
         sorted_es = sorted(e_data.keys())
-
+        
+        # 计算最大偏移量，用于确定最终数据范围
+        max_offset = 0
+        min_offset = 0
+        for channel in range(9):
+            offset = self.beam_offset_map.get(channel, 0)
+            if offset > max_offset:
+                max_offset = offset
+            if offset < min_offset:
+                min_offset = offset
+        
+        # 确定最终的编码范围
+        min_e = sorted_es[0] + min_offset
+        max_e = sorted_es[-1] + max_offset
+        
+        # 创建编码值到通道数据的映射
+        # 键为编码值，值为{通道: 深度值}
+        encoded_data = {}
+        
+        # 填充编码数据映射，处理每个通道的偏移
         for e in sorted_es:
-            # 获取当前E值的通道数据
             channel_data = e_data[e]
-            
-            # 初始化行数据：编码值 + 9通道深度值（初始为0） + 类别
-            # 使用原始E值作为编码值，不再计算最小编码值
-            encoding = e
-            
-            row = [encoding] + [0.0] * 9 + [0]
+            for channel in range(9):
+                if channel in channel_data:
+                    # 计算该通道的编码值：编码值 = 原始E值 - 对应通道的拼孔值
+                    offset = self.beam_offset_map.get(channel, 0)
+                    encoded_e = e - offset
+                    
+                    if encoded_e not in encoded_data:
+                        encoded_data[encoded_e] = {}
+                    
+                    # 保存深度值
+                    encoded_data[encoded_e][channel] = channel_data[channel][0]
+        
+        # 为每个编码值创建一行数据
+        csv_data = []
+        
+        # 遍历所有可能的编码值，确保连续，空余部分补零
+        for encoding in range(min_e, max_e + 1):
+            # 初始化行数据：编码值 + 9通道深度值（初始为0） + 9通道标签（初始为0）
+            row = [encoding] + [0.0] * 9 + [0] * 9
             
             # 填充各通道的深度值
-            for channel in range(9):  # 通道0-8
-                if channel in channel_data:
-                    row[channel+1] = channel_data[channel][0]  # 第0个元素是深度值，row[0]是编码值，通道数据从row[1]开始
+            if encoding in encoded_data:
+                channel_depths = encoded_data[encoding]
+                for channel in range(9):
+                    if channel in channel_depths:
+                        row[channel + 1] = channel_depths[channel]
             
-            # 设置类别
-            row[-1] = e_labels.get(e, 0)  # 默认为0（正常）
+            # 填充各通道的标签值
+            # 查找对应的原始E值范围，处理标签
+            for original_e in sorted_es:
+                # 检查当前编码值是否属于该原始E值的某个通道
+                for channel in range(9):
+                    offset = self.beam_offset_map.get(channel, 0)
+                    if original_e - offset == encoding:
+                        # 找到对应的原始E值，获取该通道的标签
+                        if original_e in e_channel_labels and channel in e_channel_labels[original_e]:
+                            row[10 + channel] = e_channel_labels[original_e][channel]  # label_0到label_8从第10列开始
+                        break
             
             csv_data.append(row)
 
         # 创建DataFrame并保存
-        columns = ['encoding'] + [f'channel_{i}' for i in range(9)] + ['label']
+        columns = ['encoding'] + [f'channel_{i}' for i in range(9)] + [f'label_{i}' for i in range(9)]
 
         df = pd.DataFrame(csv_data, columns=columns)
         df.to_csv(output_file, index=False)
 
         print(f"Data converted to CSV format: {output_file}")
         print(f"Number of samples: {len(csv_data)}")
-        print(f"Label distribution: {df['label'].value_counts().to_dict()}")
+        
+        # 打印每个通道的标签分布
+        for i in range(9):
+            label_col = f'label_{i}'
+            print(f"Channel {i} label distribution: {df[label_col].value_counts().to_dict()}")
 
     def convert_windows_to_csv_format(self, windows: List[Tuple[np.ndarray, int]], output_file: str):
         """

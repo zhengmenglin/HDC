@@ -80,6 +80,7 @@ def calculate_accuracy(predicted_file, original_file):
     """计算识别正确率
     
     正确率定义为：识别正确的点数 / 所有识别出的点数
+    支持单通道和多通道标签
     
     Args:
         predicted_file: 包含预测结果的CSV文件路径
@@ -94,9 +95,12 @@ def calculate_accuracy(predicted_file, original_file):
         # 读取原始文件
         orig_df = pd.read_csv(original_file)
         
-        # 检查是否有标签列
-        if 'label' not in orig_df.columns:
-            print(f"警告: {original_file} 没有label列，无法计算正确率")
+        # 检查是否有多通道标签
+        has_multichannel_labels = all([f'label_{i}' in orig_df.columns for i in range(9)])
+        has_single_label = 'label' in orig_df.columns
+        
+        if not has_multichannel_labels and not has_single_label:
+            print(f"警告: {original_file} 没有label或label_0到label_8列，无法计算正确率")
             return 0.0
         
         # 确保预测结果和原始文件的行数一致
@@ -112,27 +116,66 @@ def calculate_accuracy(predicted_file, original_file):
             print(f"警告: 合并后的数据为空，无法计算正确率")
             return 0.0
         
-        # 提取真实标签和预测标签
-        true_labels = merged_df['label_orig'].values
-        pred_labels = merged_df['predicted_label_pred'].values
+        total_correct = 0
+        total_identified = 0
         
-        # 计算所有识别出的点数（预测标签不为0的点数）
-        identified_points = np.sum(pred_labels != 0)
-        
-        # 如果没有识别出任何点数，正确率为0
-        if identified_points == 0:
-            print(f"注意: 没有识别出任何点数")
-            return 0.0
-        
-        # 计算识别正确的点数（预测标签不为0且真实标签也不为0的点数）
-        correct_points = np.sum((pred_labels != 0) & (true_labels != 0))
+        if has_multichannel_labels:
+            # 处理多通道标签
+            print(f"  使用多通道标签计算准确率")
+            
+            # 遍历每个通道
+            for channel in range(9):
+                # 提取真实标签和预测标签
+                true_col = f'label_{channel}_orig'
+                pred_col = f'predicted_label_{channel}_pred'
+                
+                # 检查列是否存在
+                if true_col not in merged_df.columns or pred_col not in merged_df.columns:
+                    continue
+                
+                true_labels = merged_df[true_col].values
+                pred_labels = merged_df[pred_col].values
+                
+                # 计算当前通道识别出的点数
+                channel_identified = np.sum(pred_labels != 0)
+                total_identified += channel_identified
+                
+                # 计算当前通道识别正确的点数
+                if channel_identified > 0:
+                    channel_correct = np.sum((pred_labels != 0) & (true_labels != 0))
+                    total_correct += channel_correct
+        else:
+            # 处理单通道标签
+            print(f"  使用单通道标签计算准确率")
+            
+            # 提取真实标签和预测标签
+            true_labels = merged_df['label_orig'].values
+            pred_col = 'predicted_label_pred' if 'predicted_label_pred' in merged_df.columns else 'predicted_label'
+            pred_labels = merged_df[pred_col].values
+            
+            # 计算所有识别出的点数（预测标签不为0的点数）
+            total_identified = np.sum(pred_labels != 0)
+            
+            # 如果没有识别出任何点数，正确率为0
+            if total_identified == 0:
+                print(f"注意: 没有识别出任何点数")
+                return 0.0
+            
+            # 计算识别正确的点数（预测标签不为0且真实标签也不为0的点数）
+            total_correct = np.sum((pred_labels != 0) & (true_labels != 0))
         
         # 计算正确率
-        accuracy = correct_points / identified_points
+        if total_identified == 0:
+            print(f"注意: 没有识别出任何点数")
+            return 0.0
+            
+        accuracy = total_correct / total_identified
         
         return accuracy
     except Exception as e:
         print(f"计算准确率时出错: {e}")
+        import traceback
+        traceback.print_exc()
         return 0.0
 
 
@@ -257,9 +300,11 @@ def test_accuracy():
     # 创建输出目录
     OUTPUT_DIR.mkdir(exist_ok=True)
     
-    # 测试配置：仅使用最佳配置
+    # 测试配置：使用用户要求的配置
+    # 窗口大小改为12（根据用户要求，平均11行构成一个伤损或结构，所以使用12行）
+    # 滑动步长改为1窗
     test_configs = [
-        {'window': 128, 'step': 64, 'n_gram': 4},
+        {'window': 12, 'step': 1, 'n_gram': 4},
     ]
     
     # 用于存储测试结果

@@ -13,6 +13,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+# 导入坐标转换工具
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils.coordinate_converter import converter
+
 
 class CsvToHdcJsonConverter:
     """
@@ -73,14 +78,20 @@ class CsvToHdcJsonConverter:
         else:
             return df[df['label'] != 0].copy()
     
-    def cluster_points(self, df: pd.DataFrame, eps: float = 10.0, min_samples: int = 3) -> pd.DataFrame:
+    def cluster_points(self, df: pd.DataFrame, eps: float = 10.0, min_samples: int = 3, 
+                      beam_offset_map: Dict[int, float] = None, 
+                      beam_way_map: Dict[int, int] = None,
+                      beam_angle_map: Dict[int, float] = None) -> pd.DataFrame:
         """
-        使用DBSCAN聚类算法将同一目标的点归为一个簇
+        使用DBSCAN聚类算法将同一目标的点归为一个簇，基于显示坐标
         
         Args:
             df: 缺陷点DataFrame
             eps: DBSCAN的ε参数，两个样本被视为同一簇的最大距离
             min_samples: DBSCAN的min_samples参数，一个簇的最小样本数
+            beam_offset_map: 通道到拼孔值的映射
+            beam_way_map: 通道到射向的映射（-1后、0直、1前）
+            beam_angle_map: 通道到声束角度的映射
             
         Returns:
             带有簇标签的DataFrame
@@ -89,7 +100,14 @@ class CsvToHdcJsonConverter:
             df['cluster'] = []
             return df
         
-        # 准备聚类特征：编码值、实际通道号和该通道的深度值
+        if beam_offset_map is None:
+            beam_offset_map = {}
+        if beam_way_map is None:
+            beam_way_map = {}
+        if beam_angle_map is None:
+            beam_angle_map = {}
+        
+        # 准备聚类特征：使用调整后的E值和深度值
         features = []
         for _, row in df.iterrows():
             # 找到非零深度值的通道和深度
@@ -102,8 +120,24 @@ class CsvToHdcJsonConverter:
                     break
             
             if channel is not None and depth is not None:
-                # 只使用相关特征：编码值、通道号和深度值
-                features.append([row['encoding'], channel, depth])
+                # 使用坐标转换工具计算显示坐标
+                beam_offset = beam_offset_map.get(channel, 0)
+                beam_way = beam_way_map.get(channel, 0)
+                beam_angle = beam_angle_map.get(channel, None)
+                
+                # 计算显示坐标
+                adjusted_e, adjusted_depth = converter.calculate_display_coordinates(
+                    e=int(row['encoding']),
+                    channel=channel,
+                    depth=depth,
+                    beam_offset=beam_offset,
+                    beam_way=beam_way,
+                    beam_angle=beam_angle,
+                    display_mode="压缩"
+                )
+                
+                # 使用调整后的坐标作为聚类特征
+                features.append([adjusted_e, adjusted_depth, channel])
             else:
                 features.append([row['encoding'], 0, 0])
         
@@ -118,20 +152,24 @@ class CsvToHdcJsonConverter:
         
         return df
     
-    def extract_beam_offset(self, original_json_path: str) -> Dict[int, float]:
+    def extract_beam_parameters(self, original_json_path: str) -> Tuple[Dict[int, float], Dict[int, int], Dict[int, float]]:
         """
-        从原始JSON文件中提取拼孔值（BeamOffset）
+        从原始JSON文件中提取超声波参数
         
         Args:
             original_json_path: 原始JSON文件路径
             
         Returns:
-            通道到拼孔值的映射
+            beam_offset_map: 通道到拼孔值的映射
+            beam_way_map: 通道到射向的映射（-1后、0直、1前）
+            beam_angle_map: 通道到声束角度的映射
         """
         beam_offset_map = {}
+        beam_way_map = {}
+        beam_angle_map = {}
         
         if not os.path.exists(original_json_path):
-            return beam_offset_map
+            return beam_offset_map, beam_way_map, beam_angle_map
         
         try:
             with open(original_json_path, 'r', encoding='utf-8') as f:
@@ -141,6 +179,7 @@ class CsvToHdcJsonConverter:
             if data and isinstance(data[0], dict):
                 config_item = data[0]
                 if 'E' in config_item and isinstance(config_item['E'], int) and config_item['E'] == 1:
+                    # 提取BeamOffset
                     if 'BeamOffset' in config_item and isinstance(config_item['BeamOffset'], list):
                         beam_offset = config_item['BeamOffset']
                         # BeamOffset格式：[通道号, 拼孔值, 通道号, 拼孔值, ...]
@@ -149,10 +188,30 @@ class CsvToHdcJsonConverter:
                                 channel = int(beam_offset[i])
                                 offset = beam_offset[i + 1]
                                 beam_offset_map[channel] = offset
+                    
+                    # 提取BeamWay
+                    if 'BeamWay' in config_item and isinstance(config_item['BeamWay'], list):
+                        beam_way = config_item['BeamWay']
+                        # BeamWay格式：每三个数为一组，依次是通道号、射向（-1后、0直、1前）、侧边（-1左、0正、1右）
+                        for i in range(0, len(beam_way), 3):
+                            if i + 2 < len(beam_way):
+                                channel = int(beam_way[i])
+                                way = int(beam_way[i + 1])
+                                beam_way_map[channel] = way
+                    
+                    # 提取BeamAngle
+                    if 'BeamAngle' in config_item and isinstance(config_item['BeamAngle'], list):
+                        beam_angle = config_item['BeamAngle']
+                        # BeamAngle格式：[通道号, 角度, 通道号, 角度, ...]
+                        for i in range(0, len(beam_angle), 2):
+                            if i + 1 < len(beam_angle):
+                                channel = int(beam_angle[i])
+                                angle = float(beam_angle[i + 1])
+                                beam_angle_map[channel] = angle
         except Exception as e:
-            print(f"提取拼孔值时出错: {e}")
+            print(f"提取超声波参数时出错: {e}")
         
-        return beam_offset_map
+        return beam_offset_map, beam_way_map, beam_angle_map
     
     def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str) -> Dict:
         """
@@ -170,6 +229,18 @@ class CsvToHdcJsonConverter:
         
         # 检查是否有predicted_label列，优先使用预测结果
         label_col = 'predicted_label' if 'predicted_label' in clustered_df.columns else 'label'
+        
+        # 从原始JSON文件中提取超声波参数
+        # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
+        csv_path = Path(original_csv_path)
+        # 处理文件名：例如 1_hdc.csv -> 1.json
+        original_stem = csv_path.stem.replace('_hdc', '')
+        original_json_path = str(csv_path.parent / f"{original_stem}.json")
+        # 提取超声波参数映射
+        beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+        print(f"Using beam offset map: {beam_offset_map} for {original_csv_path}")
+        print(f"Using beam way map: {beam_way_map} for {original_csv_path}")
+        print(f"Using beam angle map: {beam_angle_map} for {original_csv_path}")
         
         # 按簇分组
         for cluster in clustered_df['cluster'].unique():
@@ -196,8 +267,10 @@ class CsvToHdcJsonConverter:
                         break
                 
                 if channel is not None and depth is not None:
-                    # 直接使用CSV中的编码值作为E值，不再进行逆拼孔计算
-                    original_e = int(row['encoding'])
+                    # 获取该通道的拼孔值
+                    offset = beam_offset_map.get(channel, 0)
+                    # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                    original_e = int(row['encoding']) + offset
                     
                     points.append({
                         "e": original_e,
@@ -258,6 +331,13 @@ class CsvToHdcJsonConverter:
         # 检查是否有predicted_label列，优先使用预测结果
         label_col = 'predicted_label' if 'predicted_label' in defect_points.columns else 'label'
         
+        # 从原始JSON文件中提取超声波参数
+        csv_path = Path(original_csv_path)
+        original_stem = csv_path.stem.replace('_hdc', '')
+        original_json_path = str(csv_path.parent / f"{original_stem}.json")
+        beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+        print(f"Using beam offset map: {beam_offset_map} for {original_csv_path}")
+        
         # 直接处理每个缺陷点，为每个点创建一个单独的标注
         for _, row in defect_points.iterrows():
             # 找到非零深度值的通道和深度
@@ -270,8 +350,10 @@ class CsvToHdcJsonConverter:
                     break
             
             if channel is not None and depth is not None:
-                # 直接使用CSV中的编码值作为E值，不再进行逆拼孔计算
-                original_e = int(row['encoding'])
+                # 获取该通道的拼孔值
+                offset = beam_offset_map.get(channel, 0)
+                # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                original_e = int(row['encoding']) + offset
                 
                 # 获取标签
                 label = row[label_col]
@@ -341,8 +423,29 @@ class CsvToHdcJsonConverter:
         defect_points = self.extract_defect_points(df)
         print(f"找到 {len(defect_points)} 个缺陷点")
         
-        # 3. 跳过聚类，直接生成hdc.json
-        hdc_json = self.generate_hdc_json_direct(defect_points, csv_file)
+        # 3. 根据需要选择是否聚类
+        # 这里保留聚类选项，默认跳过聚类（根据用户要求）
+        skip_clustering = True
+        
+        if skip_clustering:
+            # 跳过聚类，直接生成hdc.json
+            hdc_json = self.generate_hdc_json_direct(defect_points, csv_file)
+        else:
+            # 从原始JSON文件中提取超声波参数
+            csv_path = Path(csv_file)
+            original_stem = csv_path.stem.replace('_hdc', '')
+            original_json_path = str(csv_path.parent / f"{original_stem}.json")
+            beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+            
+            # 进行聚类
+            clustered_df = self.cluster_points(defect_points, eps=eps, min_samples=min_samples,
+                                             beam_offset_map=beam_offset_map,
+                                             beam_way_map=beam_way_map,
+                                             beam_angle_map=beam_angle_map)
+            print(f"聚类完成，生成 {len(clustered_df['cluster'].unique()) - 1} 个簇")
+            
+            # 生成hdc.json
+            hdc_json = self.generate_hdc_json(clustered_df, csv_file)
         print(f"生成 {len(hdc_json['annotations'])} 个伤损结构")
         
         # 4. 保存为JSON文件

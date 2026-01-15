@@ -1,0 +1,252 @@
+{
+  "annotations": [
+    {
+      "id": "2",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 817,
+          "channel": 6,
+          "depth": 112.0,
+          "amplitude": 40.784313
+        },
+        {
+          "e": 818,
+          "channel": 6,
+          "depth": 109.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 819,
+          "channel": 6,
+          "depth": 107.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 820,
+          "channel": 6,
+          "depth": 107.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 821,
+          "channel": 6,
+          "depth": 106.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 822,
+          "channel": 6,
+          "depth": 102.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 823,
+          "channel": 6,
+          "depth": 102.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 824,
+          "channel": 6,
+          "depth": 101.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 825,
+          "channel": 6,
+          "depth": 99.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 826,
+          "channel": 6,
+          "depth": 97.0,
+          "amplitude": 97.64706
+        },
+        {
+          "e": 827,
+          "channel": 6,
+          "depth": 95.0,
+          "amplitude": 50.980396
+        },
+        {
+          "e": 1099,
+          "channel": 8,
+          "depth": 86.0,
+          "amplitude": 41.568626
+        },
+        {
+          "e": 1100,
+          "channel": 8,
+          "depth": 86.0,
+          "amplitude": 59.607845
+        },
+        {
+          "e": 1101,
+          "channel": 8,
+          "depth": 85.0,
+          "amplitude": 68.62746
+        },
+        {
+          "e": 1102,
+          "channel": 8,
+          "depth": 85.0,
+          "amplitude": 91.76471
+        },
+        {
+          "e": 1103,
+          "channel": 8,
+          "depth": 84.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1104,
+          "channel": 8,
+          "depth": 84.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1105,
+          "channel": 8,
+          "depth": 83.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1106,
+          "channel": 8,
+          "depth": 83.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1107,
+          "channel": 8,
+          "depth": 83.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1108,
+          "channel": 8,
+          "depth": 83.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1109,
+          "channel": 8,
+          "depth": 84.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1110,
+          "channel": 8,
+          "depth": 84.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1111,
+          "channel": 8,
+          "depth": 85.0,
+          "amplitude": 85.4902
+        },
+        {
+          "e": 1112,
+          "channel": 8,
+          "depth": 85.0,
+          "amplitude": 62.745102
+        },
+        {
+          "e": 1113,
+          "channel": 8,
+          "depth": 86.0,
+          "amplitude": 53.333336
+        },
+        {
+          "e": 1114,
+          "channel": 8,
+          "depth": 87.0,
+          "amplitude": 34.901962
+        },
+        {
+          "e": 1119,
+          "channel": 7,
+          "depth": 96.0,
+          "amplitude": 52.549023
+        },
+        {
+          "e": 1120,
+          "channel": 7,
+          "depth": 98.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1121,
+          "channel": 7,
+          "depth": 98.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1122,
+          "channel": 7,
+          "depth": 101.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1123,
+          "channel": 7,
+          "depth": 101.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1124,
+          "channel": 7,
+          "depth": 104.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1125,
+          "channel": 7,
+          "depth": 106.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1126,
+          "channel": 7,
+          "depth": 107.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1127,
+          "channel": 7,
+          "depth": 109.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1128,
+          "channel": 7,
+          "depth": 111.0,
+          "amplitude": 98.82353
+        },
+        {
+          "e": 1129,
+          "channel": 7,
+          "depth": 114.0,
+          "amplitude": 62.745102
+        }
+      ],
+      "start_E": 817,
+      "end_E": 1129,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-15T14:03:27.853050"
+    }
+  ],
+  "timestamp": "2026-01-15T14:03:27.853332",
+  "version": "1.0"
+}
