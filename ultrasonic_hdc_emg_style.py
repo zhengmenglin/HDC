@@ -158,7 +158,14 @@ class UltrasonicDataset(data.Dataset):
         
         print(f"\n所有文件处理完成，共生成 {len(self.samples)} 个窗口样本")
         if self.labels:
-            print(f"标签分布: {np.bincount(self.labels)}")
+            if isinstance(self.labels[0], np.ndarray):
+                # 多通道标签，分别打印每个通道的分布
+                for channel in range(self.labels[0].shape[0]):
+                    channel_labels = [label[channel] for label in self.labels]
+                    print(f"通道 {channel} 标签分布: {np.bincount(channel_labels)}")
+            else:
+                # 单通道标签
+                print(f"标签分布: {np.bincount(self.labels)}")
     
     def __len__(self):
         """返回数据集大小"""

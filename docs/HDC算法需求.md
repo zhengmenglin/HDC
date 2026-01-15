@@ -366,39 +366,41 @@ encoding,channel_0,channel_1,channel_2,channel_3,channel_4,channel_5,channel_6,c
   ]
 }
 ```
-
-
-
 ```mermaid
-flowchart TD
-    %% 起始文件节点
-    A[1.json]
-    B[1标注.json]
-    
-    %% 中间文件/处理节点
-    C[1_hdc.csv]
-   
-    E[1_hdc.csv]
- 
-  
-    H[1_hdc.csv]
-    I[1_hdc.json]
-
-    K[1_hdc.json]
-
-    %% 流转关系
-    A --> C
-    B --> C
-    C -->|拼孔| E
-    E -->|train| H
-    E -->|test| H
-    H --> I
-    I -->|逆拼孔找到原始点| K
+flowchart LR
+    subgraph 起始与格式转换
+        A[1.json] -->|④拼孔| B[1.csv]
+    end
+    subgraph GUI手动操作
+        A -->|②GUI手动| C[1标注.json]
+        C -->|③标注保存| I[GUI显示]
+        A -->|①| I
+    end
+    subgraph 数据预处理与划分
+        B -->|⑤train的建模预处理| D[1标注.csv]
+        C -->|⑧拼孔| D
+        D -->|⑥train/test划分| E[1_hdc.csv]
+    end
+    subgraph 逆转换与聚类标注
+        E -->|⑦逆拼孔| F[1_hdc.json]
+        F -->|聚类| G[1_hdc.json（聚类后）]
+        G -->|④颜色量子标注| I
+    end
 ```
-这样保证所有原始数据拼孔后作为输入，避免了不同数据不同拼孔值带来的影响。
-数据增强可以从拼孔值入手改变，随机改变一个或多个拼孔值生成增强数据。
-
-encoding,channel_0,channel_1,channel_2,channel_3,channel_4,channel_5,channel_6,channel_7,channel_8,label_0,label_1,label_2,label_3,label_4,label_5,label_6,label_7,label_8,predicted_label_0,predicted_label_1,predicted_label_2,predicted_label_3,predicted_label_4,predicted_label_5,predicted_label_6,predicted_label_7,predicted_label_8
-
-
-1.当前拼孔和逆拼孔有问题，一个e多个通道拼孔值不同所以应该是整列数据向上或向下平移，空余部分补零。2.每个通道都要有单独的标记。毕竟数据表注就是以点为单位。所以csv数据格式变成这样.3.csv转json时聚类算法要参考怎么画点，可以把画点的转换抽离成函数，同时被显示和聚类前调用  4.训练和预测的窗口大小还需要重新确定。在改完上面几点后，根据csv里面手动标记来确定。比如发现平均11行构成一个伤损或者结构，那么就用11或者12行*9通道个点作为一个窗口输入，然后进行滑窗每次滑1窗。
+节点与编号对应说明
+ 
+1. ①：原始 1.json 直接输出至GUI显示
+ 
+2. ②：通过GUI手动操作，将 1.json 转为 1标注.json 
+ 
+3. ③： 1标注.json 的标注结果保存后输出至GUI显示
+ 
+4. ④：包含两个环节—— 1.json 转 1.csv 的拼孔、聚类后 1_hdc.json 的颜色量子标注并输出至GUI
+ 
+5. ⑤： 1.csv 经train建模预处理后汇入 1标注.csv 
+ 
+6. ⑥： 1标注.csv 划分train/test集后生成 1_hdc.csv 
+ 
+7. ⑦： 1_hdc.csv 经逆拼孔转为 1_hdc.json 
+ 
+8. ⑧： 1标注.json 经拼孔转为 1标注.csv
