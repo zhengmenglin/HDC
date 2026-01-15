@@ -28,7 +28,7 @@ print(f"使用设备: {device}")
 # 超向量维度，HDC模型的核心参数
 DIMENSIONS = 10000
 # 水平嵌入的级别数，用于将连续信号离散化为有限级别
-NUM_LEVELS = 21
+NUM_LEVELS = 255
 # 批处理大小，每次训练使用的样本数
 BATCH_SIZE = 1
 # 窗口大小，每个样本包含的编码值数量
