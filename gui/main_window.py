@@ -591,7 +591,7 @@ class BScanCanvas(FigureCanvas):
         # 获取文件名作为标题
         import os
         filename = os.path.basename(parser.json_file) if hasattr(parser, 'json_file') else '未命名文件'
-        self.axes.set_title(f'钢轨探伤B显数据可视化 - {filename}\n(右上角为原点, X向左递增, Y向下递增)', fontsize=14, fontweight='bold')
+        self.axes.set_title(f' - {filename}\n', fontsize=14, fontweight='bold')
         
         self.axes.legend(loc='upper left', fontsize=8, ncol=2)
         self.axes.grid(True, alpha=0.3)
@@ -983,7 +983,7 @@ class MainWindow(QMainWindow):
         self.json_files.clear()
         
         # 定义要搜索的文件夹，按优先级排序（test优先于train）
-        folders = ['test', 'train']
+        folders = [ 'train','test',]
         
         # 构造data目录路径
         data_dir = os.path.join(os.getcwd(), 'data')

@@ -218,24 +218,8 @@ class UltrasonicDataConverter:
             channel_data = e_data[e]
             
             # 初始化行数据：编码值 + 9通道深度值（初始为0） + 类别
-            # 编码值初始化为原始E值，后续根据通道拼孔值调整
-            # 注意：由于每个E值可能对应多个通道，这里使用最小的编码值
-            # 作为该行的编码值，确保与原始数据一致
-            encoding_values = []
-            
-            # 先收集所有通道的编码值
-            for channel in range(9):  # 通道0-8
-                if channel in channel_data:
-                    # 计算该通道的编码值：编码值 = 原始E值 - 对应通道的拼孔值
-                    offset = self.beam_offset_map.get(channel, 0)
-                    encoding_values.append(e - offset)
-            
-            # 如果没有通道数据，使用原始E值作为编码值
-            if encoding_values:
-                # 使用最小的编码值作为该行的编码值
-                encoding = min(encoding_values)
-            else:
-                encoding = e
+            # 使用原始E值作为编码值，不再计算最小编码值
+            encoding = e
             
             row = [encoding] + [0.0] * 9 + [0]
             

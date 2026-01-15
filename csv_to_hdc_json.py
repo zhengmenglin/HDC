@@ -73,7 +73,7 @@ class CsvToHdcJsonConverter:
         else:
             return df[df['label'] != 0].copy()
     
-    def cluster_points(self, df: pd.DataFrame, eps: float = 5.0, min_samples: int = 5) -> pd.DataFrame:
+    def cluster_points(self, df: pd.DataFrame, eps: float = 10.0, min_samples: int = 3) -> pd.DataFrame:
         """
         使用DBSCAN聚类算法将同一目标的点归为一个簇
         
@@ -89,12 +89,27 @@ class CsvToHdcJsonConverter:
             df['cluster'] = []
             return df
         
-        # 准备聚类特征：编码值和通道深度值
-        # 选择编码值和所有通道的深度值作为特征
-        feature_cols = ['encoding'] + [f'channel_{i}' for i in range(9)]
-        X = df[feature_cols].values
+        # 准备聚类特征：编码值、实际通道号和该通道的深度值
+        features = []
+        for _, row in df.iterrows():
+            # 找到非零深度值的通道和深度
+            channel = None
+            depth = None
+            for i in range(9):
+                if row[f'channel_{i}'] != 0:
+                    channel = i
+                    depth = row[f'channel_{i}']
+                    break
+            
+            if channel is not None and depth is not None:
+                # 只使用相关特征：编码值、通道号和深度值
+                features.append([row['encoding'], channel, depth])
+            else:
+                features.append([row['encoding'], 0, 0])
         
-        # 使用DBSCAN聚类
+        X = np.array(features)
+        
+        # 使用DBSCAN聚类，调整参数以适应螺孔的连续结构
         dbscan = DBSCAN(eps=eps, min_samples=min_samples)
         clusters = dbscan.fit_predict(X)
         
@@ -156,16 +171,6 @@ class CsvToHdcJsonConverter:
         # 检查是否有predicted_label列，优先使用预测结果
         label_col = 'predicted_label' if 'predicted_label' in clustered_df.columns else 'label'
         
-        # 从原始JSON文件中提取拼孔值
-        # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
-        csv_path = Path(original_csv_path)
-        # 处理文件名：例如 1_hdc.csv -> 1.json
-        original_stem = csv_path.stem.replace('_hdc', '')
-        original_json_path = str(csv_path.parent / f"{original_stem}.json")
-        # 提取拼孔值映射
-        beam_offset_map = self.extract_beam_offset(original_json_path)
-        print(f"Using beam offset map: {beam_offset_map} for {original_csv_path}")
-        
         # 按簇分组
         for cluster in clustered_df['cluster'].unique():
             if cluster == -1:  # 噪声点，跳过
@@ -191,10 +196,8 @@ class CsvToHdcJsonConverter:
                         break
                 
                 if channel is not None and depth is not None:
-                    # 获取该通道的拼孔值
-                    offset = beam_offset_map.get(channel, 0)
-                    # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
-                    original_e = int(row['encoding']) + offset
+                    # 直接使用CSV中的编码值作为E值，不再进行逆拼孔计算
+                    original_e = int(row['encoding'])
                     
                     points.append({
                         "e": original_e,
@@ -238,6 +241,79 @@ class CsvToHdcJsonConverter:
         
         return hdc_json
     
+    def generate_hdc_json_direct(self, defect_points: pd.DataFrame, original_csv_path: str) -> Dict:
+        """
+        直接生成hdc.json格式的数据，跳过聚类步骤
+        
+        Args:
+            defect_points: 缺陷点DataFrame
+            original_csv_path: 原始CSV文件路径
+            
+        Returns:
+            hdc.json格式的字典
+        """
+        annotations = []
+        annotation_id = 1000  # 自动标注ID从1000开始
+        
+        # 检查是否有predicted_label列，优先使用预测结果
+        label_col = 'predicted_label' if 'predicted_label' in defect_points.columns else 'label'
+        
+        # 直接处理每个缺陷点，为每个点创建一个单独的标注
+        for _, row in defect_points.iterrows():
+            # 找到非零深度值的通道和深度
+            channel = None
+            depth = None
+            for i in range(9):
+                if row[f'channel_{i}'] != 0:
+                    channel = i
+                    depth = row[f'channel_{i}']
+                    break
+            
+            if channel is not None and depth is not None:
+                # 直接使用CSV中的编码值作为E值，不再进行逆拼孔计算
+                original_e = int(row['encoding'])
+                
+                # 获取标签
+                label = row[label_col]
+                
+                # 生成伤损结构
+                points = [{
+                    "e": original_e,
+                    "channel": channel,
+                    "depth": float(depth),
+                    "amplitude": 100.0  # 默认幅度值
+                }]
+                
+                # 确定伤损类型
+                if label == 0:
+                    annotation_type = "结构"
+                else:
+                    annotation_type = "伤损"
+                
+                annotation = {
+                    "id": str(annotation_id),
+                    "type": annotation_type,
+                    "subtype": {
+                        "id": str(label),
+                        "name": self.flaw_types.get(label, "未知类型")
+                    },
+                    "points": points,
+                    "start_E": original_e,
+                    "end_E": original_e,
+                    "channels": [channel],
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                annotations.append(annotation)
+                annotation_id += 1
+        
+        # 生成最终的hdc.json结构
+        hdc_json = {
+            "annotations": annotations
+        }
+        
+        return hdc_json
+    
     def convert_csv_to_hdc_json(self, csv_file: str, output_file: str = None, eps: float = 5.0, min_samples: int = 5):
         """
         将CSV文件转换为hdc.json文件
@@ -245,8 +321,8 @@ class CsvToHdcJsonConverter:
         Args:
             csv_file: 输入CSV文件路径
             output_file: 输出JSON文件路径，默认与CSV文件同目录
-            eps: DBSCAN的ε参数
-            min_samples: DBSCAN的min_samples参数
+            eps: DBSCAN的ε参数（已屏蔽聚类，此参数无效）
+            min_samples: DBSCAN的min_samples参数（已屏蔽聚类，此参数无效）
             
         Returns:
             输出JSON文件路径
@@ -265,14 +341,11 @@ class CsvToHdcJsonConverter:
         defect_points = self.extract_defect_points(df)
         print(f"找到 {len(defect_points)} 个缺陷点")
         
-        # 3. 使用DBSCAN聚类
-        clustered_df = self.cluster_points(defect_points, eps=eps, min_samples=min_samples)
-        
-        # 4. 生成hdc.json
-        hdc_json = self.generate_hdc_json(clustered_df, csv_file)
+        # 3. 跳过聚类，直接生成hdc.json
+        hdc_json = self.generate_hdc_json_direct(defect_points, csv_file)
         print(f"生成 {len(hdc_json['annotations'])} 个伤损结构")
         
-        # 5. 保存为JSON文件
+        # 4. 保存为JSON文件
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(hdc_json, f, ensure_ascii=False, indent=2)
         
