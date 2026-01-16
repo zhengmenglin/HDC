@@ -1581,7 +1581,7 @@ class MainWindow(QMainWindow):
                 orig = displayed_point['original']
                 if orig['e'] == pred_e and orig['channel'] == pred_channel:
                     selected_points.append(displayed_point)
-                    print(f"调试： ✓ 找到匹配点 E:{pred_e} Ch:{pred_channel}")
+                   
                     break
         
         print(f"调试：总共选中 {len(selected_points)} 个点")

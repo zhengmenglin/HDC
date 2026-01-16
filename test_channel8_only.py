@@ -38,12 +38,18 @@ DIMENSIONS = 10000
 NUM_LEVELS = 255
 # 批处理大小
 BATCH_SIZE = 1
+
+# 默认参数（可以从命令行覆盖）
+DEFAULT_WINDOW = 20
+DEFAULT_STEP = 20
+DEFAULT_N_GRAM_SIZE = 4
+
 # 窗口大小
-WINDOW = 20
+WINDOW = DEFAULT_WINDOW
 # 滑动窗口步长（从1改为2，减少重叠预测）
-STEP = 20
+STEP = DEFAULT_STEP
 # N-gram大小
-N_GRAM_SIZE = 4
+N_GRAM_SIZE = DEFAULT_N_GRAM_SIZE
 
 # 数据目录
 TRAIN_DATA_DIR = Path(r"d:\HDC\data\train")
@@ -630,9 +636,31 @@ def test_channel8_only():
 
 def main():
     """主函数"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='通道8专用HDC实验')
+    parser.add_argument('--window', type=int, default=DEFAULT_WINDOW, 
+                       help=f'窗口大小（默认: {DEFAULT_WINDOW}）')
+    parser.add_argument('--step', type=int, default=DEFAULT_STEP, 
+                       help=f'滑动步长（默认: {DEFAULT_STEP}）')
+    parser.add_argument('--n-gram', type=int, default=DEFAULT_N_GRAM_SIZE, 
+                       help=f'N-gram大小（默认: {DEFAULT_N_GRAM_SIZE}）')
+    parser.add_argument('--no-convert', action='store_true', 
+                       help='跳过数据转换，直接使用已有的CSV文件')
+    
+    args = parser.parse_args()
+    
+    # 更新全局参数
+    global WINDOW, STEP, N_GRAM_SIZE
+    WINDOW = args.window
+    STEP = args.step
+    N_GRAM_SIZE = args.n_gram
+    
     print("=== 通道8专用HDC实验 ===")
     print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*50)
+    print(f"使用的窗口大小: {WINDOW}")
+    print(f"使用的滑动步长: {STEP}")
+    print(f"使用的N_GRAM_SIZE: {N_GRAM_SIZE}")
     
     success = test_channel8_only()
     
