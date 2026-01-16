@@ -40,8 +40,8 @@ NUM_LEVELS = 255
 BATCH_SIZE = 1
 
 # 默认参数（可以从命令行覆盖）
-DEFAULT_WINDOW = 128
-DEFAULT_STEP = 64
+DEFAULT_WINDOW = 32
+DEFAULT_STEP = 1
 DEFAULT_N_GRAM_SIZE = 4
 
 # 窗口大小
@@ -324,9 +324,9 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
             original_file = data_dir / file_name
             df = pd.read_csv(original_file)
             
-            # 添加predicted_label_8列
+            # 添加predicted_label_8列（初始化为0，避免混合真实标签）
             if 'predicted_label_8' not in df.columns:
-                df['predicted_label_8'] = df['label_8'] if 'label_8' in df.columns else 0
+                df['predicted_label_8'] = 0
             
             # 更新预测结果（只标记窗口中心点，减少误报）
             for start, end, pred_label in pred_info:

@@ -280,6 +280,9 @@ class CsvToHdcJsonConverter:
         has_multichannel_pred = all([f'predicted_label_{i}' in clustered_df.columns for i in range(9)])
         has_multichannel_true = all([f'label_{i}' in clustered_df.columns for i in range(9)])
         
+        # 检查是否有单通道预测标签（如predicted_label_8）
+        has_single_pred = any([f'predicted_label_{i}' in clustered_df.columns for i in range(9)])
+        
         # 从原始JSON文件中提取超声波参数
         # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
         csv_path = Path(original_csv_path)
@@ -424,6 +427,208 @@ class CsvToHdcJsonConverter:
                     
                     annotations.append(annotation)
                     cluster_id += 1
+        
+        # 处理噪声点（cluster == -1），将所有噪声点归为伤损结构
+        noise_points = clustered_df[clustered_df['cluster'] == -1]
+        if not noise_points.empty:
+            print(f"发现 {len(noise_points)} 个噪声点，正在生成伤损结构...")
+            
+            if has_single_pred:
+                # 单通道预测标签处理（如predicted_label_8）
+                channels_to_process = [target_channel] if target_channel is not None else range(9)
+                
+                for channel in channels_to_process:
+                    label_col = f'predicted_label_{channel}'
+                    if label_col not in noise_points.columns:
+                        continue
+                    
+                    channel_noise_points = noise_points[noise_points[f'channel_{channel}'] != 0]
+                    if channel_noise_points.empty:
+                        continue
+                    
+                    # 获取该通道的标签
+                    channel_labels = channel_noise_points[label_col]
+                    
+                    # 过滤掉标签为0的点
+                    channel_noise_points = channel_noise_points[channel_labels != 0]
+                    if channel_noise_points.empty:
+                        continue
+                    
+                    # 确定该通道噪声点的主要类型（出现次数最多的标签）
+                    main_label = channel_labels[channel_labels != 0].mode().iloc[0] if not channel_labels[channel_labels != 0].empty else 0
+                    
+                    # 收集该通道所有噪声点
+                    points = []
+                    for _, row in channel_noise_points.iterrows():
+                        # 获取该通道的深度值
+                        depth = row[f'channel_{channel}']
+                        
+                        # 获取该通道的拼孔值
+                        offset = beam_offset_map.get(channel, 0)
+                        # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                        original_e = int(row['encoding']) + offset
+                        
+                        points.append({
+                            "e": original_e,
+                            "channel": channel,
+                            "depth": float(depth),
+                            "amplitude": 100.0
+                        })
+                    
+                    # 生成伤损结构
+                    if points:
+                        # 确定伤损类型
+                        if main_label == 0:
+                            annotation_type = "结构"
+                        else:
+                            annotation_type = "伤损"
+                        
+                        annotation = {
+                            "id": str(cluster_id),
+                            "type": annotation_type,
+                            "subtype": {
+                                "id": str(main_label),
+                                "name": self.flaw_types.get(main_label, "未知类型")
+                            },
+                            "points": points,
+                            "start_E": min(p['e'] for p in points),
+                            "end_E": max(p['e'] for p in points),
+                            "channels": [channel],
+                            "timestamp": datetime.now().isoformat(),
+                            "source": "predicted"
+                        }
+                        
+                        annotations.append(annotation)
+                        cluster_id += 1
+                        print(f"  通道 {channel}: 生成伤损结构，包含 {len(points)} 个点")
+            elif has_multichannel_pred or has_multichannel_true:
+                # 多通道标签处理
+                channels_to_process = [target_channel] if target_channel is not None else range(9)
+                
+                for channel in channels_to_process:
+                    channel_noise_points = noise_points[noise_points[f'channel_{channel}'] != 0]
+                    if channel_noise_points.empty:
+                        continue
+                    
+                    # 获取该通道的标签
+                    if has_multichannel_pred:
+                        channel_labels = channel_noise_points[f'predicted_label_{channel}']
+                    else:
+                        channel_labels = channel_noise_points[f'label_{channel}']
+                    
+                    # 过滤掉标签为0的点
+                    channel_noise_points = channel_noise_points[channel_labels != 0]
+                    if channel_noise_points.empty:
+                        continue
+                    
+                    # 确定该通道噪声点的主要类型（出现次数最多的标签）
+                    main_label = channel_labels[channel_labels != 0].mode().iloc[0] if not channel_labels[channel_labels != 0].empty else 0
+                    
+                    # 收集该通道所有噪声点
+                    points = []
+                    for _, row in channel_noise_points.iterrows():
+                        # 获取该通道的深度值
+                        depth = row[f'channel_{channel}']
+                        
+                        # 获取该通道的拼孔值
+                        offset = beam_offset_map.get(channel, 0)
+                        # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                        original_e = int(row['encoding']) + offset
+                        
+                        points.append({
+                            "e": original_e,
+                            "channel": channel,
+                            "depth": float(depth),
+                            "amplitude": 100.0
+                        })
+                    
+                    # 生成伤损结构
+                    if points:
+                        # 确定伤损类型
+                        if main_label == 0:
+                            annotation_type = "结构"
+                        else:
+                            annotation_type = "伤损"
+                        
+                        annotation = {
+                            "id": str(cluster_id),
+                            "type": annotation_type,
+                            "subtype": {
+                                "id": str(main_label),
+                                "name": self.flaw_types.get(main_label, "未知类型")
+                            },
+                            "points": points,
+                            "start_E": min(p['e'] for p in points),
+                            "end_E": max(p['e'] for p in points),
+                            "channels": [channel],
+                            "timestamp": datetime.now().isoformat(),
+                            "source": "predicted"
+                        }
+                        
+                        annotations.append(annotation)
+                        cluster_id += 1
+                        print(f"  通道 {channel}: 生成伤损结构，包含 {len(points)} 个点")
+            else:
+                # 单通道标签处理（向后兼容）
+                label_col = 'predicted_label' if 'predicted_label' in clustered_df.columns else 'label'
+                
+                # 转换为伤损结构
+                points = []
+                all_labels = []
+                for _, row in noise_points.iterrows():
+                    # 找到第一个非零的通道深度值
+                    channel = None
+                    depth = None
+                    for i in range(9):
+                        if row[f'channel_{i}'] != 0:
+                            channel = i
+                            depth = row[f'channel_{i}']
+                            break
+                    
+                    if channel is not None and depth is not None:
+                        # 获取该通道的拼孔值
+                        offset = beam_offset_map.get(channel, 0)
+                        # 逆拼孔处理：原始E值 = CSV编码值 + 对应通道的拼孔值
+                        original_e = int(row['encoding']) + offset
+                        
+                        points.append({
+                            "e": original_e,
+                            "channel": channel,
+                            "depth": float(depth),
+                            "amplitude": 100.0
+                        })
+                        if label_col in row.index:
+                            all_labels.append(row[label_col])
+                
+                # 生成伤损结构
+                if points:
+                    # 确定主要类型（出现次数最多的标签）
+                    main_label = pd.Series(all_labels).mode().iloc[0] if all_labels else 0
+                    
+                    # 确定伤损类型
+                    if main_label == 0:
+                        annotation_type = "结构"
+                    else:
+                        annotation_type = "伤损"
+                    
+                    annotation = {
+                        "id": str(cluster_id),
+                        "type": annotation_type,
+                        "subtype": {
+                            "id": str(main_label),
+                            "name": self.flaw_types.get(main_label, "未知类型")
+                        },
+                        "points": points,
+                        "start_E": min(p['e'] for p in points),
+                        "end_E": max(p['e'] for p in points),
+                        "channels": list(set(p['channel'] for p in points)),
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "predicted"
+                    }
+                    
+                    annotations.append(annotation)
+                    cluster_id += 1
+                    print(f"  单通道: 生成伤损结构，包含 {len(points)} 个点")
         
         # 合并重复或重叠的标注
         merged_annotations = self.merge_overlapping_annotations(annotations)
