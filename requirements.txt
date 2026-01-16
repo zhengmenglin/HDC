@@ -1,0 +1,9 @@
+PyQt5
+torch
+torchmetrics
+pandas
+numpy
+scikit-learn
+tqdm
+matplotlib
+requests

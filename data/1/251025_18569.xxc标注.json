@@ -1,0 +1,2796 @@
+{
+  "annotations": [
+    {
+      "id": "1",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645732,
+          "channel": 6,
+          "depth": 97.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645733,
+          "channel": 6,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645734,
+          "channel": 6,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645735,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645736,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645737,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645738,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645739,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645740,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646012,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646013,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646014,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646015,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646016,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646017,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646018,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646019,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646020,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646021,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646022,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646023,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646024,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646025,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646026,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646027,
+          "channel": 8,
+          "depth": 71.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646031,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646032,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646033,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646034,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646035,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646036,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646037,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646038,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646039,
+          "channel": 7,
+          "depth": 95.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646040,
+          "channel": 7,
+          "depth": 98.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645732,
+      "end_E": 646040,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:32:51.260165"
+    },
+    {
+      "id": "2",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645694,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645695,
+          "channel": 6,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645696,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645697,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645698,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645699,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645700,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645701,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645973,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645974,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645975,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645976,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645977,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645978,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645979,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645980,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645981,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645982,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645983,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645984,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645985,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645986,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645987,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645988,
+          "channel": 8,
+          "depth": 71.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645992,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645993,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645994,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645995,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645996,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645997,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645998,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645999,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646000,
+          "channel": 7,
+          "depth": 95.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646001,
+          "channel": 7,
+          "depth": 98.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645694,
+      "end_E": 646001,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:33:00.205715"
+    },
+    {
+      "id": "3",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645609,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645610,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645611,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645612,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645613,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645614,
+          "channel": 6,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645615,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645616,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645617,
+          "channel": 6,
+          "depth": 76.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645889,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645890,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645891,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645892,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645893,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645894,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645895,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645896,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645897,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645898,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645899,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645900,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645901,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645902,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645903,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645906,
+          "channel": 7,
+          "depth": 76.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645907,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645908,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645909,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645916,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645609,
+      "end_E": 645916,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:33:09.151716"
+    },
+    {
+      "id": "4",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645569,
+          "channel": 6,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645570,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645571,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645572,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645573,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645574,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645575,
+          "channel": 6,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645576,
+          "channel": 6,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645577,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645850,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645851,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645852,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645853,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645854,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645855,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645856,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645857,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645858,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645859,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645860,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645861,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645862,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645863,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645864,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645867,
+          "channel": 7,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645868,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645869,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645870,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645871,
+          "channel": 7,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645872,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645873,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645874,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645875,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645876,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645569,
+      "end_E": 645876,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:33:18.535806"
+    },
+    {
+      "id": "5",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645530,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645531,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645532,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645533,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645534,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645535,
+          "channel": 6,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645536,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645537,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645538,
+          "channel": 6,
+          "depth": 76.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645811,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645812,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645813,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645814,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645815,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645816,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645817,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645818,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645819,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645820,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645821,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645822,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645823,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645824,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645825,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645829,
+          "channel": 7,
+          "depth": 76.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645830,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645831,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645832,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645833,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645834,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645835,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645836,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645837,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645530,
+      "end_E": 645837,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:33:45.907656"
+    },
+    {
+      "id": "6",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 647321,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647322,
+          "channel": 6,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647323,
+          "channel": 6,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647324,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647325,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647326,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647327,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647600,
+          "channel": 8,
+          "depth": 70.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647601,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647602,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647603,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647604,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647605,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647606,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647607,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647608,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647609,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647610,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647611,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647612,
+          "channel": 8,
+          "depth": 70.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647613,
+          "channel": 8,
+          "depth": 71.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647614,
+          "channel": 8,
+          "depth": 72.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647618,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647619,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647620,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647621,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647622,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647623,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647624,
+          "channel": 7,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647625,
+          "channel": 7,
+          "depth": 94.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647626,
+          "channel": 7,
+          "depth": 97.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 647321,
+      "end_E": 647626,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:34:32.263843"
+    },
+    {
+      "id": "7",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 647286,
+          "channel": 6,
+          "depth": 95.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647287,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647288,
+          "channel": 6,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647289,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647290,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647291,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647292,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647293,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647566,
+          "channel": 8,
+          "depth": 71.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647567,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647568,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647569,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647570,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647571,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647572,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647573,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647574,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647575,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647576,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647577,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647578,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647579,
+          "channel": 8,
+          "depth": 70.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647580,
+          "channel": 8,
+          "depth": 72.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647585,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647586,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647587,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647588,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647589,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647590,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647591,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647593,
+          "channel": 7,
+          "depth": 98.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 647594,
+          "channel": 7,
+          "depth": 99.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 647286,
+      "end_E": 647594,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:34:41.583737"
+    },
+    {
+      "id": "8",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 645924,
+          "channel": 6,
+          "depth": 94.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645925,
+          "channel": 6,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645926,
+          "channel": 6,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645927,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645928,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645929,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645930,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 645931,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646204,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646205,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646206,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646207,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646208,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646209,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646210,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646211,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646212,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646213,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646214,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646215,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646216,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646217,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646218,
+          "channel": 8,
+          "depth": 70.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646223,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646224,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646225,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646226,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646227,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646228,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646229,
+          "channel": 7,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646230,
+          "channel": 7,
+          "depth": 94.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646231,
+          "channel": 7,
+          "depth": 96.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 645924,
+      "end_E": 646231,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:35:08.887673"
+    },
+    {
+      "id": "9",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 646008,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646009,
+          "channel": 6,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646010,
+          "channel": 6,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646011,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646012,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646013,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646014,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646015,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646287,
+          "channel": 8,
+          "depth": 70.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646288,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646289,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646290,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646291,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646292,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646293,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646294,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646295,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646296,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646297,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646298,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646299,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646300,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646301,
+          "channel": 8,
+          "depth": 69.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646302,
+          "channel": 8,
+          "depth": 71.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646306,
+          "channel": 7,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646307,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646308,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646309,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646310,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646311,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646312,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646313,
+          "channel": 7,
+          "depth": 92.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 646314,
+          "channel": 7,
+          "depth": 95.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 646008,
+      "end_E": 646314,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:35:20.263708"
+    },
+    {
+      "id": "10",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 643895,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643896,
+          "channel": 6,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643897,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643898,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643899,
+          "channel": 6,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643900,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643901,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644173,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644174,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644175,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644176,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644177,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644178,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644179,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644180,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644181,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644182,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644183,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644184,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644185,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644186,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644187,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644188,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644192,
+          "channel": 7,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644193,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644194,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644195,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644196,
+          "channel": 7,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644197,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644198,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644199,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644200,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 643895,
+      "end_E": 644200,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:35:46.133600"
+    },
+    {
+      "id": "11",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 643855,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643856,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643857,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643858,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643859,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643860,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643861,
+          "channel": 6,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 643862,
+          "channel": 6,
+          "depth": 76.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644134,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644135,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644136,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644137,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644138,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644139,
+          "channel": 8,
+          "depth": 59.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644140,
+          "channel": 8,
+          "depth": 59.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644141,
+          "channel": 8,
+          "depth": 59.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644142,
+          "channel": 8,
+          "depth": 59.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644143,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644144,
+          "channel": 8,
+          "depth": 60.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644145,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644146,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644147,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644148,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644149,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644151,
+          "channel": 7,
+          "depth": 74.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644152,
+          "channel": 7,
+          "depth": 75.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644153,
+          "channel": 7,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644154,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644155,
+          "channel": 7,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644156,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644157,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644158,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644159,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 644160,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 643855,
+      "end_E": 644160,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:35:52.761627"
+    },
+    {
+      "id": "12",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 57931,
+          "channel": 6,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57932,
+          "channel": 6,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57933,
+          "channel": 6,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57934,
+          "channel": 6,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57935,
+          "channel": 6,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57936,
+          "channel": 6,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57937,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57938,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57939,
+          "channel": 6,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 57940,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58212,
+          "channel": 8,
+          "depth": 67.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58213,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58214,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58215,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58216,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58217,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58218,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58219,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58220,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58221,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58222,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58223,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58224,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58225,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58226,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58230,
+          "channel": 7,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58231,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58232,
+          "channel": 7,
+          "depth": 80.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58233,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58234,
+          "channel": 7,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58235,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58236,
+          "channel": 7,
+          "depth": 86.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58237,
+          "channel": 7,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58238,
+          "channel": 7,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58239,
+          "channel": 7,
+          "depth": 93.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 57931,
+      "end_E": 58239,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:36:47.213555"
+    },
+    {
+      "id": "13",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 58013,
+          "channel": 6,
+          "depth": 93.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58014,
+          "channel": 6,
+          "depth": 90.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58015,
+          "channel": 6,
+          "depth": 88.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58020,
+          "channel": 6,
+          "depth": 83.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58021,
+          "channel": 6,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58022,
+          "channel": 6,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58023,
+          "channel": 6,
+          "depth": 78.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58024,
+          "channel": 6,
+          "depth": 77.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58297,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58298,
+          "channel": 8,
+          "depth": 65.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58299,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58300,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58301,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58302,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58303,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58304,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58305,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58306,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58307,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58308,
+          "channel": 8,
+          "depth": 63.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58309,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58310,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58311,
+          "channel": 8,
+          "depth": 68.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58316,
+          "channel": 7,
+          "depth": 79.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58317,
+          "channel": 7,
+          "depth": 81.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58318,
+          "channel": 7,
+          "depth": 82.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58319,
+          "channel": 7,
+          "depth": 84.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58320,
+          "channel": 7,
+          "depth": 85.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58321,
+          "channel": 7,
+          "depth": 87.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58322,
+          "channel": 7,
+          "depth": 89.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58323,
+          "channel": 7,
+          "depth": 91.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 58324,
+          "channel": 7,
+          "depth": 94.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 58013,
+      "end_E": 58324,
+      "channels": [
+        6,
+        7,
+        8
+      ],
+      "timestamp": "2026-01-12T13:37:00.699576"
+    }
+  ],
+  "timestamp": "2026-01-12T13:37:00.699820",
+  "version": "1.0"
+}

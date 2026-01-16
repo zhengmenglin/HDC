@@ -24,6 +24,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import json
 import math
+import pandas as pd
+from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
@@ -418,6 +420,22 @@ class BScanCanvas(FigureCanvas):
         b2_points = parser.b2_points
         channels = parser.get_all_channels()
         
+        # 确定当前编码值
+        if current_e is None:
+            # 如果没有提供当前编码值，使用最大编码值
+            all_e_values = [p['e'] for p in b1_points + b2_points]
+            current_e = max(all_e_values + [255], default=255)
+        
+        # 过滤点：只保留当前编码值前后5000个点
+        range_start = current_e - 2000
+        range_end = current_e + 2000
+        
+        # 过滤B1点
+        filtered_b1_points = [p for p in b1_points if range_start <= p['e'] <= range_end]
+        
+        # 过滤B2点
+        filtered_b2_points = [p for p in b2_points if range_start <= p['e'] <= range_end]
+        
         # 绘制B1点
         for channel in channels:
             # 检查通道是否可见
@@ -428,7 +446,7 @@ class BScanCanvas(FigureCanvas):
             sensitivity = 0#parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
-            channel_data = [p for p in b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+            channel_data = [p for p in filtered_b1_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
             
             if channel_data:
                 # 获取通道的拼孔值，默认为0
@@ -503,7 +521,7 @@ class BScanCanvas(FigureCanvas):
             sensitivity = 0# parser.params['sensitivity'].get(channel, 0)
             
             # 过滤掉幅度低于灵敏度的点
-            channel_data = [p for p in b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
+            channel_data = [p for p in filtered_b2_points if p['channel'] == channel and p['amplitude'] >= sensitivity]
             
             if channel_data:
                 # 获取通道的拼孔值，默认为0
@@ -539,7 +557,7 @@ class BScanCanvas(FigureCanvas):
                 # 计算调整后的编码值和深度值
                 # 深度 = 声程 * cos(水平角) * cos(俯仰角)
                 # 编码偏差 = 声程 * cos(水平角) * sin(俯仰角)
-                e_vals = [p['e'] + beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3 for p in channel_data]
+                e_vals = [p['e'] - beam_offset + (p['depth'] * cos_horizontal * sin_pitch)/3  for p in channel_data]
                 # 先计算原始深度
                 raw_depth_vals = [p['depth'] * cos_horizontal * cos_pitch for p in channel_data]
                 # 然后根据显示模式调整深度，处理二次反射
@@ -575,7 +593,7 @@ class BScanCanvas(FigureCanvas):
         # 获取文件名作为标题
         import os
         filename = os.path.basename(parser.json_file) if hasattr(parser, 'json_file') else '未命名文件'
-        self.axes.set_title(f'钢轨探伤B显数据可视化 - {filename}\n(右上角为原点, X向左递增, Y向下递增)', fontsize=14, fontweight='bold')
+        self.axes.set_title(f' - {filename}\n', fontsize=14, fontweight='bold')
         
         self.axes.legend(loc='upper left', fontsize=8, ncol=2)
         self.axes.grid(True, alpha=0.3)
@@ -612,7 +630,7 @@ class BScanCanvas(FigureCanvas):
             return p['e'] - beam_offset / 3 + (p['depth'] * cos_horizontal * sin_pitch) / 3
         
         adjusted_e_values = []
-        for p in b1_points + b2_points:
+        for p in filtered_b1_points + filtered_b2_points:
             adjusted_e_values.append(get_adjusted_e(p))
         
         max_e = max(adjusted_e_values + [255], default=255)
@@ -698,14 +716,14 @@ class BScanCanvas(FigureCanvas):
                         # 先计算原始深度
                         raw_depth = p['depth'] * cos_horizontal * cos_pitch
                         # 然后根据显示模式调整深度，处理二次反射
-                        adjusted_depth = parser.calculate_adjusted_depth(channel, raw_depth, display_mode)
+                        adjusted_depth = parser.calculate_adjusted_depth(p['channel'], raw_depth, display_mode)
                         
                         # 检查点是B1还是B2，使用对应的计算公式
-                        # 先尝试在b1_points中查找
+                        # 先尝试在过滤后的b1_points中查找
                         is_b1 = any(b1_p['e'] == p['e'] and b1_p['channel'] == p['channel'] 
                                    and abs(b1_p['depth'] - p['depth']) < 0.1 
                                    and abs(b1_p['amplitude'] - p['amplitude']) < 0.1 
-                                   for b1_p in parser.b1_points)
+                                   for b1_p in filtered_b1_points)
                         
                         if is_b1:
                             # B1点使用B1的计算公式
@@ -725,20 +743,22 @@ class BScanCanvas(FigureCanvas):
                 min_depth = min(depth_values)
                 max_depth = max(depth_values)
 
-                # 根据标注ID判断是手动标注还是自动标注（自动标注ID从100开始）
+                # 根据标注ID判断是手动标注还是HDC标注
+                # HDC标注ID从100开始
                 annotation_id = int(annotation['id'])
-                is_auto = annotation_id >= 100
+                is_hdc = annotation_id >= 100
                 
-                # 设置颜色：自动标注使用不同的浅色，手动标注使用灰色
-                if is_auto:
+                # 设置颜色：HDC标注使用独特颜色，手动标注使用灰色
+                # 统一处理逻辑，仅在颜色上区分
+                if is_hdc:
                     if annotation['type'] == '伤损':
-                        # 自动识别的伤损使用浅红色
-                        box_color = '#FFB6C1'  # 浅粉色
-                        text_color = '#FF6B6B'  # 浅红色
+                        # HDC识别的伤损使用亮绿色
+                        box_color = '#90EE90'  # 亮绿色
+                        text_color = '#006400'  # 深绿色
                     else:
-                        # 自动识别的结构使用浅蓝色
-                        box_color = '#B0E0E6'  # 淡蓝色
-                        text_color = '#6495ED'  # 天蓝色
+                        # HDC识别的结构使用亮蓝色
+                        box_color = '#87CEFA'  # 亮蓝色
+                        text_color = '#00008B'  # 深蓝色
                 else:
                     # 手动标注使用灰色
                     box_color = 'gray'
@@ -965,7 +985,7 @@ class MainWindow(QMainWindow):
         self.json_files.clear()
         
         # 定义要搜索的文件夹，按优先级排序（test优先于train）
-        folders = ['test', 'train']
+        folders = [ 'train','test',]
         
         # 构造data目录路径
         data_dir = os.path.join(os.getcwd(), 'data')
@@ -982,8 +1002,8 @@ class MainWindow(QMainWindow):
                 try:
                     for filename in os.listdir(folder_path):
                         file_path = os.path.join(folder_path, filename)
-                        # 检查文件是否为.json文件且不是标注文件
-                        if filename.endswith('.json') and '标注' not in filename:
+                        # 检查文件是否为.json文件且不是标注文件，同时跳过hdc结尾的.json文件
+                        if filename.endswith('.json') and '标注' not in filename and not filename.endswith('_hdc.json'):
                             self.json_files.append(file_path)
                             print(f"找到文件: {file_path}")
                 except Exception as e:
@@ -1023,6 +1043,8 @@ class MainWindow(QMainWindow):
             json_dir = os.path.dirname(file_path)
             json_filename = os.path.basename(file_path)
             name_without_ext = os.path.splitext(json_filename)[0]
+            
+            # 1. 加载常规标注文件（标注.json）
             annotation_filename = f"{name_without_ext}标注.json"
             annotation_file_path = os.path.join(json_dir, annotation_filename)
             
@@ -1030,6 +1052,16 @@ class MainWindow(QMainWindow):
                 self.annotation_manager.load_annotations(annotation_file_path)
                 self.status_bar.showMessage(
                     f"已加载标注文件: {annotation_filename}", 3000
+                )
+            
+            # 2. 加载HDC标注文件（hdc.json）
+            hdc_annotation_filename = f"{name_without_ext}_hdc.json"
+            hdc_annotation_file_path = os.path.join(json_dir, hdc_annotation_filename)
+            
+            if os.path.exists(hdc_annotation_file_path):
+                self.annotation_manager.load_annotations(hdc_annotation_file_path, replace=False)
+                self.status_bar.showMessage(
+                    f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )
             
             # 更新B显画布，传递标注数据和显示模式
@@ -1368,34 +1400,23 @@ class MainWindow(QMainWindow):
         if self.parser is None:
             return
 
-        import os
-        from gui.annotation_manager import AnnotationManager
-        json_file_path = self.parser.json_file
-        json_dir = os.path.dirname(json_file_path)
-        json_filename = os.path.basename(json_file_path)
-
-        # 去掉扩展名，添加"标注"后缀
-        name_without_ext = os.path.splitext(json_filename)[0]
-        annotation_filename = f"{name_without_ext}标注.json"
-        annotation_file_path = os.path.join(json_dir, annotation_filename)
-
         # 清空当前标注列表
         self.annotations_list.clear()
         self.annotations_list.addItem("请选择标注", None)
 
-        # 加载标注文件到临时管理器，避免影响内存中的未保存标注
-        if os.path.exists(annotation_file_path):
-            # 创建临时标注管理器，仅用于加载文件中的标注
-            temp_manager = AnnotationManager()
-            temp_manager.load_annotations(annotation_file_path)
-            file_annotations = temp_manager.get_annotations()
-            
-            # 显示文件中的标注
-            for annotation in file_annotations:
-                # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
-                annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
-                self.annotations_list.addItem(annotation_name, annotation['id'])
-
+        # 获取所有已加载的标注（包括HDC标注）
+        all_annotations = self.annotation_manager.get_annotations()
+        
+        # 显示所有标注
+        for annotation in all_annotations:
+            # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
+            annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
+            self.annotations_list.addItem(annotation_name, annotation['id'])
+        
+        # 检查是否有HDC标注，启用"选中预测点"按钮
+        has_hdc_annotations = any(int(ann['id']) >= 100 for ann in all_annotations)
+        self.select_hdc_points_btn.setEnabled(has_hdc_annotations)
+    
     def on_annotation_selected(self, index):
         """当选择标注时更新详情"""
         if index <= 0:
@@ -1506,6 +1527,71 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "成功", "标注已删除")
         else:
             QMessageBox.critical(self, "错误", "删除标注失败")
+    
+    def select_hdc_predicted_points(self):
+        """选中HDC预测的点（直接从CSV文件中选择predicted_label_8 != 0的点）"""
+        # 获取当前打开的CSV文件路径
+        if self.parser is None or not hasattr(self.parser, 'json_file'):
+            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
+            return
+        
+        # 构造CSV文件路径（与JSON文件同目录，文件名相同，后缀为_hdc.csv）
+        json_file_path = Path(self.parser.json_file)
+        csv_file_path = json_file_path.parent / f"{json_file_path.stem}_hdc.csv"
+        
+        if not csv_file_path.exists():
+            QMessageBox.warning(self, "警告", f"找不到CSV文件: {csv_file_path}")
+            return
+        
+        print(f"调试：从CSV文件读取预测点: {csv_file_path}")
+        
+        # 读取CSV文件
+        try:
+            df = pd.read_csv(csv_file_path)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"读取CSV文件失败: {str(e)}")
+            return
+        
+        # 检查是否有predicted_label_8列
+        if 'predicted_label_8' not in df.columns:
+            QMessageBox.warning(self, "警告", "CSV文件中没有predicted_label_8列")
+            return
+        
+        # 找到所有predicted_label_8 != 0的点
+        pred_mask = df['predicted_label_8'] != 0
+        pred_points_df = df[pred_mask]
+        
+        print(f"调试：CSV中预测点数: {len(pred_points_df)}")
+        
+        # 获取通道8的拼孔值
+        beam_offset = self.parser.params['beam_offset'].get(8, 0)
+        print(f"调试：通道8的拼孔值: {beam_offset}")
+        
+        # 在displayed_points中查找匹配的点
+        selected_points = []
+        for _, pred_row in pred_points_df.iterrows():
+            # 逆拼孔处理：原始E值 = CSV编码值 + 拼孔值
+            pred_e = int(pred_row['encoding']) + beam_offset
+            pred_channel = 8  # 固定通道8
+            pred_depth = float(pred_row['channel_8'])
+            pred_amplitude = 100.0  # 默认幅度值
+            
+            # 在displayed_points中查找匹配的点（只匹配E值和channel，不检查depth和amplitude）
+            for displayed_point in self.bscan_canvas.displayed_points:
+                orig = displayed_point['original']
+                if orig['e'] == pred_e and orig['channel'] == pred_channel:
+                    selected_points.append(displayed_point)
+                   
+                    break
+        
+        print(f"调试：总共选中 {len(selected_points)} 个点")
+        
+        if selected_points:
+            # 设置选中的点
+            self.point_selector.set_selected_points(selected_points)
+            self.status_bar.showMessage(f"已选中 {len(selected_points)} 个HDC预测点")
+        else:
+            QMessageBox.warning(self, "警告", "无法找到HDC预测的点")
     
     def on_rect_select_state_changed(self, state):
         """处理框选开关状态变化"""
@@ -1678,6 +1764,13 @@ class MainWindow(QMainWindow):
         self.delete_annotation_btn.clicked.connect(self.delete_selected_annotation)
         self.delete_annotation_btn.setEnabled(False)
         button_layout.addWidget(self.delete_annotation_btn)
+        
+        # 添加选中HDC预测点按钮
+        self.select_hdc_points_btn = QPushButton("选中预测点")
+        self.select_hdc_points_btn.clicked.connect(self.select_hdc_predicted_points)
+        self.select_hdc_points_btn.setEnabled(False)  # 初始禁用，需要HDC标注后才启用
+        button_layout.addWidget(self.select_hdc_points_btn)
+        
         group_layout2.addLayout(button_layout)
         
         # 下侧：标注详情
