@@ -40,8 +40,8 @@ NUM_LEVELS = 255
 BATCH_SIZE = 1
 
 # 默认参数（可以从命令行覆盖）
-DEFAULT_WINDOW = 20
-DEFAULT_STEP = 20
+DEFAULT_WINDOW = 32
+DEFAULT_STEP = 1
 DEFAULT_N_GRAM_SIZE = 4
 
 # 窗口大小
@@ -126,7 +126,9 @@ class Channel8Dataset(data.Dataset):
                 
                 # 确定窗口标签
                 window_labels = labels[start:end]
-                if len(window_labels) > 0:
+                
+                # 新逻辑：窗口内所有点都是伤损点，才标记为伤损
+                if np.any(window_labels != 0):
                     label = max(set(window_labels), key=list(window_labels).count)
                 else:
                     label = 0
@@ -500,7 +502,7 @@ def test_channel8_only():
     
     # 清理旧文件
     print("\n=== 清理旧文件 ===")
-    clean_old_files([TRAIN_DATA_DIR])
+    clean_old_files([TRAIN_DATA_DIR, TEST_DATA_DIR])
     print("=== 清理完成 ===")
     
     try:
@@ -551,6 +553,49 @@ def test_channel8_only():
             print("✓ CSV到HDC JSON转换完成（预测点已添加source标识）")
         except Exception as e:
             print(f"[FAIL] CSV到HDC JSON转换失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        
+        # 3.6 转换test数据
+        print("\n=== Step 3.6: 转换test数据 ===")
+        try:
+            ultrasonic_converter = UltrasonicDataConverter()
+            test_files = get_data_files(TEST_DATA_DIR)
+            test_csv_files = convert_data_files(test_files, ultrasonic_converter)
+            
+            if not test_csv_files:
+                print("[WARN] 没有成功转换的test数据文件")
+            else:
+                print(f"✓ 成功转换 {len(test_csv_files)} 个test数据文件")
+        except Exception as e:
+            print(f"[FAIL] test数据转换失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        
+        # 3.7 预测test数据
+        print("\n=== Step 3.7: 预测test数据 ===")
+        try:
+            if not predict_channel8_model(TEST_DATA_DIR):
+                print("[FAIL] test数据预测失败")
+                return False
+            print("✓ test数据预测完成")
+        except Exception as e:
+            print(f"[FAIL] test数据预测失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        
+        # 3.8 test数据CSV到HDC JSON转换
+        print("\n=== Step 3.8: test数据CSV到HDC JSON转换 ===")
+        try:
+            from csv_to_hdc_json import CsvToHdcJsonConverter
+            converter = CsvToHdcJsonConverter()
+            converter.batch_convert(str(TEST_DATA_DIR), target_channel=8)
+            print("✓ test数据CSV到HDC JSON转换完成（预测点已添加source标识）")
+        except Exception as e:
+            print(f"[FAIL] test数据CSV到HDC JSON转换失败: {e}")
             import traceback
             traceback.print_exc()
             return False
