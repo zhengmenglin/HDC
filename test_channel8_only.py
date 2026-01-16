@@ -401,10 +401,17 @@ def calculate_channel8_accuracy(predicted_file, original_file):
         else:
             f1 = 2 * precision * recall / (precision + recall)
         
+        # 计算F2分数（召回率权重是精确率的2倍）
+        if (4 * precision + recall) == 0:
+            f2 = 0.0
+        else:
+            f2 = 5 * precision * recall / (4 * precision + recall)
+        
         return {
             'precision': precision,
             'recall': recall,
             'f1': f1,
+            'f2': f2,
             'total_identified': total_identified,
             'total_true_defects': total_true_defects,
             'total_correct': total_correct
@@ -547,6 +554,7 @@ def test_channel8_only():
         total_precision = 0.0
         total_recall = 0.0
         total_f1 = 0.0
+        total_f2 = 0.0
         file_count = 0
         
         for data_file in train_files:
@@ -564,21 +572,25 @@ def test_channel8_only():
             total_precision += metrics['precision']
             total_recall += metrics['recall']
             total_f1 += metrics['f1']
+            total_f2 += metrics['f2']
             file_count += 1
             
             print(f"  {data_file.name}:")
             print(f"    精确率 = {metrics['precision']:.4f}")
             print(f"    召回率 = {metrics['recall']:.4f}")
             print(f"    F1分数 = {metrics['f1']:.4f}")
+            print(f"    F2分数 = {metrics['f2']:.4f}")
             print(f"    预测点数: {metrics['total_identified']}, 真实伤损点数: {metrics['total_true_defects']}, 正确点数: {metrics['total_correct']}")
         
         avg_precision = total_precision / file_count if file_count > 0 else 0.0
         avg_recall = total_recall / file_count if file_count > 0 else 0.0
         avg_f1 = total_f1 / file_count if file_count > 0 else 0.0
+        avg_f2 = total_f2 / file_count if file_count > 0 else 0.0
         
         print(f"\n  平均精确率: {avg_precision:.4f}")
         print(f"  平均召回率: {avg_recall:.4f}")
         print(f"  平均F1分数: {avg_f1:.4f}")
+        print(f"  平均F2分数: {avg_f2:.4f}")
         
         # 5. 输出结果
         print("\n" + "="*50)
@@ -590,6 +602,7 @@ def test_channel8_only():
         print(f"通道8平均精确率: {avg_precision:.4f}")
         print(f"通道8平均召回率: {avg_recall:.4f}")
         print(f"通道8平均F1分数: {avg_f1:.4f}")
+        print(f"通道8平均F2分数: {avg_f2:.4f}")
         print("="*50)
         
         # 保存结果
@@ -599,7 +612,8 @@ def test_channel8_only():
             'n_gram': N_GRAM_SIZE,
             'precision': avg_precision,
             'recall': avg_recall,
-            'f1': avg_f1
+            'f1': avg_f1,
+            'f2': avg_f2
         }])
         results_file = OUTPUT_DIR / "channel8_accuracy_results.csv"
         results_df.to_csv(results_file, index=False)

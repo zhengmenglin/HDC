@@ -24,6 +24,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import json
 import math
+import pandas as pd
+from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional, Any
 from datetime import datetime
@@ -1527,35 +1529,69 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "错误", "删除标注失败")
     
     def select_hdc_predicted_points(self):
-        """选中HDC预测的点（只选中HDC标注中的点，不选中整个标注框）"""
-        # 获取所有HDC标注（ID >= 100）
-        hdc_annotations = [ann for ann in self.annotation_manager.get_annotations() 
-                         if int(ann['id']) >= 100]
-        
-        if not hdc_annotations:
-            QMessageBox.information(self, "提示", "没有找到HDC预测的标注")
+        """选中HDC预测的点（直接从CSV文件中选择predicted_label_8 != 0的点）"""
+        # 获取当前打开的CSV文件路径
+        if self.parser is None or not hasattr(self.parser, 'json_file'):
+            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
             return
         
-        # 收集所有HDC预测的点
+        # 构造CSV文件路径（与JSON文件同目录，文件名相同，后缀为_hdc.csv）
+        json_file_path = Path(self.parser.json_file)
+        csv_file_path = json_file_path.parent / f"{json_file_path.stem}_hdc.csv"
+        
+        if not csv_file_path.exists():
+            QMessageBox.warning(self, "警告", f"找不到CSV文件: {csv_file_path}")
+            return
+        
+        print(f"调试：从CSV文件读取预测点: {csv_file_path}")
+        
+        # 读取CSV文件
+        try:
+            df = pd.read_csv(csv_file_path)
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"读取CSV文件失败: {str(e)}")
+            return
+        
+        # 检查是否有predicted_label_8列
+        if 'predicted_label_8' not in df.columns:
+            QMessageBox.warning(self, "警告", "CSV文件中没有predicted_label_8列")
+            return
+        
+        # 找到所有predicted_label_8 != 0的点
+        pred_mask = df['predicted_label_8'] != 0
+        pred_points_df = df[pred_mask]
+        
+        print(f"调试：CSV中预测点数: {len(pred_points_df)}")
+        
+        # 获取通道8的拼孔值
+        beam_offset = self.parser.params['beam_offset'].get(8, 0)
+        print(f"调试：通道8的拼孔值: {beam_offset}")
+        
+        # 在displayed_points中查找匹配的点
         selected_points = []
-        for annotation in hdc_annotations:
-            for point in annotation['points']:
-                # 在displayed_points中查找匹配的点
-                for displayed_point in self.bscan_canvas.displayed_points:
-                    orig = displayed_point['original']
-                    if (orig['e'] == point['e'] and
-                        orig['channel'] == point['channel'] and
-                        abs(orig['depth'] - point['depth']) < 0.1 and
-                        abs(orig['amplitude'] - point['amplitude']) < 0.1):
-                        selected_points.append(displayed_point)
-                        break
+        for _, pred_row in pred_points_df.iterrows():
+            # 逆拼孔处理：原始E值 = CSV编码值 + 拼孔值
+            pred_e = int(pred_row['encoding']) + beam_offset
+            pred_channel = 8  # 固定通道8
+            pred_depth = float(pred_row['channel_8'])
+            pred_amplitude = 100.0  # 默认幅度值
+            
+            # 在displayed_points中查找匹配的点（只匹配E值和channel，不检查depth和amplitude）
+            for displayed_point in self.bscan_canvas.displayed_points:
+                orig = displayed_point['original']
+                if orig['e'] == pred_e and orig['channel'] == pred_channel:
+                    selected_points.append(displayed_point)
+                    print(f"调试： ✓ 找到匹配点 E:{pred_e} Ch:{pred_channel}")
+                    break
+        
+        print(f"调试：总共选中 {len(selected_points)} 个点")
         
         if selected_points:
             # 设置选中的点
             self.point_selector.set_selected_points(selected_points)
             self.status_bar.showMessage(f"已选中 {len(selected_points)} 个HDC预测点")
         else:
-            QMessageBox.warning(self, "警告", "无法找到HDC预测的点，可能数据已过期")
+            QMessageBox.warning(self, "警告", "无法找到HDC预测的点")
     
     def on_rect_select_state_changed(self, state):
         """处理框选开关状态变化"""
