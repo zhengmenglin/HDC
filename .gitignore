@@ -1,0 +1,15 @@
+models/
+*.pkl
+*.pth
+*.pth.tar
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
