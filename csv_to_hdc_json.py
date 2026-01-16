@@ -74,15 +74,16 @@ class CsvToHdcJsonConverter:
         Returns:
             缺陷点的DataFrame
         """
+        # 优先检查指定通道的预测标签
+        if target_channel is not None and f'predicted_label_{target_channel}' in df.columns:
+            pred_mask = df[f'predicted_label_{target_channel}'] != 0
+            return df[pred_mask].copy()
+        
         # 检查是否有多通道标签
         has_multichannel_pred = all([f'predicted_label_{i}' in df.columns for i in range(9)])
         has_multichannel_true = all([f'label_{i}' in df.columns for i in range(9)])
         
-        if target_channel is not None and has_multichannel_pred:
-            # 多通道预测结果，检查指定通道的预测标签不为0即为缺陷点
-            pred_mask = df[f'predicted_label_{target_channel}'] != 0
-            return df[pred_mask].copy()
-        elif has_multichannel_pred:
+        if has_multichannel_pred:
             # 多通道预测结果，检查任意通道的预测标签不为0即为缺陷点
             pred_mask = pd.Series([False] * len(df), index=df.index)
             for i in range(9):

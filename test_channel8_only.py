@@ -40,8 +40,8 @@ NUM_LEVELS = 255
 BATCH_SIZE = 1
 
 # 默认参数（可以从命令行覆盖）
-DEFAULT_WINDOW = 32
-DEFAULT_STEP = 1
+DEFAULT_WINDOW = 128
+DEFAULT_STEP = 64
 DEFAULT_N_GRAM_SIZE = 4
 
 # 窗口大小
@@ -127,11 +127,9 @@ class Channel8Dataset(data.Dataset):
                 # 确定窗口标签
                 window_labels = labels[start:end]
                 
-                # 新逻辑：窗口内所有点都是伤损点，才标记为伤损
-                if np.any(window_labels != 0):
-                    label = max(set(window_labels), key=list(window_labels).count)
-                else:
-                    label = 0
+                # 窗口标签=中心点标签
+                center = (start + end) // 2
+                label = labels[center]
                 
                 file_samples.append(sample)
                 file_labels.append(label)
@@ -333,7 +331,7 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
             # 更新预测结果（只标记窗口中心点，减少误报）
             for start, end, pred_label in pred_info:
                 center = (start + end) // 2  # 计算窗口中心点
-                df.loc[center, 'predicted_label_8'] = pred_label
+                df.loc[df['encoding'] == center, 'predicted_label_8'] = pred_label
             
             output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
             df.to_csv(output_file, index=False)
