@@ -1,0 +1,2 @@
+window,step,n_gram,precision,recall,f1
+20,20,4,0.8661710037174721,1.0,0.9282868525896414

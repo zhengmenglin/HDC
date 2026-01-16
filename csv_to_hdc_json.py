@@ -62,13 +62,14 @@ class CsvToHdcJsonConverter:
         """
         return pd.read_csv(csv_file)
     
-    def extract_defect_points(self, df: pd.DataFrame) -> pd.DataFrame:
+    def extract_defect_points(self, df: pd.DataFrame, target_channel: int = None) -> pd.DataFrame:
         """
         提取缺陷点（label或predicted_label不为0的点）
         支持单通道标签（label）和多通道标签（label_0到label_8）
         
         Args:
             df: 包含检测结果的DataFrame
+            target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
             
         Returns:
             缺陷点的DataFrame
@@ -77,7 +78,11 @@ class CsvToHdcJsonConverter:
         has_multichannel_pred = all([f'predicted_label_{i}' in df.columns for i in range(9)])
         has_multichannel_true = all([f'label_{i}' in df.columns for i in range(9)])
         
-        if has_multichannel_pred:
+        if target_channel is not None and has_multichannel_pred:
+            # 多通道预测结果，检查指定通道的预测标签不为0即为缺陷点
+            pred_mask = df[f'predicted_label_{target_channel}'] != 0
+            return df[pred_mask].copy()
+        elif has_multichannel_pred:
             # 多通道预测结果，检查任意通道的预测标签不为0即为缺陷点
             pred_mask = pd.Series([False] * len(df), index=df.index)
             for i in range(9):
@@ -255,13 +260,14 @@ class CsvToHdcJsonConverter:
         
         return beam_offset_map, beam_way_map, beam_angle_map
     
-    def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str) -> Dict:
+    def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str, target_channel: int = None) -> Dict:
         """
         生成hdc.json格式的数据
         
         Args:
             clustered_df: 带有簇标签的缺陷点DataFrame
             original_csv_path: 原始CSV文件路径
+            target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
             
         Returns:
             hdc.json格式的字典
@@ -296,7 +302,10 @@ class CsvToHdcJsonConverter:
             
             if has_multichannel_pred or has_multichannel_true:
                 # 多通道标签处理
-                for channel in range(9):
+                # 确定要处理的通道范围
+                channels_to_process = [target_channel] if target_channel is not None else range(9)
+                
+                for channel in channels_to_process:
                     channel_points = cluster_points[cluster_points[f'channel_{channel}'] != 0]
                     if channel_points.empty:
                         continue
@@ -352,7 +361,8 @@ class CsvToHdcJsonConverter:
                             "start_E": min(p['e'] for p in points),
                             "end_E": max(p['e'] for p in points),
                             "channels": [channel],
-                            "timestamp": datetime.now().isoformat()
+                            "timestamp": datetime.now().isoformat(),
+                            "source": "predicted"
                         }
                         
                         annotations.append(annotation)
@@ -407,7 +417,8 @@ class CsvToHdcJsonConverter:
                         "start_E": min(p['e'] for p in points),
                         "end_E": max(p['e'] for p in points),
                         "channels": list(set(p['channel'] for p in points)),
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "predicted"
                     }
                     
                     annotations.append(annotation)
@@ -488,13 +499,14 @@ class CsvToHdcJsonConverter:
         
         return final_merged
     
-    def generate_hdc_json_direct(self, defect_points: pd.DataFrame, original_csv_path: str) -> Dict:
+    def generate_hdc_json_direct(self, defect_points: pd.DataFrame, original_csv_path: str, target_channel: int = None) -> Dict:
         """
         直接生成hdc.json格式的数据，跳过聚类步骤
         
         Args:
             defect_points: 缺陷点DataFrame
             original_csv_path: 原始CSV文件路径
+            target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
             
         Returns:
             hdc.json格式的字典
@@ -520,7 +532,10 @@ class CsvToHdcJsonConverter:
             
             if has_multichannel_pred or has_multichannel_true:
                 # 多通道标签处理
-                for channel in range(9):
+                # 确定要处理的通道范围
+                channels_to_process = [target_channel] if target_channel is not None else range(9)
+                
+                for channel in channels_to_process:
                     # 获取该通道的深度值
                     if row[f'channel_{channel}'] == 0:
                         continue
@@ -567,7 +582,8 @@ class CsvToHdcJsonConverter:
                         "start_E": original_e,
                         "end_E": original_e,
                         "channels": [channel],
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "predicted"
                     }
                     
                     annotations.append(annotation)
@@ -623,7 +639,8 @@ class CsvToHdcJsonConverter:
                         "start_E": original_e,
                         "end_E": original_e,
                         "channels": [channel],
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "predicted"
                     }
                     
                     annotations.append(annotation)
@@ -636,7 +653,7 @@ class CsvToHdcJsonConverter:
         
         return hdc_json
     
-    def convert_csv_to_hdc_json(self, csv_file: str, output_file: str = None, eps: float = 5.0, min_samples: int = 5):
+    def convert_csv_to_hdc_json(self, csv_file: str, output_file: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None):
         """
         将CSV文件转换为hdc.json文件
         
@@ -645,6 +662,7 @@ class CsvToHdcJsonConverter:
             output_file: 输出JSON文件路径，默认与CSV文件同目录
             eps: DBSCAN的ε参数（已屏蔽聚类，此参数无效）
             min_samples: DBSCAN的min_samples参数（已屏蔽聚类，此参数无效）
+            target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
             
         Returns:
             输出JSON文件路径
@@ -659,8 +677,8 @@ class CsvToHdcJsonConverter:
         # 1. 加载CSV文件
         df = self.load_csv(csv_file)
         
-        # 2. 提取缺陷点
-        defect_points = self.extract_defect_points(df)
+        # 2. 提取缺陷点（传递target_channel参数）
+        defect_points = self.extract_defect_points(df, target_channel=target_channel)
         print(f"找到 {len(defect_points)} 个缺陷点")
         
         # 3. 根据需要选择是否聚类
@@ -669,7 +687,7 @@ class CsvToHdcJsonConverter:
         
         if skip_clustering:
             # 跳过聚类，直接生成hdc.json
-            hdc_json = self.generate_hdc_json_direct(defect_points, csv_file)
+            hdc_json = self.generate_hdc_json_direct(defect_points, csv_file, target_channel=target_channel)
         else:
             # 从原始JSON文件中提取超声波参数
             csv_path = Path(csv_file)
@@ -685,8 +703,8 @@ class CsvToHdcJsonConverter:
             print(f"聚类完成，生成 {len(clustered_df['cluster'].unique()) - 1} 个簇")
             
             # 生成hdc.json
-            hdc_json = self.generate_hdc_json(clustered_df, csv_file)
-        print(f"生成 {len(hdc_json['annotations'])} 个伤损结构")
+            hdc_json = self.generate_hdc_json(clustered_df, csv_file, target_channel=target_channel)
+            print(f"生成 {len(hdc_json['annotations'])} 个伤损结构")
         
         # 4. 保存为JSON文件
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -695,7 +713,7 @@ class CsvToHdcJsonConverter:
         print(f"hdc.json文件已保存到: {output_file}")
         return output_file
     
-    def batch_convert(self, input_dir: str, output_dir: str = None, eps: float = 5.0, min_samples: int = 5):
+    def batch_convert(self, input_dir: str, output_dir: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None):
         """
         批量转换目录中的所有CSV文件
         
@@ -704,6 +722,7 @@ class CsvToHdcJsonConverter:
             output_dir: 输出目录路径，默认与输入目录相同
             eps: DBSCAN的ε参数
             min_samples: DBSCAN的min_samples参数
+            target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
             
         Returns:
             转换后的文件列表
@@ -726,7 +745,8 @@ class CsvToHdcJsonConverter:
             # 转换文件，确保只添加一个hdc后缀
             output_file = str(output_path / f"{csv_file.stem.replace('_hdc', '')}_hdc.json")
             converted_file = self.convert_csv_to_hdc_json(
-                str(csv_file), output_file, eps=eps, min_samples=min_samples
+                str(csv_file), output_file, eps=eps, min_samples=min_samples,
+                target_channel=target_channel
             )
             converted_files.append(converted_file)
         

@@ -1410,7 +1410,11 @@ class MainWindow(QMainWindow):
             # 标注名称格式：{类型} {标注ID} {子类型名称} (E{start_E}-E{end_E})
             annotation_name = f"{annotation['type']} {annotation['id']} {annotation['subtype']['name']} (E{annotation['start_E']}-E{annotation['end_E']})"
             self.annotations_list.addItem(annotation_name, annotation['id'])
-
+        
+        # 检查是否有HDC标注，启用"选中预测点"按钮
+        has_hdc_annotations = any(int(ann['id']) >= 100 for ann in all_annotations)
+        self.select_hdc_points_btn.setEnabled(has_hdc_annotations)
+    
     def on_annotation_selected(self, index):
         """当选择标注时更新详情"""
         if index <= 0:
@@ -1521,6 +1525,37 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "成功", "标注已删除")
         else:
             QMessageBox.critical(self, "错误", "删除标注失败")
+    
+    def select_hdc_predicted_points(self):
+        """选中HDC预测的点（只选中HDC标注中的点，不选中整个标注框）"""
+        # 获取所有HDC标注（ID >= 100）
+        hdc_annotations = [ann for ann in self.annotation_manager.get_annotations() 
+                         if int(ann['id']) >= 100]
+        
+        if not hdc_annotations:
+            QMessageBox.information(self, "提示", "没有找到HDC预测的标注")
+            return
+        
+        # 收集所有HDC预测的点
+        selected_points = []
+        for annotation in hdc_annotations:
+            for point in annotation['points']:
+                # 在displayed_points中查找匹配的点
+                for displayed_point in self.bscan_canvas.displayed_points:
+                    orig = displayed_point['original']
+                    if (orig['e'] == point['e'] and
+                        orig['channel'] == point['channel'] and
+                        abs(orig['depth'] - point['depth']) < 0.1 and
+                        abs(orig['amplitude'] - point['amplitude']) < 0.1):
+                        selected_points.append(displayed_point)
+                        break
+        
+        if selected_points:
+            # 设置选中的点
+            self.point_selector.set_selected_points(selected_points)
+            self.status_bar.showMessage(f"已选中 {len(selected_points)} 个HDC预测点")
+        else:
+            QMessageBox.warning(self, "警告", "无法找到HDC预测的点，可能数据已过期")
     
     def on_rect_select_state_changed(self, state):
         """处理框选开关状态变化"""
@@ -1693,6 +1728,13 @@ class MainWindow(QMainWindow):
         self.delete_annotation_btn.clicked.connect(self.delete_selected_annotation)
         self.delete_annotation_btn.setEnabled(False)
         button_layout.addWidget(self.delete_annotation_btn)
+        
+        # 添加选中HDC预测点按钮
+        self.select_hdc_points_btn = QPushButton("选中预测点")
+        self.select_hdc_points_btn.clicked.connect(self.select_hdc_predicted_points)
+        self.select_hdc_points_btn.setEnabled(False)  # 初始禁用，需要HDC标注后才启用
+        button_layout.addWidget(self.select_hdc_points_btn)
+        
         group_layout2.addLayout(button_layout)
         
         # 下侧：标注详情
