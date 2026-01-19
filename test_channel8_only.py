@@ -42,7 +42,7 @@ BATCH_SIZE = 1
 # 默认参数（可以从命令行覆盖）
 DEFAULT_WINDOW = 32
 DEFAULT_STEP = 1
-DEFAULT_N_GRAM_SIZE = 4
+DEFAULT_N_GRAM_SIZE = 15
 
 # 窗口大小
 WINDOW = DEFAULT_WINDOW
@@ -180,7 +180,7 @@ class Channel8Encoder(nn.Module):
         # 通道嵌入层（为通道8创建嵌入）
         self.channels = embeddings.Random(1, out_features)
         # 信号嵌入层（调整范围以适应实际数据）
-        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=200)
+        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=255)
         # n-gram大小
         self.n_gram_size = n_gram_size
     
