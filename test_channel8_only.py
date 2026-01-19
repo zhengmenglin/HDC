@@ -46,13 +46,21 @@ DEFAULT_N_GRAM_SIZE = 4
 
 # 窗口大小
 WINDOW = DEFAULT_WINDOW
-# 滑动窗口步长（从1改为2，减少重叠预测）
+# 滑动窗口步长（从1改为8，减少重叠预测）
 STEP = DEFAULT_STEP
 # N-gram大小
 N_GRAM_SIZE = DEFAULT_N_GRAM_SIZE
 
 # 数据目录
 TRAIN_DATA_DIR = Path(r"d:\HDC\data\train")
+TEST_DATA_DIR = Path(r"d:\HDC\data\test")
+# 模型保存路径
+MODEL_PATH = Path(r"d:\HDC\models\hdc_model_channel8.pth")
+MODEL_PATH.parent.mkdir(exist_ok=True)
+
+# ======================================
+# 通道8数据集类
+# ======================================TRAIN_DATA_DIR = Path(r"d:\HDC\data\train")
 TEST_DATA_DIR = Path(r"d:\HDC\data\test")
 # 模型保存路径
 MODEL_PATH = Path(r"d:\HDC\models\hdc_model_channel8.pth")
@@ -169,8 +177,10 @@ class Channel8Encoder(nn.Module):
     def __init__(self, out_features, timestamps, n_gram_size=N_GRAM_SIZE):
         super(Channel8Encoder, self).__init__()
         
-        # 信号嵌入层
-        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=20)
+        # 通道嵌入层（为通道8创建嵌入）
+        self.channels = embeddings.Random(1, out_features)
+        # 信号嵌入层（调整范围以适应实际数据）
+        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=200)
         # n-gram大小
         self.n_gram_size = n_gram_size
     
@@ -186,8 +196,15 @@ class Channel8Encoder(nn.Module):
         # 将连续信号嵌入到超维空间
         signal = self.signals(input)
         
+        # 绑定信号和通道信息（关键改进）
+        # signal: [batch, time, 1, dims]
+        # channels.weight: [1, dims]
+        # 需要 unsqueeze 两次以匹配 signal 的形状: [1, 1, 1, dims]
+        channel_hv = self.channels.weight.unsqueeze(0).unsqueeze(0)
+        samples = torchhd.bind(signal, channel_hv)
+        
         # 使用multiset聚合样本
-        samples = torchhd.multiset(signal)
+        samples = torchhd.multiset(samples)
         # 使用n-gram捕获时序关系
         sample_hv = torchhd.ngrams(samples, n=self.n_gram_size)
         # 硬量化
@@ -237,6 +254,25 @@ def train_channel8_model(n_gram_size=N_GRAM_SIZE):
     
     # 归一化模型
     model.normalize()
+    
+    # 计算训练准确率
+    print("正在计算训练准确率...")
+    train_correct = 0
+    train_total = 0
+    with torch.no_grad():
+        for samples, targets in tqdm(train_ld, desc="计算训练准确率"):
+            samples = samples.to(device)
+            targets = targets.to(device)
+            
+            sample_hv = encode(samples)
+            output = model(sample_hv, dot=True)
+            pred_label = torch.argmax(output, dim=1)
+            
+            train_correct += (pred_label == targets).sum().item()
+            train_total += targets.size(0)
+    
+    train_accuracy = (train_correct / train_total) * 100 if train_total > 0 else 0
+    print(f"训练准确率: {train_accuracy:.2f}%")
     
     # 保存模型和编码器
     state_dict = {
