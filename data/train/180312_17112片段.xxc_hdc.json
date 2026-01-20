@@ -9,25 +9,13 @@
       },
       "points": [
         {
-          "e": 1089,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1090,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1092,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 1184,
+          "e": 1185,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -37,26 +25,14 @@
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1307,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1308,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
         }
       ],
-      "start_E": 1089,
-      "end_E": 1308,
+      "start_E": 1092,
+      "end_E": 1216,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.771353",
+      "timestamp": "2026-01-20T17:04:06.706381",
       "source": "predicted"
     },
     {
@@ -139,7 +115,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.760283",
+      "timestamp": "2026-01-20T17:04:06.698793",
       "source": "predicted"
     },
     {
@@ -203,26 +179,14 @@
           "channel": 8,
           "depth": 61.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1142,
-          "channel": 8,
-          "depth": 61.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1143,
-          "channel": 8,
-          "depth": 62.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 1133,
-      "end_E": 1143,
+      "end_E": 1141,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.761953",
+      "timestamp": "2026-01-20T17:04:06.700444",
       "source": "predicted"
     },
     {
@@ -286,26 +250,14 @@
           "channel": 8,
           "depth": 61.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1182,
-          "channel": 8,
-          "depth": 61.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1183,
-          "channel": 8,
-          "depth": 61.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 1173,
-      "end_E": 1183,
+      "end_E": 1181,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.763590",
+      "timestamp": "2026-01-20T17:04:06.701500",
       "source": "predicted"
     },
     {
@@ -369,26 +321,14 @@
           "channel": 8,
           "depth": 61.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1226,
-          "channel": 8,
-          "depth": 62.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1227,
-          "channel": 8,
-          "depth": 62.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 1217,
-      "end_E": 1227,
+      "end_E": 1225,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.766027",
+      "timestamp": "2026-01-20T17:04:06.702544",
       "source": "predicted"
     },
     {
@@ -458,26 +398,14 @@
           "channel": 8,
           "depth": 62.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1266,
-          "channel": 8,
-          "depth": 62.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1267,
-          "channel": 8,
-          "depth": 63.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 1256,
-      "end_E": 1267,
+      "end_E": 1265,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.768068",
+      "timestamp": "2026-01-20T17:04:06.704239",
       "source": "predicted"
     },
     {
@@ -547,26 +475,14 @@
           "channel": 8,
           "depth": 61.0,
           "amplitude": 100.0
-        },
-        {
-          "e": 1305,
-          "channel": 8,
-          "depth": 61.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1306,
-          "channel": 8,
-          "depth": 62.0,
-          "amplitude": 100.0
         }
       ],
       "start_E": 1295,
-      "end_E": 1306,
+      "end_E": 1304,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.770067",
+      "timestamp": "2026-01-20T17:04:06.705341",
       "source": "predicted"
     }
   ]

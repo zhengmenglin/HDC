@@ -35,6 +35,7 @@ flowchart LR
 - `label_0-8`: 各通道对应的伤损类型标签（0=正常，1-19=不同伤损类型，每个通道独立标注）
 - `predicted_label_0-8`: HDC模型预测的各通道标签（0=正常，1-19=伤损类型，每个通道独立预测）
 
+-------------------👆原本的----------------------------1.20-------------👇新想的-------------------------------------
 encoding 和 channel_0-8 组成1.csv ，
 encoding 和 label_0-8 组成1_label.csv  ,
 encoding 和 predicted_label_0-8 组成1_predicted_label.csv .  

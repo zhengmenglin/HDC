@@ -51,25 +51,37 @@
           "amplitude": 100.0
         },
         {
-          "e": 1177,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1178,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1179,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1180,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1182,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1183,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1184,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1185,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1186,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -93,18 +105,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 1202,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1203,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1208,
           "channel": 8,
           "depth": 176.0,
@@ -123,30 +123,60 @@
           "amplitude": 100.0
         },
         {
-          "e": 1222,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1260,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1298,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1300,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1302,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1726,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1727,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1728,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1729,
+          "channel": 8,
+          "depth": 176.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1730,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         }
       ],
       "start_E": 1082,
-      "end_E": 1298,
+      "end_E": 1730,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.837352",
+      "timestamp": "2026-01-20T17:04:06.762451",
       "source": "predicted"
     },
     {
@@ -229,7 +259,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.827474",
+      "timestamp": "2026-01-20T17:04:06.752215",
       "source": "predicted"
     },
     {
@@ -306,7 +336,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.829214",
+      "timestamp": "2026-01-20T17:04:06.754149",
       "source": "predicted"
     },
     {
@@ -383,7 +413,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.831192",
+      "timestamp": "2026-01-20T17:04:06.755881",
       "source": "predicted"
     },
     {
@@ -454,7 +484,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.833438",
+      "timestamp": "2026-01-20T17:04:06.757565",
       "source": "predicted"
     },
     {
@@ -525,7 +555,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.834604",
+      "timestamp": "2026-01-20T17:04:06.759132",
       "source": "predicted"
     },
     {
@@ -590,7 +620,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T16:38:18.835655",
+      "timestamp": "2026-01-20T17:04:06.760675",
       "source": "predicted"
     }
   ]

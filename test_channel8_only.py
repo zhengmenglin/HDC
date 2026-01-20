@@ -40,7 +40,7 @@ NUM_LEVELS = 256
 BATCH_SIZE = 1
 
 # 默认参数（可以从命令行覆盖）
-DEFAULT_WINDOW = 32
+DEFAULT_WINDOW = 20
 DEFAULT_STEP = 1
 DEFAULT_N_GRAM_SIZE = 15
 
@@ -138,6 +138,11 @@ class Channel8Dataset(data.Dataset):
                 # 窗口标签=中心点标签
                 center = (start + end) // 2
                 label = labels[center]
+                
+                # 如果窗口标签为缺陷，将窗口内非缺陷点的通道值改为0
+                if label != 0:
+                    non_defect_mask = (window_labels == 0)
+                    sample[non_defect_mask] = 0
                 
                 file_samples.append(sample)
                 file_labels.append(label)
