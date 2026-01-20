@@ -37,24 +37,31 @@ class DataAdapter:
             "道岔": 19
         }
     
-    def load_original_json(self, json_file: str) -> List[Dict]:
+    def load_original_json(self, json_file: str) -> Tuple[List[Dict], Dict]:
         """加载原始JSON文件
         
         Args:
             json_file: JSON文件路径
         
         Returns:
-            数据列表
+            (数据列表, BeamOffset配置) 元组
         """
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # 解析BeamOffset配置
+        beam_offset = {}
+        if isinstance(data, list) and len(data) > 0:
+            first_item = data[0]
+            if isinstance(first_item, dict) and 'BeamOffset' in first_item:
+                beam_offset = first_item['BeamOffset']
+        
         if isinstance(data, list):
-            return data
+            return data, beam_offset
         elif isinstance(data, dict):
-            return [data]
+            return [data], beam_offset
         else:
-            return []
+            return [], beam_offset
     
     def load_annotation_json(self, annotation_file: str) -> Dict:
         """加载标注JSON文件
@@ -144,16 +151,17 @@ class DataAdapter:
         return annotations
     
     def convert_to_csv(self, data: List[Dict], annotation_file: str = None, 
-                   output_csv: str = None) -> str:
+                   output_dir: str = None, beam_offset: Dict = None) -> Tuple[str, str]:
         """将数据转换为CSV格式
         
         Args:
             data: 原始数据
             annotation_file: 标注文件路径
-            output_csv: 输出CSV文件路径
+            output_dir: 输出目录
+            beam_offset: BeamOffset配置
         
         Returns:
-            CSV文件路径
+            (data_csv, label_csv) 元组
         """
         # 解析B扫描数据
         bscan_data = self.parse_bscan_data(data)
@@ -164,45 +172,182 @@ class DataAdapter:
             annotation_data = self.load_annotation_json(annotation_file)
             annotations = self.parse_annotations(annotation_data)
         
-        # 生成CSV数据
-        csv_rows = []
+        # 生成数据CSV
+        data_csv_rows = []
         
         # 按编码值排序
         sorted_e_values = sorted(bscan_data.keys())
         
         for e_value in sorted_e_values:
-            # 初始化9个通道的深度值
-            channel_depths = [0.0] * 9
-            channel_labels = [0] * 9
+            # 初始化9个通道的幅度值
+            channel_amplitudes = [0.0] * 9
             
             # 填充通道数据
             for channel, depth, amplitude in bscan_data[e_value]:
                 if 0 <= channel < 9:
-                    channel_depths[channel] = depth
-                    
-                    # 获取标签
-                    if e_value in annotations and channel in annotations[e_value]:
-                        channel_labels[channel] = annotations[e_value][channel]
+                    channel_amplitudes[channel] = amplitude
             
-            # 构建CSV行: 编码值 + 9个通道的深度值 + 9个标签
-            row = [e_value] + channel_depths + channel_labels
-            csv_rows.append(row)
+            # 构建数据CSV行: 编码值 + 9个通道的幅度值
+            row = [e_value] + channel_amplitudes
+            data_csv_rows.append(row)
         
-        # 保存CSV文件
-        if output_csv is None:
-            output_csv = os.path.splitext(data_file)[0] + '_converted.csv'
+        # 保存数据CSV文件
+        if output_dir is None:
+            output_dir = os.path.join(os.path.dirname(data[0].get('__file__', '')), 'converted')
         
-        with open(output_csv, 'w', newline='', encoding='utf-8') as f:
+        os.makedirs(output_dir, exist_ok=True)
+        
+        base_name = os.path.splitext(os.path.basename(data[0].get('__file__', '')))[0]
+        data_csv = os.path.join(output_dir, f'{base_name}_data.csv')
+        
+        with open(data_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             # 写入表头
-            header = ['encoding'] + [f'channel_{i}' for i in range(9)] + [f'label_{i}' for i in range(9)]
+            header = ['encoding'] + [f'channel_{i}' for i in range(9)]
             writer.writerow(header)
             # 写入数据
-            writer.writerows(csv_rows)
+            writer.writerows(data_csv_rows)
         
-        return output_csv
+        # 生成标签CSV
+        label_csv_rows = []
+        
+        for e_value in sorted_e_values:
+            # 初始化9个通道的标签
+            channel_labels = [0] * 9
+            
+            # 填充通道标签
+            for channel in range(9):
+                if e_value in annotations and channel in annotations[e_value]:
+                    channel_labels[channel] = annotations[e_value][channel]
+            
+            # 构建标签CSV行: 编码值 + 9个通道的标签
+            row = [e_value] + channel_labels
+            label_csv_rows.append(row)
+        
+        # 保存标签CSV文件
+        label_csv = os.path.join(output_dir, f'{base_name}_label.csv')
+        
+        with open(label_csv, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            # 写入表头
+            header = ['encoding'] + [f'label_{i}' for i in range(9)]
+            writer.writerow(header)
+            # 写入标签
+            writer.writerows(label_csv_rows)
+        
+        # 保存BeamOffset配置
+        if beam_offset:
+            beam_offset_file = os.path.join(output_dir, f'{base_name}_beam_offset.json')
+            with open(beam_offset_file, 'w', encoding='utf-8') as f:
+                json.dump(beam_offset, f, indent=2, ensure_ascii=False)
+        
+        return data_csv, label_csv
     
-    def convert_directory(self, input_dir: str, output_dir: str = None) -> List[str]:
+    def load_csv(self, data_csv: str, label_csv: str) -> Tuple[np.ndarray, np.ndarray]:
+        """加载CSV文件
+        
+        Args:
+            data_csv: 数据CSV文件路径
+            label_csv: 标签CSV文件路径
+        
+        Returns:
+            (data, labels) 元组
+        """
+        data = []
+        labels = []
+        
+        # 加载数据CSV
+        with open(data_csv, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # 提取编码值和9个通道的幅度值
+                encoding = float(row['encoding'])
+                channel_amplitudes = [float(row[f'channel_{i}']) for i in range(9)]
+                
+                # 构建样本: [编码值, 9个幅度值]
+                sample = [encoding] + channel_amplitudes
+                data.append(sample)
+        
+        # 加载标签CSV
+        with open(label_csv, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # 提取编码值和9个通道的标签
+                encoding = float(row['encoding'])
+                channel_labels = [int(row[f'label_{i}']) for i in range(9)]
+                
+                # 使用第一个非零标签作为该样本的标签
+                non_zero_labels = [label for label in channel_labels if label != 0]
+                label = non_zero_labels[0] if non_zero_labels else 0
+                labels.append(label)
+        
+        return np.array(data), np.array(labels)
+    
+    def merge_csv_files(self, data_csv_files: List[str], label_csv_files: List[str], 
+                       output_file: str = None) -> Tuple[str, str]:
+        """合并多个CSV文件
+        
+        Args:
+            data_csv_files: 数据CSV文件列表
+            label_csv_files: 标签CSV文件列表
+            output_file: 输出文件路径（不包含扩展名）
+        
+        Returns:
+            (merged_data_csv, merged_label_csv) 元组
+        """
+        if output_file is None:
+            output_dir = os.path.dirname(data_csv_files[0])
+            base_name = os.path.splitext(os.path.basename(data_csv_files[0]))[0]
+        else:
+            output_dir = os.path.dirname(output_file)
+            base_name = os.path.splitext(os.path.basename(output_file))[0]
+        
+        # 合并数据CSV
+        all_data = []
+        for csv_file in data_csv_files:
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    encoding = float(row['encoding'])
+                    channel_amplitudes = [float(row[f'channel_{i}']) for i in range(9)]
+                    sample = [encoding] + channel_amplitudes
+                    all_data.append(sample)
+        
+        # 保存合并后的数据CSV
+        merged_data_csv = os.path.join(output_dir, f'{base_name}_data.csv')
+        with open(merged_data_csv, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            header = ['encoding'] + [f'channel_{i}' for i in range(9)]
+            writer.writerow(header)
+            for row in all_data:
+                writer.writerow(row)
+        
+        # 合并标签CSV
+        all_labels = []
+        for csv_file in label_csv_files:
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    encoding = float(row['encoding'])
+                    channel_labels = [int(row[f'label_{i}']) for i in range(9)]
+                    sample = [encoding] + channel_labels
+                    all_labels.append(sample)
+        
+        # 保存合并后的标签CSV
+        merged_label_csv = os.path.join(output_dir, f'{base_name}_label.csv')
+        with open(merged_label_csv, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            header = ['encoding'] + [f'label_{i}' for i in range(9)]
+            writer.writerow(header)
+            for row in all_labels:
+                writer.writerow(row)
+        
+        print(f"已合并 {len(data_csv_files)} 个数据文件到: {merged_data_csv}")
+        print(f"已合并 {len(label_csv_files)} 个标签文件到: {merged_label_csv}")
+        
+        return merged_data_csv, merged_label_csv
+    
+    def convert_directory(self, input_dir: str = None, output_dir: str = None) -> List[Tuple[str, str]]:
         """批量转换目录中的文件
         
         Args:
@@ -210,14 +355,14 @@ class DataAdapter:
             output_dir: 输出目录
         
         Returns:
-            转换后的CSV文件列表
+            转换后的CSV文件列表 [(data_csv, label_csv), ...]
         """
         if output_dir is None:
             output_dir = os.path.join(input_dir, 'converted')
         
         os.makedirs(output_dir, exist_ok=True)
         
-        csv_files = []
+        csv_file_pairs = []
         
         # 遍历目录中的所有JSON文件
         for filename in os.listdir(input_dir):
@@ -228,147 +373,20 @@ class DataAdapter:
                 base_name = os.path.splitext(filename)[0]
                 annotation_file = os.path.join(input_dir, f'{base_name}标注.json')
                 
+                # 加载数据和BeamOffset
+                data, beam_offset = self.load_original_json(json_file)
+                
                 # 转换文件
-                output_csv = os.path.join(output_dir, f'{base_name}_converted.csv')
                 try:
-                    csv_file = self.convert_to_csv(
-                        self.load_original_json(json_file),
+                    data_csv, label_csv = self.convert_to_csv(
+                        data,
                         annotation_file if os.path.exists(annotation_file) else None,
-                        output_csv
+                        output_dir,
+                        beam_offset
                     )
-                    csv_files.append(csv_file)
-                    print(f"已转换: {json_file} -> {csv_file}")
+                    csv_file_pairs.append((data_csv, label_csv))
+                    print(f"已转换: {json_file} -> {data_csv}, {label_csv}")
                 except Exception as e:
                     print(f"转换失败 {json_file}: {e}")
         
-        return csv_files
-    
-    def load_csv(self, csv_file: str) -> Tuple[np.ndarray, np.ndarray]:
-        """加载CSV文件
-        
-        Args:
-            csv_file: CSV文件路径
-        
-        Returns:
-            (data, labels) 元组
-        """
-        data = []
-        labels = []
-        
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # 提取编码值和9个通道的深度值
-                encoding = float(row['encoding'])
-                channel_depths = [float(row[f'channel_{i}']) for i in range(9)]
-                
-                # 提取9个标签
-                channel_labels = [int(row[f'label_{i}']) for i in range(9)]
-                
-                # 构建样本: [编码值, 9个深度值]
-                sample = [encoding] + channel_depths
-                data.append(sample)
-                
-                # 使用第一个非零标签作为该样本的标签
-                non_zero_labels = [label for label in channel_labels if label != 0]
-                label = non_zero_labels[0] if non_zero_labels else 0
-                labels.append(label)
-        
-        return np.array(data), np.array(labels)
-    
-    def merge_csv_files(self, csv_files: List[str], output_file: str) -> str:
-        """合并多个CSV文件
-        
-        Args:
-            csv_files: CSV文件列表
-            output_file: 输出文件路径
-        
-        Returns:
-            合并后的CSV文件路径
-        """
-        all_data = []
-        all_labels = []
-        
-        for csv_file in csv_files:
-            data, labels = self.load_csv(csv_file)
-            all_data.append(data)
-            all_labels.append(labels)
-        
-        # 合并数据
-        merged_data = np.concatenate(all_data, axis=0)
-        merged_labels = np.concatenate(all_labels, axis=0)
-        
-        # 保存合并后的CSV
-        with open(output_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            # 写入表头
-            header = ['encoding'] + [f'channel_{i}' for i in range(9)] + ['label']
-            writer.writerow(header)
-            # 写入数据
-            for i in range(len(merged_data)):
-                row = merged_data[i].tolist() + [int(merged_labels[i])]
-                writer.writerow(row)
-        
-        print(f"已合并 {len(csv_files)} 个文件到: {output_file}")
-        return output_file
-    
-    def create_train_test_split(self, csv_files: List[str], 
-                            train_ratio: float = 0.7,
-                            output_dir: str = None) -> Tuple[str, str]:
-        """创建训练集和测试集
-        
-        Args:
-            csv_files: CSV文件列表
-            train_ratio: 训练集比例
-            output_dir: 输出目录
-        
-        Returns:
-            (train_csv, test_csv) 元组
-        """
-        if output_dir is None:
-            output_dir = os.path.dirname(csv_files[0])
-        
-        # 合并所有CSV文件
-        merged_file = os.path.join(output_dir, 'merged_data.csv')
-        self.merge_csv_files(csv_files, merged_file)
-        
-        # 加载合并后的数据
-        data, labels = self.load_csv(merged_file)
-        
-        # 随机打乱数据
-        indices = np.random.permutation(len(data))
-        data = data[indices]
-        labels = labels[indices]
-        
-        # 划分训练集和测试集
-        n_train = int(len(data) * train_ratio)
-        
-        train_data = data[:n_train]
-        train_labels = labels[:n_train]
-        test_data = data[n_train:]
-        test_labels = labels[n_train:]
-        
-        # 保存训练集
-        train_csv = os.path.join(output_dir, 'train_data.csv')
-        with open(train_csv, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            header = ['encoding'] + [f'channel_{i}' for i in range(9)] + ['label']
-            writer.writerow(header)
-            for i in range(len(train_data)):
-                row = train_data[i].tolist() + [int(train_labels[i])]
-                writer.writerow(row)
-        
-        # 保存测试集
-        test_csv = os.path.join(output_dir, 'test_data.csv')
-        with open(test_csv, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            header = ['encoding'] + [f'channel_{i}' for i in range(9)] + ['label']
-            writer.writerow(header)
-            for i in range(len(test_data)):
-                row = test_data[i].tolist() + [int(test_labels[i])]
-                writer.writerow(row)
-        
-        print(f"训练集: {train_csv} ({len(train_data)} 样本)")
-        print(f"测试集: {test_csv} ({len(test_data)} 样本)")
-        
-        return train_csv, test_csv
+        return csv_file_pairs

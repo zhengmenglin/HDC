@@ -9,12 +9,6 @@
       },
       "points": [
         {
-          "e": 1080,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1082,
           "channel": 8,
           "depth": 176.0,
@@ -81,12 +75,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 1182,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1198,
           "channel": 8,
           "depth": 176.0,
@@ -141,24 +129,24 @@
           "amplitude": 100.0
         },
         {
-          "e": 1298,
+          "e": 1260,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         },
         {
-          "e": 1300,
+          "e": 1298,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
         }
       ],
-      "start_E": 1080,
-      "end_E": 1300,
+      "start_E": 1082,
+      "end_E": 1298,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.770449",
+      "timestamp": "2026-01-20T16:38:18.837352",
       "source": "predicted"
     },
     {
@@ -241,7 +229,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.760681",
+      "timestamp": "2026-01-20T16:38:18.827474",
       "source": "predicted"
     },
     {
@@ -318,7 +306,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.762469",
+      "timestamp": "2026-01-20T16:38:18.829214",
       "source": "predicted"
     },
     {
@@ -395,7 +383,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.764204",
+      "timestamp": "2026-01-20T16:38:18.831192",
       "source": "predicted"
     },
     {
@@ -466,7 +454,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.765870",
+      "timestamp": "2026-01-20T16:38:18.833438",
       "source": "predicted"
     },
     {
@@ -537,7 +525,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.766977",
+      "timestamp": "2026-01-20T16:38:18.834604",
       "source": "predicted"
     },
     {
@@ -602,7 +590,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.768808",
+      "timestamp": "2026-01-20T16:38:18.835655",
       "source": "predicted"
     }
   ]

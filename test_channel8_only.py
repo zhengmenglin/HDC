@@ -35,7 +35,7 @@ print(f"使用设备: {device}")
 # 超向量维度
 DIMENSIONS = 10000
 # 水平嵌入的级别数
-NUM_LEVELS = 255
+NUM_LEVELS = 256
 # 批处理大小
 BATCH_SIZE = 1
 
@@ -180,7 +180,7 @@ class Channel8Encoder(nn.Module):
         # 通道嵌入层（为通道8创建嵌入）
         self.channels = embeddings.Random(1, out_features)
         # 信号嵌入层（调整范围以适应实际数据）
-        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=255)
+        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=256)
         # n-gram大小
         self.n_gram_size = n_gram_size
     

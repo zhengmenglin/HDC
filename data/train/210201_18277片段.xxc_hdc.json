@@ -243,25 +243,7 @@
           "amplitude": 100.0
         },
         {
-          "e": 850,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 852,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 864,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 877,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -423,12 +405,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 1084,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 1085,
           "channel": 8,
           "depth": 176.0,
@@ -454,12 +430,6 @@
         },
         {
           "e": 1100,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1102,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -802,11 +772,11 @@
         }
       ],
       "start_E": 267,
-      "end_E": 1102,
+      "end_E": 1100,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.831243",
+      "timestamp": "2026-01-20T16:38:18.901074",
       "source": "predicted"
     }
   ]

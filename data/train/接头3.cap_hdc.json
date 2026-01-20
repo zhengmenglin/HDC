@@ -219,12 +219,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 659,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 685,
           "channel": 8,
           "depth": 192.0,
@@ -370,6 +364,12 @@
         },
         {
           "e": 814,
+          "channel": 8,
+          "depth": 192.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 815,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -646,12 +646,6 @@
         },
         {
           "e": 1118,
-          "channel": 8,
-          "depth": 192.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1119,
           "channel": 8,
           "depth": 192.0,
           "amplitude": 100.0
@@ -2056,11 +2050,11 @@
         }
       ],
       "start_E": 467,
-      "end_E": 1119,
+      "end_E": 1118,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.926297",
+      "timestamp": "2026-01-20T16:38:18.996286",
       "source": "predicted"
     }
   ]

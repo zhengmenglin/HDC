@@ -9,12 +9,6 @@
       },
       "points": [
         {
-          "e": 279,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 280,
           "channel": 8,
           "depth": 176.0,
@@ -100,12 +94,6 @@
         },
         {
           "e": 295,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 296,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -321,12 +309,6 @@
           "amplitude": 100.0
         },
         {
-          "e": 985,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
           "e": 986,
           "channel": 8,
           "depth": 176.0,
@@ -352,12 +334,6 @@
         },
         {
           "e": 990,
-          "channel": 8,
-          "depth": 176.0,
-          "amplitude": 100.0
-        },
-        {
-          "e": 1063,
           "channel": 8,
           "depth": 176.0,
           "amplitude": 100.0
@@ -621,12 +597,12 @@
           "amplitude": 100.0
         }
       ],
-      "start_E": 279,
+      "start_E": 280,
       "end_E": 1217,
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.866915",
+      "timestamp": "2026-01-20T16:38:18.937950",
       "source": "predicted"
     },
     {
@@ -727,7 +703,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.861016",
+      "timestamp": "2026-01-20T16:38:18.931852",
       "source": "predicted"
     },
     {
@@ -996,7 +972,7 @@
       "channels": [
         8
       ],
-      "timestamp": "2026-01-20T11:20:39.862459",
+      "timestamp": "2026-01-20T16:38:18.933372",
       "source": "predicted"
     }
   ]
