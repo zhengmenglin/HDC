@@ -1,0 +1,101 @@
+"""
+超声波探伤系统配置文件
+"""
+
+import os
+import json
+from typing import Dict, Any
+
+class Config:
+    """系统配置管理类"""
+    
+    def __init__(self, config_file: str = "config.json"):
+        self.config_file = config_file
+        self.config = self.load_config()
+    
+    def load_config(self) -> Dict[str, Any]:
+        """加载配置文件"""
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return self.get_default_config()
+    
+    def get_default_config(self) -> Dict[str, Any]:
+        """获取默认配置"""
+        return {
+            # 数据处理配置
+            "data": {
+                "input_dir": "data",  # 原始数据目录
+                "output_dir": "output",  # 输出目录
+                "train_ratio": 0.7,  # 训练集比例
+                "window_size": 64,  # 滑动窗口大小
+                "downsample": 5,  # 降采样因子
+                "normalize": True  # 是否归一化
+            },
+            
+            # HDC模型配置
+            "model": {
+                "dimensions": 10000,  # 超维空间维度
+                "vsa_type": "MAP",  # VSA类型: MAP, HRR, FHRR等
+                "classifier": "OnlineHD",  # 分类器类型
+                "learning_rate": 0.035,  # 学习率
+                "epochs": 120,  # 训练轮数
+            },
+            
+            # 评估配置
+            "evaluation": {
+                "metrics": ["accuracy", "precision", "recall", "f1_score", "mcc", "auc"],  # 评估指标
+                "cross_validation": True,  # 是否使用交叉验证
+                "folds": 5,  # 交叉验证折数
+            },
+            
+            # 实时处理配置
+            "realtime": {
+                "threshold": 0.5,  # 相似度阈值
+                "update_interval": 100,  # 模型更新间隔(样本数)
+                "batch_size": 1,  # 批处理大小
+            },
+            
+            # 可视化配置
+            "visualization": {
+                "b_scan_width": 800,  # B扫描图像宽度
+                "b_scan_height": 600,  # B扫描图像高度
+                "point_size": 5,  # 标注点大小
+                "color_scheme": "viridis"  # 颜色方案
+            }
+        }
+    
+    def save_config(self) -> None:
+        """保存配置文件"""
+        with open(self.config_file, 'w', encoding='utf-8') as f:
+            json.dump(self.config, f, indent=2, ensure_ascii=False)
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """获取配置项"""
+        keys = key.split('.')
+        value = self.config
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            else:
+                return default
+        return value
+    
+    def set(self, key: str, value: Any) -> None:
+        """设置配置项"""
+        keys = key.split('.')
+        config = self.config
+        
+        # 导航到目标位置
+        for k in keys[:-1]:
+            if isinstance(config, dict) and k in config:
+                config = config[k]
+            else:
+                return
+        
+        config[keys[-1]] = value
+        self.config = config
+        self.save_config()
+
+# 全局配置实例
+config = Config()

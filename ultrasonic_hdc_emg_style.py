@@ -25,21 +25,21 @@ print(f"使用设备: {device}")
 # ======================================
 # 配置参数
 # ======================================
-# 超向量维度，HDC模型的核心参数
+# 超向量维度，HDC模型的核心参数（根据理论建议设为10000）
 DIMENSIONS = 10000
 # 水平嵌入的级别数，用于将连续信号离散化为有限级别
-NUM_LEVELS = 255
+NUM_LEVELS = 1000  # 增加级别数以提高精度
 # 批处理大小，每次训练使用的样本数
 BATCH_SIZE = 1
 # 窗口大小，每个样本包含的编码值数量
-# 根据用户要求，平均11行构成一个伤损或结构，所以使用12行
-WINDOW = 36
-# 滑动窗口步长，根据用户要求改为1窗
-STEP = 18
+# 根据文档分析，平均11行构成一个伤损或结构，适当增加以捕获更多上下文
+WINDOW = 24  # 优化窗口大小
+# 滑动窗口步长，较小的步长可以提供更多训练样本
+STEP = 6  # 减小步长以增加样本数量
 # 通道数，超声波传感器的通道数量
 CHANNELS = 9
 # N-gram大小，用于捕获序列数据的时序关系
-N_GRAM_SIZE = 4
+N_GRAM_SIZE = 3  # 减小以降低计算复杂度
 
 # 数据目录
 TRAIN_DIR = Path(r"d:\HDC\data\train")
@@ -51,6 +51,46 @@ MODEL_PATH.parent.mkdir(exist_ok=True)
 
 
 
+
+
+# ======================================
+# 数据预处理函数
+# ======================================
+def preprocess_ultrasonic_data(data: np.ndarray, normalize: bool = True, denoise: bool = False) -> np.ndarray:
+    """超声波数据预处理
+
+    Args:
+        data: 输入数据，形状为 [timestamps, channels]
+        normalize: 是否进行归一化
+        denoise: 是否进行去噪处理
+
+    Returns:
+        处理后的数据
+    """
+    processed_data = data.copy()
+
+    if denoise:
+        # 简单的滑动平均去噪
+        kernel_size = 3
+        for channel in range(data.shape[1]):
+            # 使用一维卷积进行滑动平均
+            kernel = np.ones(kernel_size) / kernel_size
+            processed_data[:, channel] = np.convolve(data[:, channel], kernel, mode='same')
+
+    if normalize:
+        # 对每个通道分别进行归一化
+        for channel in range(data.shape[1]):
+            channel_data = processed_data[:, channel]
+            # 使用min-max归一化到[0,1]范围
+            min_val = np.min(channel_data)
+            max_val = np.max(channel_data)
+            if max_val > min_val:
+                processed_data[:, channel] = (channel_data - min_val) / (max_val - min_val)
+            else:
+                # 如果所有值相同，设为0.5
+                processed_data[:, channel] = 0.5
+
+    return processed_data
 
 
 # ======================================
@@ -124,7 +164,10 @@ class UltrasonicDataset(data.Dataset):
                 
                 # 提取窗口内的通道数据，形状为 [window_size, channels]
                 window_data = channel_data[start:end]
-                
+
+                # 数据预处理：归一化和去噪
+                window_data = preprocess_ultrasonic_data(window_data, normalize=True, denoise=False)
+
                 # 转换为float32格式
                 sample = window_data.astype(np.float32)
                 
@@ -195,7 +238,12 @@ class UltrasonicDataset(data.Dataset):
 # ======================================
 class Encoder(nn.Module):
     """超维编码器，将时序信号转换为超维向量
-    
+
+    根据超维计算理论，实现：
+    1. 通道分离处理：9个通道分开处理
+    2. 循环移位编码：表示多个点的深度值
+    3. 特征融合：将多个通道的超向量融合
+
     Args:
         out_features: 输出超维向量的维度
         timestamps: 输入时序数据的时间戳数量
@@ -204,34 +252,72 @@ class Encoder(nn.Module):
     """
     def __init__(self, out_features, timestamps, channels, n_gram_size=N_GRAM_SIZE):
         super(Encoder, self).__init__()
-        
-        # 通道嵌入层，将每个通道映射到超维空间
-        self.channels = embeddings.Random(channels, out_features)
-        # 信号嵌入层，将连续信号值映射到超维空间
-        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=20)
+
+        # 每个通道独立的嵌入层（通道分离处理）
+        self.channel_encoders = nn.ModuleList([
+            nn.Sequential(
+                # 信号嵌入层，将连续信号值映射到超维空间
+                embeddings.Level(NUM_LEVELS, out_features, high=20),
+                # 位置嵌入层，用于循环移位编码
+                embeddings.Random(timestamps, out_features)
+            ) for _ in range(channels)
+        ])
+
         # n-gram大小
         self.n_gram_size = n_gram_size
-    
+        self.channels = channels
+        self.out_features = out_features
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """前向传播，将输入转换为超维向量
-        
+
         Args:
             input: 输入数据，形状为 [batch, timestamps, channels]
-            
+
         Returns:
             超维向量，形状为 [batch, out_features]
         """
-        # 将连续信号嵌入到超维空间
-        signal = self.signals(input)
-        # 将通道信息与信号嵌入结合
-        samples = torchhd.bind(signal, self.channels.weight.unsqueeze(0))
-        
-        # 使用multiset聚合样本
-        samples = torchhd.multiset(samples)
-        # 使用n-gram捕获时序关系
-        sample_hv = torchhd.ngrams(samples, n=self.n_gram_size)
+        batch_size = input.shape[0]
+
+        # 通道分离处理：每个通道独立编码
+        channel_hvs = []
+        for channel_idx in range(self.channels):
+            # 提取当前通道的数据 [batch, timestamps]
+            channel_data = input[:, :, channel_idx]
+
+            # 获取当前通道的编码器
+            signal_embed, position_embed = self.channel_encoders[channel_idx]
+
+            # 信号嵌入：将深度值映射到超维空间
+            signal_hv = signal_embed(channel_data)  # [batch, timestamps, out_features]
+
+            # 位置嵌入：用于表示时间位置（循环移位编码的基础）
+            position_hv = position_embed.weight.unsqueeze(0).expand(batch_size, -1, -1)  # [batch, timestamps, out_features]
+
+            # 绑定信号和位置信息
+            channel_hv = torchhd.bind(signal_hv, position_hv)  # [batch, timestamps, out_features]
+
+            # 对时间维度进行multiset聚合
+            channel_hv = torchhd.multiset(channel_hv)  # [batch, out_features]
+
+            channel_hvs.append(channel_hv)
+
+        # 特征融合：将所有通道的超向量进行捆绑（bundle）
+        if len(channel_hvs) == 1:
+            fused_hv = channel_hvs[0]
+        else:
+            fused_hv = channel_hvs[0]
+            for hv in channel_hvs[1:]:
+                fused_hv = torchhd.bundle(fused_hv, hv)
+
+        # 使用n-gram捕获更复杂的时序关系（可选）
+        if self.n_gram_size > 1:
+            # 将融合后的向量扩展为序列形式用于n-gram
+            fused_hv_seq = fused_hv.unsqueeze(1).expand(-1, self.n_gram_size, -1)
+            fused_hv = torchhd.ngrams(fused_hv_seq, n=self.n_gram_size)
+
         # 硬量化，将超维向量转换为二进制向量
-        return torchhd.hard_quantize(sample_hv)
+        return torchhd.hard_quantize(fused_hv)
 
 
 # ======================================
@@ -400,14 +486,19 @@ def predict_model(data_dir=TEST_DIR):
                 for channel in range(CHANNELS):
                     # 使用对应通道的模型进行预测
                     output = models[channel](sample_hv, dot=True)
-                    # 获取预测标签
-                    pred_label = torch.argmax(output, dim=1).cpu().item()
+                    # 使用余弦相似度（cosine similarity）进行分类
+                    # dot=True返回的是点积，需要转换为余弦相似度
+                    similarities = output / (torch.norm(sample_hv, dim=1, keepdim=True) * torch.norm(models[channel].centroids, dim=1))
+                    # 获取预测标签（相似度最高的类别）
+                    pred_label = torch.argmax(similarities, dim=1).cpu().item()
                     pred_labels.append(pred_label)
                 predictions.append(pred_labels)
             else:
-                # 单通道预测
+                # 单通道预测，使用余弦相似度
                 output = models[0](sample_hv, dot=True)
-                pred_label = torch.argmax(output, dim=1).cpu().item()
+                # 计算余弦相似度
+                similarities = output / (torch.norm(sample_hv, dim=1, keepdim=True) * torch.norm(models[0].centroids, dim=1))
+                pred_label = torch.argmax(similarities, dim=1).cpu().item()
                 predictions.append(pred_label)
     
     # 保存预测结果
@@ -462,6 +553,133 @@ def predict_model(data_dir=TEST_DIR):
 
 
 # ======================================
+# 模型评估函数
+# ======================================
+def evaluate_model(test_dir=TEST_DIR, train_dir=TRAIN_DIR):
+    """评估模型性能，使用工业探伤专用的评估指标
+
+    Args:
+        test_dir: 测试数据目录
+        train_dir: 训练数据目录
+    """
+    from sklearn.metrics import confusion_matrix, classification_report
+    import pandas as pd
+
+    print("开始模型评估...")
+
+    # 收集所有预测结果和真实标签
+    all_true_labels = []
+    all_pred_labels = []
+
+    # 评估测试数据
+    test_files = list(Path(test_dir).glob("*_hdc.csv"))
+    for csv_file in test_files:
+        try:
+            df = pd.read_csv(csv_file)
+
+            # 检查是否有预测结果
+            if 'predicted_label' not in df.columns and not any(f'predicted_label_{i}' in df.columns for i in range(9)):
+                continue
+
+            # 提取真实标签和预测标签
+            if 'label' in df.columns:
+                # 单通道标签
+                true_labels = df['label'].values
+                pred_labels = df['predicted_label'].values if 'predicted_label' in df.columns else df['predicted_label_0'].values
+            else:
+                # 多通道标签，使用第一个通道作为代表
+                true_labels = df['label_0'].values
+                pred_labels = df['predicted_label_0'].values
+
+            # 只保留有真实标签的行（非零标签）
+            valid_indices = true_labels != 0
+            all_true_labels.extend(true_labels[valid_indices])
+            all_pred_labels.extend(pred_labels[valid_indices])
+
+        except Exception as e:
+            print(f"处理文件 {csv_file.name} 时出错: {e}")
+            continue
+
+    if not all_true_labels:
+        print("没有找到有效的评估数据")
+        return
+
+    # 计算混淆矩阵
+    cm = confusion_matrix(all_true_labels, all_pred_labels)
+
+    # 计算各项指标
+    def calculate_metrics(cm):
+        """计算探伤专用的评估指标"""
+        if cm.size == 0:
+            return {}
+
+        # 基本指标
+        tn = cm[0, 0] if cm.shape[0] > 1 and cm.shape[1] > 1 else 0
+        fp = cm[0, 1] if cm.shape[0] > 0 and cm.shape[1] > 1 else 0
+        fn = cm[1, 0] if cm.shape[0] > 1 and cm.shape[1] > 0 else 0
+        tp = cm[1, 1] if cm.shape[0] > 1 and cm.shape[1] > 1 else 0
+
+        # 避免除零错误
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+
+        # F2分数（优先保证召回率）
+        beta = 2
+        f2 = (1 + beta**2) * precision * recall / (beta**2 * precision + recall) if (precision + recall) > 0 else 0
+
+        # 马修斯相关系数 (MCC)
+        denominator = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+        mcc = (tp * tn - fp * fn) / denominator if denominator > 0 else 0
+
+        # 漏检率 (False Negative Rate)
+        fnr = fn / (fn + tp) if (fn + tp) > 0 else 0
+
+        # 误报率 (False Positive Rate)
+        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+
+        return {
+            'accuracy': (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'f2': f2,
+            'mcc': mcc,
+            'fnr': fnr,
+            'fpr': fpr
+        }
+
+    metrics = calculate_metrics(cm)
+
+    # 打印评估结果
+    print("\n" + "="*60)
+    print("=== 模型评估结果（工业探伤专用指标）===")
+    print("="*60)
+    print("混淆矩阵:")
+    print(cm)
+    print("\n核心指标:")
+    print(".4f" )
+    # 评估等级
+    if metrics['f2'] >= 0.85 and metrics['mcc'] >= 0.85 and metrics['fnr'] <= 0.01:
+        grade = "优秀 (★★★★★)"
+        desc = "满足工业探伤要求，可投入使用"
+    elif metrics['f2'] >= 0.80 and metrics['mcc'] >= 0.70:
+        grade = "良好 (★★★★☆)"
+        desc = "性能良好，建议进一步优化"
+    elif metrics['f2'] >= 0.70:
+        grade = "一般 (★★★☆☆)"
+        desc = "基本可用，需要算法优化"
+    else:
+        grade = "需优化 (★★☆☆☆)"
+        desc = "性能不足，建议重新调整参数"
+
+    print(f"\n模型等级: {grade}")
+    print(f"评估结论: {desc}")
+
+    return metrics
+
+
+# ======================================
 # 主函数
 # ======================================
 def main():
@@ -469,12 +687,15 @@ def main():
     # 训练模型
     if not train_model():
         return
-    
+
     # 进行预测
     if not predict_model():
         return
-    
-    print("\n=== 训练和预测完成 ===")
+
+    # 评估模型
+    evaluate_model()
+
+    print("\n=== 训练、预测和评估完成 ===")
 
 
 if __name__ == "__main__":

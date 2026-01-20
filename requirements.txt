@@ -1,9 +1,5 @@
-PyQt5
-torch
-torchmetrics
-pandas
-numpy
-scikit-learn
-tqdm
-matplotlib
-requests
+torch>=2.0.0
+torchhd>=0.1.0
+numpy>=1.21.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
