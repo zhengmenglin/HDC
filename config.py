@@ -26,6 +26,8 @@ class Config:
             # 数据处理配置
             "data": {
                 "input_dir": "data",  # 原始数据目录
+                "train_dir": "data/train",  # 训练数据目录
+                "test_dir": "data/test",  # 测试数据目录
                 "output_dir": "output",  # 输出目录
                 "train_ratio": 0.7,  # 训练集比例
                 "window_size": 64,  # 滑动窗口大小
