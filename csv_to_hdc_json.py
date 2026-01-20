@@ -261,7 +261,10 @@ class CsvToHdcJsonConverter:
         
         return beam_offset_map, beam_way_map, beam_angle_map
     
-    def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str, target_channel: int = None) -> Dict:
+    def generate_hdc_json(self, clustered_df: pd.DataFrame, original_csv_path: str, target_channel: int = None,
+                       beam_offset_map: Dict[int, float] = None, 
+                       beam_way_map: Dict[int, int] = None,
+                       beam_angle_map: Dict[int, float] = None) -> Dict:
         """
         生成hdc.json格式的数据
         
@@ -269,6 +272,9 @@ class CsvToHdcJsonConverter:
             clustered_df: 带有簇标签的缺陷点DataFrame
             original_csv_path: 原始CSV文件路径
             target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
+            beam_offset_map: 通道到拼孔值的映射
+            beam_way_map: 通道到射向的映射（-1后、0直、1前）
+            beam_angle_map: 通道到声束角度的映射
             
         Returns:
             hdc.json格式的字典
@@ -283,17 +289,19 @@ class CsvToHdcJsonConverter:
         # 检查是否有单通道预测标签（如predicted_label_8）
         has_single_pred = any([f'predicted_label_{i}' in clustered_df.columns for i in range(9)])
         
-        # 从原始JSON文件中提取超声波参数
-        # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
-        csv_path = Path(original_csv_path)
-        # 处理文件名：例如 1_hdc.csv -> 1.json
-        original_stem = csv_path.stem.replace('_hdc', '')
-        original_json_path = str(csv_path.parent / f"{original_stem}.json")
-        # 提取超声波参数映射
-        beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
-        print(f"Using beam offset map: {beam_offset_map} for {original_csv_path}")
-        print(f"Using beam way map: {beam_way_map} for {original_csv_path}")
-        print(f"Using beam angle map: {beam_angle_map} for {original_csv_path}")
+        # 使用传入的拼孔值参数，如果没有传入则从原始JSON文件中提取
+        if beam_offset_map is None or beam_way_map is None or beam_angle_map is None:
+            # 从原始JSON文件中提取超声波参数
+            # 构造原始JSON文件路径：将_csv_hdc.csv替换为原始扩展名
+            csv_path = Path(original_csv_path)
+            # 处理文件名：例如 1_hdc.csv -> 1.json
+            original_stem = csv_path.stem.replace('_hdc', '')
+            original_json_path = str(csv_path.parent / f"{original_stem}.json")
+            # 提取超声波参数映射
+            beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+            print(f"从原始JSON文件提取拼孔参数: {original_csv_path}")
+        else:
+            print(f"使用传入的拼孔参数: beam_offset_map={beam_offset_map}, beam_way_map={beam_way_map}, beam_angle_map={beam_angle_map}")
         
         # 按簇分组
         for cluster in clustered_df['cluster'].unique():
@@ -859,7 +867,10 @@ class CsvToHdcJsonConverter:
         
         return hdc_json
     
-    def convert_csv_to_hdc_json(self, csv_file: str, output_file: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None):
+    def convert_csv_to_hdc_json(self, csv_file: str, output_file: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None,
+                          beam_offset_map: Dict[int, float] = None, 
+                          beam_way_map: Dict[int, int] = None,
+                          beam_angle_map: Dict[int, float] = None):
         """
         将CSV文件转换为hdc.json文件
         
@@ -869,6 +880,9 @@ class CsvToHdcJsonConverter:
             eps: DBSCAN的ε参数（已屏蔽聚类，此参数无效）
             min_samples: DBSCAN的min_samples参数（已屏蔽聚类，此参数无效）
             target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
+            beam_offset_map: 通道到拼孔值的映射
+            beam_way_map: 通道到射向的映射（-1后、0直、1前）
+            beam_angle_map: 通道到声束角度的映射
             
         Returns:
             输出JSON文件路径
@@ -895,11 +909,15 @@ class CsvToHdcJsonConverter:
             # 跳过聚类，直接生成hdc.json
             hdc_json = self.generate_hdc_json_direct(defect_points, csv_file, target_channel=target_channel)
         else:
-            # 从原始JSON文件中提取超声波参数
-            csv_path = Path(csv_file)
-            original_stem = csv_path.stem.replace('_hdc', '')
-            original_json_path = str(csv_path.parent / f"{original_stem}.json")
-            beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+            # 使用传入的拼孔值参数，如果没有传入则从原始JSON文件中提取
+            if beam_offset_map is None or beam_way_map is None or beam_angle_map is None:
+                # 从原始JSON文件中提取超声波参数
+                csv_path = Path(csv_file)
+                original_stem = csv_path.stem.replace('_hdc', '')
+                original_json_path = str(csv_path.parent / f"{original_stem}.json")
+                beam_offset_map, beam_way_map, beam_angle_map = self.extract_beam_parameters(original_json_path)
+            else:
+                print(f"使用传入的拼孔参数: beam_offset_map={beam_offset_map}, beam_way_map={beam_way_map}, beam_angle_map={beam_angle_map}")
             
             # 进行聚类，调整DBSCAN参数优化聚类效果
             clustered_df = self.cluster_points(defect_points, eps=15.0, min_samples=2,
@@ -908,8 +926,11 @@ class CsvToHdcJsonConverter:
                                              beam_angle_map=beam_angle_map)
             print(f"聚类完成，生成 {len(clustered_df['cluster'].unique()) - 1} 个簇")
             
-            # 生成hdc.json
-            hdc_json = self.generate_hdc_json(clustered_df, csv_file, target_channel=target_channel)
+            # 生成hdc.json，传递拼孔值参数
+            hdc_json = self.generate_hdc_json(clustered_df, csv_file, target_channel=target_channel,
+                                           beam_offset_map=beam_offset_map,
+                                           beam_way_map=beam_way_map,
+                                           beam_angle_map=beam_angle_map)
             print(f"生成 {len(hdc_json['annotations'])} 个伤损结构")
         
         # 4. 保存为JSON文件
@@ -919,7 +940,10 @@ class CsvToHdcJsonConverter:
         print(f"hdc.json文件已保存到: {output_file}")
         return output_file
     
-    def batch_convert(self, input_dir: str, output_dir: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None):
+    def batch_convert(self, input_dir: str, output_dir: str = None, eps: float = 5.0, min_samples: int = 5, target_channel: int = None,
+                      beam_offset_map: Dict[int, float] = None, 
+                      beam_way_map: Dict[int, int] = None,
+                      beam_angle_map: Dict[int, float] = None):
         """
         批量转换目录中的所有CSV文件
         
@@ -929,6 +953,9 @@ class CsvToHdcJsonConverter:
             eps: DBSCAN的ε参数
             min_samples: DBSCAN的min_samples参数
             target_channel: 目标通道号，只提取该通道的预测结果（如8表示只提取通道8）
+            beam_offset_map: 通道到拼孔值的映射
+            beam_way_map: 通道到射向的映射（-1后、0直、1前）
+            beam_angle_map: 通道到声束角度的映射
             
         Returns:
             转换后的文件列表
@@ -952,7 +979,10 @@ class CsvToHdcJsonConverter:
             output_file = str(output_path / f"{csv_file.stem.replace('_hdc', '')}_hdc.json")
             converted_file = self.convert_csv_to_hdc_json(
                 str(csv_file), output_file, eps=eps, min_samples=min_samples,
-                target_channel=target_channel
+                target_channel=target_channel,
+                beam_offset_map=beam_offset_map,
+                beam_way_map=beam_way_map,
+                beam_angle_map=beam_angle_map
             )
             converted_files.append(converted_file)
         
