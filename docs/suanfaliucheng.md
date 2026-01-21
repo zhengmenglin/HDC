@@ -48,8 +48,9 @@ encoding 和 predicted_label_0-8 组成1_predicted_label.csv .
 
 
 1.json转1.csv具体方案：
-1. 读取1.json文件，获取所有通道的编码值和声程值。
-2. 对每个通道的编码值，减去其对应的beam_offset值，得到调整后的编码值（encoding）。
-3. 将每个通道的encoding和channel_0-8拼接起来，形成一个(256,9)的矩阵。
-4. 将这个矩阵保存为1.csv文件。
+1. 读取1.json文件，获取所有通道的编码值和声程值。得到1.csv，数据复制三份得到sheet1,sheet2,sheet3。
+2. 读取1.json文件中的BeamOffset比如：
+"BeamOffset":[0,35,1,229,2,115,3,175,4,123,5,150,6,20,7,268,8,279]
+使用python excel工具将sheet1 sheet2对应的channel_0-8   共9列数据分别上移对应的BeamOffset行，没有的数据填充为0。E按照规律填充
+
 

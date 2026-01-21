@@ -395,7 +395,7 @@ class BScanCanvas(FigureCanvas):
         for channel in range(9):  # 0-8通道
             self.channel_visible[channel] = True
         
-    def update_bscan(self, parser, display_range=255, current_e=None, annotations=None, display_mode="V型"):
+    def update_bscan(self, parser, display_range=255, current_e=None, annotations=None, display_mode="V型"  ):
         """更新B显图像"""
         # 保存当前的轴范围，以便在更新后恢复（如果需要）
         # 无论auto_reset_zoom状态如何，都保存当前范围，以便用户使用工具栏缩放后能保持

@@ -137,7 +137,7 @@ class UltrasonicDataConverter:
                     if b1_data and isinstance(b1_data[0], list):
                         # 情况1：嵌套列表，每个子列表是一个B1数据项
                         for b_item in b1_data:
-                            if len(b_item) >= 5:  # 确保有足够的数据
+                            if len(b_item) >= 3:  # 至少需要通道、深度、幅度
                                 channel = int(b_item[0])  # 通道直接使用原始值
                                 if 0 <= channel <= 8:  # 通道范围0-8
                                     depth = b_item[1]
@@ -146,17 +146,17 @@ class UltrasonicDataConverter:
                                     db_value = b_item[3] if len(b_item) > 3 else amplitude
 
                                     e_data[e][channel] = [depth, amplitude, db_value]
-                    elif len(b1_data) >= 5:  # 扁平列表，每5个元素是一个B1数据项
+                    elif len(b1_data) >= 3:  # 扁平列表，每5个元素是一个B1数据项
                         # 情况2：扁平列表，包含多个B1数据项
                         # 例如: [2.0,136.0,100.0,257.0,176.0,8.0,126.0,100.0,257.0,176.0] 代表两个B1数据项
                         for i in range(0, len(b1_data), 5):
-                            if i + 4 < len(b1_data):  # 确保有足够的数据（i到i+4共5个元素）
+                            if i + 2 < len(b1_data):  # 确保有足够的数据（至少通道、深度、幅度）
                                 channel = int(b1_data[i])  # 通道直接使用原始值
                                 if 0 <= channel <= 8:  # 通道范围0-8
                                     depth = b1_data[i+1]
                                     amplitude = b1_data[i+2]
                                     # 计算dB值 (假设有计算方法，这里暂时使用amplitude)
-                                    db_value = b1_data[i+3] if len(b1_data) > i+3 else amplitude
+                                    db_value = b1_data[i+3] if i + 3 < len(b1_data) else amplitude
 
                                     e_data[e][channel] = [depth, amplitude, db_value]
 
@@ -199,89 +199,6 @@ class UltrasonicDataConverter:
 
         return e_channel_labels
 
-    def convert_to_csv_format(self, e_data: Dict[int, Dict[int, List]], e_channel_labels: Dict[int, Dict[int, int]],
-                            output_file: str):
-        """
-        将E值数据转换为CSV格式
-        输出格式：编码值 + 9通道深度值 + 9通道标签
-
-        Args:
-            e_data: 按E值组织的数据 {e值: {通道: [深度, 振幅, db值], ...}, ...}
-            e_channel_labels: E值到通道标签的映射 {e值: {通道: 标签, ...}, ...}
-            output_file: 输出CSV文件路径
-        """
-        # 获取所有E值并排序
-        sorted_es = sorted(e_data.keys())
-        
-        # 创建编码值到通道数据的映射
-        # 键为编码值，值为{通道: 深度值}
-        encoded_data = {}
-        
-        # 填充编码数据映射，处理每个通道的偏移
-        for e in sorted_es:
-            channel_data = e_data[e]
-            for channel in range(9):
-                if channel in channel_data:
-                    # 计算该通道的编码值：编码值 = 原始E值 - 对应通道的拼孔值
-                    offset = self.beam_offset_map.get(channel, 0)
-                    encoded_e = e - offset
-                    
-                    if encoded_e not in encoded_data:
-                        encoded_data[encoded_e] = {}
-                    
-                    # 保存深度值
-                    encoded_data[encoded_e][channel] = channel_data[channel][0]
-        
-        # 确定最终的编码范围（使用调整后的编码值）
-        if encoded_data:
-            min_encoding = min(encoded_data.keys())
-            max_encoding = max(encoded_data.keys())
-        else:
-            min_encoding = 0
-            max_encoding = 0
-        
-        # 为每个编码值创建一行数据
-        csv_data = []
-        
-        # 遍历所有调整后的编码值，确保连续，空余部分补零
-        for encoding in range(min_encoding, max_encoding + 1):
-            # 初始化行数据：编码值 + 9通道深度值（初始为0） + 9通道标签（初始为0）
-            row = [encoding] + [0.0] * 9 + [0] * 9
-            
-            # 填充各通道的深度值
-            if encoding in encoded_data:
-                channel_depths = encoded_data[encoding]
-                for channel in range(9):
-                    if channel in channel_depths:
-                        row[channel + 1] = channel_depths[channel]
-            
-            # 填充各通道的标签值
-            # 查找对应的原始E值范围，处理标签
-            for original_e in sorted_es:
-                # 检查当前编码值是否属于该原始E值的某个通道
-                for channel in range(9):
-                    offset = self.beam_offset_map.get(channel, 0)
-                    if original_e - offset == encoding:
-                        # 找到对应的原始E值，获取该通道的标签
-                        if original_e in e_channel_labels and channel in e_channel_labels[original_e]:
-                            row[10 + channel] = e_channel_labels[original_e][channel]  # label_0到label_8从第10列开始
-                        break
-            
-            csv_data.append(row)
-
-        # 创建DataFrame并保存
-        columns = ['encoding'] + [f'channel_{i}' for i in range(9)] + [f'label_{i}' for i in range(9)]
-
-        df = pd.DataFrame(csv_data, columns=columns)
-        df.to_csv(output_file, index=False)
-
-        print(f"Data converted to CSV format: {output_file}")
-        print(f"Number of samples: {len(csv_data)}")
-        
-        # 打印每个通道的标签分布
-        for i in range(9):
-            label_col = f'label_{i}'
-            print(f"Channel {i} label distribution: {df[label_col].value_counts().to_dict()}")
 
     def convert_windows_to_csv_format(self, windows: List[Tuple[np.ndarray, int]], output_file: str):
         """
@@ -366,6 +283,85 @@ class UltrasonicDataConverter:
 
         return windows
 
+    def convert_to_csv_with_beam_offset(self, json_file: str, output_file: str = None):
+        """
+        根据新方案将JSON数据转换为CSV格式
+        1. 读取JSON文件，获取所有通道的编码值和声程值
+        2. 将channel_0-8共9列数据分别上移对应的BeamOffset行
+        3. 空缺位置填充为0，E按照规律填充
+
+        Args:
+            json_file: JSON文件路径
+            output_file: 输出CSV文件路径
+
+        Returns:
+            output_file: 输出文件路径
+        """
+        # 设置默认输出文件名
+        if output_file is None:
+            data_path = Path(json_file)
+            output_file = str(data_path.parent / f"{data_path.stem}.csv")
+
+        print(f"Converting file with new beam offset method: {json_file}")
+
+        # 1. 加载JSON数据
+        data_list, config = self.load_json_data(json_file)
+        print(f"Loaded {len(data_list)} data points")
+
+        # 2. 提取B扫描数据（按E值组织）
+        e_data = self.extract_bscan_data(data_list)
+        print(f"Extracted data for {len(e_data)} E values")
+
+        # 3. 获取所有E值并排序
+        sorted_es = sorted(e_data.keys())
+        if not sorted_es:
+            print("No E values found in data")
+            return output_file
+
+        min_e = min(sorted_es)
+        max_e = max(sorted_es)
+
+        # 4. 应用BeamOffset调整（数据上移）
+        beam_offset = self.beam_offset_map
+        print(f"Beam offset map: {beam_offset}")
+
+        # 确定调整后的编码范围（考虑最大偏移）
+        max_offset = max(beam_offset.values()) if beam_offset else 0
+        adjusted_min_e = min_e - max_offset
+        adjusted_max_e = max_e
+
+        # 创建调整后的编码范围
+        adjusted_encoding_range = range(adjusted_min_e, adjusted_max_e + 1)
+
+        # 填充数据（应用BeamOffset调整）
+        csv_data = []
+        for encoding in adjusted_encoding_range:
+            row = [encoding] + [0.0] * 9  # encoding + channel_0-8
+
+            for channel in range(9):
+                offset = beam_offset.get(channel, 0)
+                original_encoding = encoding + offset
+
+                # 如果原始编码在数据范围内且有数据，则填充
+                if original_encoding in e_data and channel in e_data[original_encoding]:
+                    depth_value = e_data[original_encoding][channel][0]
+                    row[channel + 1] = depth_value
+
+            csv_data.append(row)
+
+        # 创建DataFrame
+        df = pd.DataFrame(csv_data, columns=['encoding'] + [f'channel_{i}' for i in range(9)])
+        print(f"DataFrame created with {len(df)} rows")
+
+        # 5. 保存为CSV文件
+        df.to_csv(output_file, index=False)
+
+        print(f"Data converted to CSV format: {output_file}")
+        print(f"Number of samples: {len(df)}")
+        print(f"Encoding range: {adjusted_min_e} to {adjusted_max_e}")
+
+        return output_file
+
     def convert_single_file(self, data_file: str, annotation_file: str = None,
                            output_file: str = None, window_size: int = 64, step: int = 32):
         """
@@ -381,7 +377,7 @@ class UltrasonicDataConverter:
         # 设置默认输出文件名
         if output_file is None:
             data_path = Path(data_file)
-            output_file = str(data_path.parent / f"{data_path.stem}_hdc.csv")
+            output_file = str(data_path.parent / f"{data_path.stem}.csv")
 
         print(f"Converting file: {data_file}")
 
@@ -399,12 +395,64 @@ class UltrasonicDataConverter:
         e_data = self.extract_bscan_data(data_list)
         print(f"Extracted data for {len(e_data)} E values")
 
-        # 4. 生成E值到标签的映射
-        e_labels = self.extract_damage_regions(annotations)
-        print(f"Labeled {len(e_labels)} E values with damage information")
+        # 4. 如果有标注数据，生成E值到标签的映射
+        e_labels = {}
+        if annotations:
+            e_labels = self.extract_damage_regions(annotations)
+            print(f"Labeled {len(e_labels)} E values with damage information")
 
-        # 5. 转换为CSV格式（直接生成原始格式，由模型训练时生成滑动窗口）
-        self.convert_to_csv_format(e_data, e_labels, output_file)
+        # 5. 应用BeamOffset调整并转换为CSV格式
+        sorted_es = sorted(e_data.keys())
+        if not sorted_es:
+            print("No E values found in data")
+            return output_file
+
+        min_e = min(sorted_es)
+        max_e = max(sorted_es)
+
+        # 应用BeamOffset调整
+        beam_offset = self.beam_offset_map
+        print(f"Beam offset map: {beam_offset}")
+
+        # 确定调整后的编码范围（考虑最大偏移）
+        max_offset = max(beam_offset.values()) if beam_offset else 0
+        adjusted_min_e = min_e - max_offset
+        adjusted_max_e = max_e
+
+        # 创建调整后的编码范围
+        adjusted_encoding_range = range(adjusted_min_e, adjusted_max_e + 1)
+
+        # 填充数据（应用BeamOffset调整）
+        csv_data = []
+        for encoding in adjusted_encoding_range:
+            row = [encoding] + [0.0] * 9 + [0] * 9  # encoding + channel_0-8 + label_0-8
+
+            for channel in range(9):
+                offset = beam_offset.get(channel, 0)
+                original_encoding = encoding + offset
+
+                # 如果原始编码在数据范围内且有数据，则填充深度值
+                if original_encoding in e_data and channel in e_data[original_encoding]:
+                    depth_value = e_data[original_encoding][channel][0]
+                    row[channel + 1] = depth_value  # 填充channel数据
+
+                # 如果有标注数据，填充标签值
+                if original_encoding in e_labels and channel in e_labels[original_encoding]:
+                    row[10 + channel] = e_labels[original_encoding][channel]  # 填充label数据
+
+            csv_data.append(row)
+
+        # 创建DataFrame
+        columns = ['encoding'] + [f'channel_{i}' for i in range(9)] + [f'label_{i}' for i in range(9)]
+        df = pd.DataFrame(csv_data, columns=columns)
+        print(f"DataFrame created with {len(df)} rows")
+
+        # 6. 保存为CSV文件
+        df.to_csv(output_file, index=False)
+
+        print(f"Data converted to CSV format: {output_file}")
+        print(f"Number of samples: {len(df)}")
+        print(f"Encoding range: {adjusted_min_e} to {adjusted_max_e}")
 
         return output_file
 
@@ -436,7 +484,7 @@ class UltrasonicDataConverter:
             annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
 
             # 设置输出文件名
-            output_file = output_path / f"{data_file.stem}_hdc.csv"
+            output_file = output_path / f"{data_file.stem}.csv"
 
             try:
                 result_file = self.convert_single_file(

@@ -74,6 +74,17 @@ class CsvToHdcJsonConverter:
         Returns:
             缺陷点的DataFrame
         """
+        if df.empty:
+            return df.copy()
+        
+        # 检查是否有预测标签列
+        has_predicted_labels = any(f'predicted_label_{i}' in df.columns for i in range(9))
+        has_predicted_label_single = 'predicted_label' in df.columns
+        
+        # 检查是否有真实标签列
+        has_true_labels = any(f'label_{i}' in df.columns for i in range(9))
+        has_true_label_single = 'label' in df.columns
+        
         # 优先检查指定通道的预测标签
         if target_channel is not None and f'predicted_label_{target_channel}' in df.columns:
             pred_mask = df[f'predicted_label_{target_channel}'] != 0
@@ -95,12 +106,15 @@ class CsvToHdcJsonConverter:
             for i in range(9):
                 true_mask = true_mask | (df[f'label_{i}'] != 0)
             return df[true_mask].copy()
-        elif 'predicted_label' in df.columns:
+        elif has_predicted_label_single:
             # 单通道预测结果
             return df[df['predicted_label'] != 0].copy()
-        else:
+        elif has_true_label_single:
             # 单通道真实标签
             return df[df['label'] != 0].copy()
+        else:
+            # 没有标签列，返回空DataFrame
+            return df.head(0).copy()
     
     def cluster_points(self, df: pd.DataFrame, eps: float = 10.0, min_samples: int = 3, 
                       beam_offset_map: Dict[int, float] = None, 
