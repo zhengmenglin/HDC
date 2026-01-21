@@ -46,3 +46,10 @@ encoding 和 predicted_label_0-8 组成1_predicted_label.csv .
 
 根据original_e=encoding+beam_offset[channel]，可以计算出每个通道的original_e，是否有伤损。生成1_hdc.json
 
+
+1.json转1.csv具体方案：
+1. 读取1.json文件，获取所有通道的编码值和声程值。
+2. 对每个通道的编码值，减去其对应的beam_offset值，得到调整后的编码值（encoding）。
+3. 将每个通道的encoding和channel_0-8拼接起来，形成一个(256,9)的矩阵。
+4. 将这个矩阵保存为1.csv文件。
+

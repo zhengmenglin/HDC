@@ -213,20 +213,6 @@ class UltrasonicDataConverter:
         # 获取所有E值并排序
         sorted_es = sorted(e_data.keys())
         
-        # 计算最大偏移量，用于确定最终数据范围
-        max_offset = 0
-        min_offset = 0
-        for channel in range(9):
-            offset = self.beam_offset_map.get(channel, 0)
-            if offset > max_offset:
-                max_offset = offset
-            if offset < min_offset:
-                min_offset = offset
-        
-        # 确定最终的编码范围
-        min_e = sorted_es[0] + min_offset
-        max_e = sorted_es[-1] + max_offset
-        
         # 创建编码值到通道数据的映射
         # 键为编码值，值为{通道: 深度值}
         encoded_data = {}
@@ -246,11 +232,19 @@ class UltrasonicDataConverter:
                     # 保存深度值
                     encoded_data[encoded_e][channel] = channel_data[channel][0]
         
+        # 确定最终的编码范围（使用调整后的编码值）
+        if encoded_data:
+            min_encoding = min(encoded_data.keys())
+            max_encoding = max(encoded_data.keys())
+        else:
+            min_encoding = 0
+            max_encoding = 0
+        
         # 为每个编码值创建一行数据
         csv_data = []
         
-        # 遍历所有可能的编码值，确保连续，空余部分补零
-        for encoding in range(min_e, max_e + 1):
+        # 遍历所有调整后的编码值，确保连续，空余部分补零
+        for encoding in range(min_encoding, max_encoding + 1):
             # 初始化行数据：编码值 + 9通道深度值（初始为0） + 9通道标签（初始为0）
             row = [encoding] + [0.0] * 9 + [0] * 9
             

@@ -40,7 +40,7 @@ print(f"使用设备: {device}")
 # 超向量维度
 DIMENSIONS = 10000
 # 水平嵌入的级别数
-NUM_LEVELS = 255
+NUM_LEVELS = 256
 # 批处理大小
 BATCH_SIZE = 1
 # 通道数，超声波传感器的通道数量
@@ -195,7 +195,7 @@ class AllChannelsEncoder(nn.Module):
         # 通道嵌入层，将每个通道映射到超维空间
         self.channels = embeddings.Random(channels, out_features)
         # 信号嵌入层，将连续信号值映射到超维空间
-        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=200)
+        self.signals = embeddings.Level(NUM_LEVELS, out_features, high=256)
         # n-gram大小
         self.n_gram_size = n_gram_size
     
