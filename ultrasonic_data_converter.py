@@ -283,6 +283,108 @@ class UltrasonicDataConverter:
 
         return windows
 
+    def generate_all_csvs(self, json_file: str, annotation_file: str = None):
+        """
+        按照 suanfaliucheng.md #L50-57 的方案生成四个CSV文件
+        1. 1.csv: original_e, channel_0-8 (声程值)
+        2. 1_encoding.csv: original_e, encoding_0-8 (调整后的编码值)
+        3. 1_hdc.csv: encoding, channel_0-8 (对齐后的声程值)
+        4. 1_label.csv: encoding, label_0-8 (标注标签)
+        """
+        json_path = Path(json_file)
+        base_name = json_path.stem
+        parent_dir = json_path.parent
+
+        # 1. 读取1.json文件 (只读取一次)
+        data_list, config = self.load_json_data(json_file)
+        beam_offset = self.beam_offset_map
+        
+        # 提取B扫描数据（按E值组织）
+        # e_data[e][channel] = [depth, amplitude, db_value]
+        e_data = self.extract_bscan_data(data_list)
+        sorted_es = sorted(e_data.keys())
+        
+        # --- Step 1: 生成 1.csv ---
+        # 包含 original_e 和各通道的声程值 (depth)
+        csv1_data = []
+        for e in sorted_es:
+            row = [e] + [0.0] * 9
+            for channel, values in e_data[e].items():
+                if 0 <= channel <= 8:
+                    row[channel + 1] = values[0]  # depth/声程值
+            csv1_data.append(row)
+        
+        df1 = pd.DataFrame(csv1_data, columns=['original_e'] + [f'channel_{i}' for i in range(9)])
+        csv1_path = parent_dir / f"{base_name}.csv"
+        df1.to_csv(csv1_path, index=False)
+        print(f"Generated {csv1_path}")
+
+        # --- Step 2: 生成 1_encoding.csv ---
+        # 调整 original_e 得到 encoding_0-8
+        # encoding = original_e - beam_offset[channel]
+        csv_enc_data = []
+        all_encodings = []
+        for e in sorted_es:
+            row = [e] + [0] * 9
+            for channel in range(9):
+                offset = beam_offset.get(channel, 0)
+                enc = e - offset
+                row[channel + 1] = enc
+                all_encodings.append(enc)
+            csv_enc_data.append(row)
+        
+        df_enc = pd.DataFrame(csv_enc_data, columns=['original_e'] + [f'encoding_{i}' for i in range(9)])
+        csv_enc_path = parent_dir / f"{base_name}_encoding.csv"
+        df_enc.to_csv(csv_enc_path, index=False)
+        print(f"Generated {csv_enc_path}")
+
+        # --- Step 3: 生成 1_hdc.csv ---
+        # 找到 encoding 的范围
+        if not all_encodings:
+            print("No encodings found, skipping hdc and label csv.")
+            return
+
+        min_e = min(all_encodings)
+        max_e = max(all_encodings)
+        encoding_range = range(int(min_e), int(max_e) + 1)
+
+        csv_hdc_data = []
+        for enc in encoding_range:
+            row = [enc] + [0.0] * 9
+            for channel in range(9):
+                offset = beam_offset.get(channel, 0)
+                original_e = enc + offset
+                if original_e in e_data and channel in e_data[original_e]:
+                    row[channel + 1] = e_data[original_e][channel][0] # depth
+            csv_hdc_data.append(row)
+        
+        df_hdc = pd.DataFrame(csv_hdc_data, columns=['encoding'] + [f'channel_{i}' for i in range(9)])
+        csv_hdc_path = parent_dir / f"{base_name}_hdc.csv"
+        df_hdc.to_csv(csv_hdc_path, index=False)
+        print(f"Generated {csv_hdc_path}")
+
+        # --- Step 4: 生成 1_label.csv ---
+        # 读取标注文件
+        csv_label_data = []
+        e_channel_labels = {}
+        if annotation_file and Path(annotation_file).exists():
+            annotations = self.load_annotation_data(annotation_file)
+            e_channel_labels = self.extract_damage_regions(annotations)
+        
+        for enc in encoding_range:
+            row = [enc] + [0] * 9
+            for channel in range(9):
+                offset = beam_offset.get(channel, 0)
+                original_e = enc + offset
+                if original_e in e_channel_labels and channel in e_channel_labels[original_e]:
+                    row[channel + 1] = e_channel_labels[original_e][channel]
+            csv_label_data.append(row)
+        
+        df_label = pd.DataFrame(csv_label_data, columns=['encoding'] + [f'label_{i}' for i in range(9)])
+        csv_label_path = parent_dir / f"{base_name}_label.csv"
+        df_label.to_csv(csv_label_path, index=False)
+        print(f"Generated {csv_label_path}")
+
     def convert_to_csv_with_beam_offset(self, json_file: str, output_file: str = None):
         """
         根据新方案将JSON数据转换为CSV格式

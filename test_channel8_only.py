@@ -550,7 +550,27 @@ def test_channel8_only():
         converter = UltrasonicDataConverter()
         
         train_files = get_data_files(TRAIN_DATA_DIR)
-        train_csv_files = convert_data_files(train_files, converter)
+        train_csv_files = []
+        for data_file in train_files:
+            try:
+                # 使用新的 generate_all_csvs 方法
+                annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
+                annotation_path = str(annotation_file) if annotation_file.exists() else None
+                
+                print(f"正在转换文件: {data_file.name}")
+                converter.generate_all_csvs(str(data_file), annotation_path)
+                
+                # 为后续步骤添加生成的 _hdc.csv 文件路径
+                output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
+                if output_csv.exists():
+                    train_csv_files.append(str(output_csv))
+                    print(f"✓ 转换完成: {data_file.name}")
+                else:
+                    print(f"✗ 转换后未找到 _hdc.csv 文件: {data_file.name}")
+            except Exception as e:
+                print(f"✗ 转换失败 {data_file.name}: {e}")
+                import traceback
+                traceback.print_exc()
         
         if not train_csv_files:
             print("[FAIL] 没有成功转换的训练数据文件")

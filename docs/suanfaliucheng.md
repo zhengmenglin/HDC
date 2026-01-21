@@ -36,21 +36,24 @@ flowchart LR
 - `predicted_label_0-8`: HDC模型预测的各通道标签（0=正常，1-19=伤损类型，每个通道独立预测）
 
 -------------------👆原本的----------------------------1.20-------------👇新想的-------------------------------------
-encoding 和 channel_0-8 组成1.csv ，
+encoding 和 channel_0-8 组成1_hdc.csv ，
 encoding 和 label_0-8 组成1_label.csv  ,
 encoding 和 predicted_label_0-8 组成1_predicted_label.csv .  
 
-   训练的时候使用1.csv 和1_label.csv 作为输入，窗长为256，步长为128。
+   训练的时候使用1_hdc.csv 和1_label.csv 作为输入，窗长为256，步长为128。
    也就是每次取256*9个编码值和256*9个标签值作为一个样本。矩阵的形状就是(256,9)。
-   预测的时候使用1.csv 窗长为256和模型作为输入，经过计算，输出1_predicted_label.csv。
+   预测的时候使用1_hdc.csv 窗长为256和模型作为输入，经过计算，输出1_predicted_label.csv。
 
 根据original_e=encoding+beam_offset[channel]，可以计算出每个通道的original_e，是否有伤损。生成1_hdc.json
 
 
-1.json转1.csv具体方案：
-1. 读取1.json文件，获取所有通道的编码值和声程值。得到1.csv，数据复制三份得到sheet1,sheet2,sheet3。
+1.json转1.csv具体方案：请用一个函数实现。json只读取一遍。
+1. 读取1.json文件，获取所有通道的编码值和声程值。得到1.csv。
 2. 读取1.json文件中的BeamOffset比如：
 "BeamOffset":[0,35,1,229,2,115,3,175,4,123,5,150,6,20,7,268,8,279]
-使用python excel工具将sheet1 sheet2对应的channel_0-8   共9列数据分别上移对应的BeamOffset行，没有的数据填充为0。E按照规律填充
+然后根据BeamOffset，调整original_e，得到调整后的encoding_0-8。保存为1_encoding.csv。
+3.找到channel_0-8中最大的那个值，max_e。和最小值min_e。然后从min_e开始，每次增加1，直到max_e。这是encoding的范围。
+这时候遍历encoding，保存这个encoding和对应的channel_0-8。保存为1_hdc.csv。
+4.读取1标注.json文件，获取original_e后减去对应通道BeamOffset得到encoding，存到对应的通道值里。生成1_label.csv。encoding的范围和1_hdc.csv的范围是一致的。
 
 
