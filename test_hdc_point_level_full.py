@@ -237,7 +237,7 @@ def run_full_test():
         print("[WARN] 训练集为空，跳过训练。")
     else:
         # 使用 CUDA 时可以调大 batch_size 以提速
-        batch_size = 128 if torch.cuda.is_available() else 8
+        batch_size = 64 if torch.cuda.is_available() else 8
         print(f"[INFO] 训练 Batch Size: {batch_size}")
         train_ld = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         hdc_sys = HDCPointLevelModel(device=device)
@@ -269,7 +269,7 @@ def run_full_test():
     all_train_y_pred = []
 
     # 预测时的 Batch Size 也可以调大
-    eval_batch_size = 128 if torch.cuda.is_available() else 4
+    eval_batch_size = 64 if torch.cuda.is_available() else 4
     print(f"[INFO] 预测 Batch Size: {eval_batch_size}")
 
     for data_dir, calc_metrics, label in tasks:
