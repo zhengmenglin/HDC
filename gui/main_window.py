@@ -1064,15 +1064,15 @@ class MainWindow(QMainWindow):
                     f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )
             
-            # 3. 加载HDC预测标注文件（_predicted.json）
-            predicted_annotation_filename = f"{name_without_ext}_predicted.json"
-            predicted_annotation_file_path = os.path.join(json_dir, predicted_annotation_filename)
+            # 3. 加载HDC预测标注文件（_predicted.json） - 已按要求跳过加载预测标注文件
+            # predicted_annotation_filename = f"{name_without_ext}_predicted.json"
+            # predicted_annotation_file_path = os.path.join(json_dir, predicted_annotation_filename)
             
-            if os.path.exists(predicted_annotation_file_path):
-                self.annotation_manager.load_annotations(predicted_annotation_file_path, replace=False)
-                self.status_bar.showMessage(
-                    f"已加载HDC预测标注文件: {predicted_annotation_filename}", 3000
-                )
+            # if os.path.exists(predicted_annotation_file_path):
+            #     self.annotation_manager.load_annotations(predicted_annotation_file_path, replace=False)
+            #     self.status_bar.showMessage(
+            #         f"已加载HDC预测标注文件: {predicted_annotation_filename}", 3000
+            #     )
             
             # 更新B显画布，传递标注数据和显示模式
             annotations = self.annotation_manager.get_annotations()
