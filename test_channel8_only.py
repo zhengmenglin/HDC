@@ -40,7 +40,7 @@ NUM_LEVELS = 256
 BATCH_SIZE = 1
 
 # 默认参数（可以从命令行覆盖）
-DEFAULT_WINDOW = 32
+DEFAULT_WINDOW = 256
 DEFAULT_STEP = 1
 DEFAULT_N_GRAM_SIZE = 15
 
@@ -68,10 +68,10 @@ MODEL_PATH.parent.mkdir(exist_ok=True)
 
 
 # ======================================
-# 通道8数据集类
+# HDC数据集类
 # ======================================
-class Channel8Dataset(data.Dataset):
-    """只使用通道8的数据集类
+class HDCDataset(data.Dataset):
+    """多通道HDC数据集类
     
     Args:
         data_dir: 数据目录路径
@@ -90,32 +90,46 @@ class Channel8Dataset(data.Dataset):
         """加载所有数据并生成样本"""
         print(f"正在加载 {self.data_dir} 目录下的所有CSV文件")
         
-        csv_files = list(self.data_dir.glob("*.csv"))
-        print(f"找到 {len(csv_files)} 个CSV文件")
+        # 查找 _hdc.csv 文件
+        csv_files = list(self.data_dir.glob("*_hdc.csv"))
+        print(f"找到 {len(csv_files)} 个 _hdc.csv 文件")
         
         for csv_file in csv_files:
             print(f"\n正在处理文件: {csv_file.name}")
-            
+
             df = pd.read_csv(csv_file)
+            
+            # 查找对应的 label 文件
+            base_name = csv_file.name.replace("_hdc.csv", "")
+            label_file = self.data_dir / f"{base_name}_label.csv"
+            
+            if label_file.exists():
+                label_df = pd.read_csv(label_file)
+                # 合并数据和标签
+                df = pd.merge(df, label_df, on='encoding', how='left').fillna(0)
+                print(f"已合并标签文件: {label_file.name}")
+            else:
+                print(f"警告: 未找到标签文件 {label_file.name}，使用默认标签0")
+                for i in range(9):
+                    df[f'label_{i}'] = 0
+
+            # 提取 0-8 通道的声程数据
+            channel_cols = [f'channel_{i}' for i in range(9)]
+            label_cols = [f'label_{i}' for i in range(9)]
+            
+            missing_cols = [col for col in channel_cols if col not in df.columns]
+            if missing_cols:
+                print(f"警告: {csv_file.name} 缺少必要的列 {missing_cols}，跳过")
+                continue
+
             df = df.sort_values(by='encoding')
             
-            # 只提取通道8的数据
-            if 'channel_8' not in df.columns:
-                print(f"警告: {csv_file.name} 没有channel_8列，跳过")
-                continue
-            
-            channel_data = df['channel_8'].values.reshape(-1, 1).astype(np.float32)
-            
-            # 提取通道8的标签
-            if 'label_8' in df.columns:
-                labels = df['label_8'].values
-                print(f"使用label_8标签，形状: {labels.shape}")
-            else:
-                print(f"警告: {csv_file.name} 没有label_8列，使用默认标签0")
-                labels = np.zeros(len(df))
+            # 提取所有通道的数据 (N, 9)
+            all_channel_data = df[channel_cols].values.astype(np.float32)
+            # 提取所有通道的标签 (N, 9)
+            all_label_data = df[label_cols].values.astype(np.int64)
             
             encodings = df['encoding'].values
-            print(f"从 {csv_file.name} 加载了 {len(encodings)} 个编码值")
             
             if len(encodings) < WINDOW:
                 print(f"警告: 数据不足，无法生成窗口。需要 {WINDOW} 个编码值，仅获得 {len(encodings)} 个")
@@ -129,24 +143,31 @@ class Channel8Dataset(data.Dataset):
             for start in range(0, len(encodings) - WINDOW + 1, STEP):
                 end = start + WINDOW
                 
-                window_data = channel_data[start:end]
+                # 窗口数据 (WINDOW, 9)
+                window_data = all_channel_data[start:end]
                 sample = window_data.astype(np.float32)
                 
-                # 确定窗口标签
-                window_labels = labels[start:end]
-                
-                # 窗口标签=中心点标签
                 center = (start + end) // 2
-                label = labels[center]
                 
-                # 如果窗口标签为缺陷，将窗口内非缺陷点的通道值改为0
-                if label != 0:
-                    non_defect_mask = (window_labels == 0)
-                    sample[non_defect_mask] = 0
+                # 确定窗口标签
+                # 修改：考虑中心点附近一个小范围（例如前后2个点）的标签
+                # 如果该范围内有任何非零标签，取出现频率最高的那个
+                search_radius = 2
+                range_start = max(0, center - search_radius)
+                range_end = min(len(all_label_data), center + search_radius + 1)
+                
+                neighborhood_labels = all_label_data[range_start:range_end].flatten()
+                neighborhood_labels = neighborhood_labels[neighborhood_labels != 0]
+                
+                if len(neighborhood_labels) > 0:
+                    # 取众数作为标签
+                    window_label = np.bincount(neighborhood_labels).argmax()
+                else:
+                    window_label = 0
                 
                 file_samples.append(sample)
-                file_labels.append(label)
-                file_indices.append((str(csv_file), start, end))
+                file_labels.append(window_label)
+                file_indices.append((str(csv_file), start, end, encodings[center]))
             
             self.samples.extend(file_samples)
             self.labels.extend(file_labels)
@@ -156,7 +177,8 @@ class Channel8Dataset(data.Dataset):
         
         print(f"\n所有文件处理完成，共生成 {len(self.samples)} 个窗口样本")
         if self.labels:
-            print(f"标签分布: {np.bincount(self.labels)}")
+            label_counts = np.bincount(self.labels)
+            print(f"标签分布: {label_counts}")
     
     def __len__(self):
         return len(self.samples)
@@ -169,10 +191,10 @@ class Channel8Dataset(data.Dataset):
 
 
 # ======================================
-# 超维编码器类（单通道版本）
+# HDC编码器类（多通道版本）
 # ======================================
-class Channel8Encoder(nn.Module):
-    """单通道超维编码器
+class HDCEncoder(nn.Module):
+    """多通道超维编码器
     
     Args:
         out_features: 输出超维向量的维度
@@ -180,10 +202,10 @@ class Channel8Encoder(nn.Module):
         n_gram_size: n-gram大小
     """
     def __init__(self, out_features, timestamps, n_gram_size=N_GRAM_SIZE):
-        super(Channel8Encoder, self).__init__()
+        super(HDCEncoder, self).__init__()
         
-        # 通道嵌入层（为通道8创建嵌入）
-        self.channels = embeddings.Random(1, out_features)
+        # 通道嵌入层（为 0-8 通道创建嵌入）
+        self.channels = embeddings.Random(9, out_features)
         # 信号嵌入层（调整范围以适应实际数据）
         self.signals = embeddings.Level(NUM_LEVELS, out_features, high=256)
         # n-gram大小
@@ -193,41 +215,47 @@ class Channel8Encoder(nn.Module):
         """前向传播
         
         Args:
-            input: 输入数据，形状为 [batch, timestamps, 1]
+            input: 输入数据，形状为 [batch, timestamps, 9]
             
         Returns:
             超维向量，形状为 [batch, out_features]
         """
-        # 将连续信号嵌入到超维空间
-        signal = self.signals(input)
+        # input: [batch, timestamps, 9]
+        # signals(input): [batch, timestamps, 9, out_features]
+        signal_hvs = self.signals(input)
         
-        # 绑定信号和通道信息（关键改进）
-        # signal: [batch, time, 1, dims]
-        # channels.weight: [1, dims]
-        # 需要 unsqueeze 两次以匹配 signal 的形状: [1, 1, 1, dims]
+        # channels.weight: [9, out_features]
+        # 需要 unsqueeze 以匹配 signal_hvs 的维度进行绑定
+        # channel_hv: [1, 1, 9, out_features]
         channel_hv = self.channels.weight.unsqueeze(0).unsqueeze(0)
-        samples = torchhd.bind(signal, channel_hv)
         
-        # 使用multiset聚合样本
-        samples = torchhd.multiset(samples)
-        # 使用n-gram捕获时序关系
-        sample_hv = torchhd.ngrams(samples, n=self.n_gram_size)
-        # 硬量化
-        return torchhd.hard_quantize(sample_hv)
+        # 绑定信号和通道信息
+        # bound_hvs: [batch, timestamps, 9, out_features]
+        bound_hvs = torchhd.bind(signal_hvs, channel_hv)
+        
+        # 在通道维度上聚合: [batch, timestamps, out_features]
+        # 使用 multiset 聚合一个时间戳内所有通道的信息
+        aggregated_hvs = torchhd.multiset(bound_hvs)
+        
+        # 使用 n-gram 捕获时间序列关系: [batch, out_features]
+        sample_hv = torchhd.ngrams(aggregated_hvs, n=self.n_gram_size)
+        
+        # 归一化/量化
+        return torchhd.normalize(sample_hv)
 
 
 # ======================================
 # 训练函数
 # ======================================
-def train_channel8_model(n_gram_size=N_GRAM_SIZE):
-    """使用通道8的数据训练HDC模型
+def train_hdc_model(n_gram_size=N_GRAM_SIZE):
+    """使用多通道数据训练HDC模型
     
     Args:
         n_gram_size: N-gram大小
     """
-    print(f"开始训练通道8模型... (N_GRAM_SIZE: {n_gram_size}, 窗口大小: {WINDOW}, 滑动步长: {STEP})")
+    print(f"开始训练HDC模型... (N_GRAM_SIZE: {n_gram_size}, 窗口大小: {WINDOW}, 滑动步长: {STEP})")
     
-    train_ds = Channel8Dataset(TRAIN_DATA_DIR, is_train=True)
+    train_ds = HDCDataset(TRAIN_DATA_DIR, is_train=True)
     train_ld = data.DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
     
     if len(train_ds) == 0:
@@ -240,7 +268,7 @@ def train_channel8_model(n_gram_size=N_GRAM_SIZE):
     
     # 初始化编码器
     sample_shape = train_ds[0][0].shape
-    encode = Channel8Encoder(DIMENSIONS, sample_shape[0], n_gram_size=n_gram_size)
+    encode = HDCEncoder(DIMENSIONS, sample_shape[0], n_gram_size=n_gram_size)
     encode = encode.to(device)
     
     # 初始化模型
@@ -296,7 +324,7 @@ def train_channel8_model(n_gram_size=N_GRAM_SIZE):
 # ======================================
 # 预测函数
 # ======================================
-def predict_channel8_model(data_dir=TEST_DATA_DIR):
+def predict_hdc_model(data_dir=TEST_DATA_DIR):
     """使用训练好的模型对数据进行预测
     
     Args:
@@ -316,7 +344,7 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
     
     # 初始化编码器
     sample_shape = checkpoint['sample_shape']
-    encode = Channel8Encoder(DIMENSIONS, sample_shape[0], n_gram_size=n_gram_size)
+    encode = HDCEncoder(DIMENSIONS, sample_shape[0], n_gram_size=n_gram_size)
     encode.load_state_dict(checkpoint['encoder_state_dict'])
     encode = encode.to(device)
     encode.eval()
@@ -330,7 +358,7 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
     model.eval()
     
     # 加载数据集
-    test_ds = Channel8Dataset(data_dir, is_train=False)
+    test_ds = HDCDataset(data_dir, is_train=False)
     test_ld = data.DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False)
     
     if len(test_ds) == 0:
@@ -349,36 +377,63 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
             pred_label = torch.argmax(output, dim=1).cpu().item()
             predictions.append(pred_label)
     
-    # 保存预测结果
+    # 保存预测结果为 _predicted_label.csv
     print("正在保存预测结果...")
     
     file_predictions = {}
     for idx, pred_label in enumerate(predictions):
-        file_path, start, end = test_ds.file_info[idx]
+        file_path, start, end, center_encoding = test_ds.file_info[idx]
         file_key = Path(file_path).name
         if file_key not in file_predictions:
             file_predictions[file_key] = []
-        file_predictions[file_key].append((start, end, pred_label))
+        file_predictions[file_key].append((center_encoding, pred_label))
     
     for file_name, pred_info in file_predictions.items():
         try:
-            original_file = data_dir / file_name
-            df = pd.read_csv(original_file)
+            # 读取原始 _hdc.csv 以获取完整的 encoding 列表
+            original_hdc_file = data_dir / file_name
+            df_hdc = pd.read_csv(original_hdc_file)
             
-            # 添加predicted_label_8列（初始化为0，避免混合真实标签）
-            if 'predicted_label_8' not in df.columns:
-                df['predicted_label_8'] = 0
+            # 创建预测标签 DataFrame
+            # 初始化所有通道的预测标签为0
+            pred_df = pd.DataFrame({'encoding': df_hdc['encoding']})
+            for i in range(9):
+                pred_df[f'predicted_label_{i}'] = 0
             
-            # 更新预测结果（只标记窗口中心点，减少误报）
-            for start, end, pred_label in pred_info:
-                center = (start + end) // 2  # 计算窗口中心点
-                df.loc[df['encoding'] == center, 'predicted_label_8'] = pred_label
+            # 填充预测结果
+            # 改进：只将预测标签应用到有信号的通道
+            for center_encoding, pred_label in pred_info:
+                # 找到对应的行
+                mask = pred_df['encoding'] == center_encoding
+                if mask.any() and pred_label != 0:
+                    # 获取该行原始数据
+                    row_idx = pred_df.index[mask][0]
+                    # 检查哪些通道有信号（声程 > 0）
+                    for i in range(9):
+                        if df_hdc.loc[row_idx, f'channel_{i}'] > 0:
+                            pred_df.loc[mask, f'predicted_label_{i}'] = pred_label
             
-            output_file = data_dir / f"{original_file.stem.replace('_hdc', '')}_hdc.csv"
-            df.to_csv(output_file, index=False)
-            print(f"已保存预测结果到: {output_file}")
+            # 保存为 _predicted_label.csv
+            base_name = file_name.replace("_hdc.csv", "")
+            output_file = data_dir / f"{base_name}_predicted_label.csv"
+            try:
+                pred_df.to_csv(output_file, index=False)
+                print(f"已保存预测结果到: {output_file}")
+            except PermissionError:
+                print(f"警告: 无法保存预测结果到 {output_file}，文件可能已被其他程序占用。")
+            
+            # 同时更新原始 _hdc.csv 以便后续计算准确率（保持兼容性）
+            try:
+                for i in range(9):
+                    df_hdc[f'predicted_label_{i}'] = pred_df[f'predicted_label_{i}']
+                df_hdc.to_csv(original_hdc_file, index=False)
+            except PermissionError:
+                print(f"警告: 无法更新原始文件 {original_hdc_file}，文件可能已被其他程序占用。")
+            
         except Exception as e:
             print(f"警告: 处理文件 {file_name} 时出错: {e}")
+            import traceback
+            traceback.print_exc()
     
     print("所有预测结果已保存")
     return True
@@ -387,17 +442,12 @@ def predict_channel8_model(data_dir=TEST_DATA_DIR):
 # ======================================
 # 准确率计算函数
 # ======================================
-def calculate_channel8_accuracy(predicted_file, original_file):
-    """计算通道8的识别正确率
-    
-    计算精确率、召回率和F1分数：
-    - 精确率 = 预测正确的点数 / 所有预测出的点数
-    - 召回率 = 预测正确的点数 / 所有真实伤损点数
-    - F1分数 = 2 * 精确率 * 召回率 / (精确率 + 召回率)
+def calculate_hdc_accuracy(predicted_file, original_file):
+    """计算HDC识别正确率（多通道）
     
     Args:
-        predicted_file: 包含预测结果的CSV文件路径
-        original_file: 原始CSV文件路径（包含真实标签）
+        predicted_file: 包含预测结果的CSV文件路径（或包含预测列的hdc.csv）
+        original_file: 原始CSV文件路径（包含真实标签，通常是 _hdc.csv）
     
     Returns:
         dict: 包含精确率、召回率和F1分数的字典
@@ -406,96 +456,77 @@ def calculate_channel8_accuracy(predicted_file, original_file):
         pred_df = pd.read_csv(predicted_file)
         orig_df = pd.read_csv(original_file)
         
-        if 'label_8' not in orig_df.columns or 'predicted_label_8' not in pred_df.columns:
-            print(f"警告: 缺少label_8或predicted_label_8列，无法计算正确率")
+        # 查找对应的 label 文件以获取真实标签
+        base_name = Path(original_file).name.replace("_hdc.csv", "")
+        label_file = Path(original_file).parent / f"{base_name}_label.csv"
+        
+        if label_file.exists():
+            label_df = pd.read_csv(label_file)
+            orig_df = pd.merge(orig_df, label_df, on='encoding', how='left').fillna(0)
+        
+        # 检查必要的列
+        pred_cols = [f'predicted_label_{i}' for i in range(9)]
+        true_cols = [f'label_{i}' for i in range(9)]
+        
+        available_pred_cols = [col for col in pred_cols if col in pred_df.columns]
+        available_true_cols = [col for col in true_cols if col in orig_df.columns]
+        
+        if not available_pred_cols or not available_true_cols:
+            print(f"警告: 缺少预测标签或真实标签列，无法计算正确率")
             return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
         
-        if len(pred_df) != len(orig_df):
-            print(f"警告: 预测结果和原始文件行数不一致，无法计算正确率")
-            return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
-        
-        merged_df = pd.merge(orig_df, pred_df, on='encoding', suffixes=('_orig', '_pred'))
+        # 合并数据
+        merged_df = pd.merge(orig_df[['encoding'] + available_true_cols], 
+                             pred_df[['encoding'] + available_pred_cols], 
+                             on='encoding')
         
         if merged_df.empty:
-            print(f"警告: 合并后的数据为空，无法计算正确率")
             return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
         
-        true_labels = merged_df['label_8_orig'].values
-        pred_labels = merged_df['predicted_label_8_pred'].values
+        # 展平所有通道的数据进行整体评估
+        y_true = merged_df[available_true_cols].values.flatten()
+        y_pred = merged_df[available_pred_cols].values.flatten()
         
-        # 计算各种统计量
-        total_identified = np.sum(pred_labels != 0)  # 预测为伤损的点数
-        total_true_defects = np.sum(true_labels != 0)  # 真实伤损点数
-        total_correct = np.sum((pred_labels != 0) & (true_labels != 0))  # 预测正确的点数
+        # 计算统计量
+        total_identified = np.sum(y_pred != 0)
+        total_true_defects = np.sum(y_true != 0)
+        total_correct = np.sum((y_pred != 0) & (y_true != 0))
         
-        # 计算精确率
-        if total_identified == 0:
-            precision = 0.0
-            print(f"注意: 没有识别出任何点数")
-        else:
-            precision = total_correct / total_identified
-        
-        # 计算召回率
-        if total_true_defects == 0:
-            recall = 0.0
-            print(f"注意: 没有真实伤损点")
-        else:
-            recall = total_correct / total_true_defects
-        
-        # 计算F1分数
-        if precision + recall == 0:
-            f1 = 0.0
-        else:
-            f1 = 2 * precision * recall / (precision + recall)
-        
-        # 计算F2分数（召回率权重是精确率的2倍）
-        if (4 * precision + recall) == 0:
-            f2 = 0.0
-        else:
-            f2 = 5 * precision * recall / (4 * precision + recall)
+        precision = total_correct / total_identified if total_identified > 0 else 0.0
+        recall = total_correct / total_true_defects if total_true_defects > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         
         return {
             'precision': precision,
             'recall': recall,
             'f1': f1,
-            'f2': f2,
             'total_identified': total_identified,
             'total_true_defects': total_true_defects,
             'total_correct': total_correct
         }
     except Exception as e:
         print(f"计算准确率时出错: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            'precision': 0.0, 
-            'recall': 0.0, 
-            'f1': 0.0,
-            'total_identified': 0,
-            'total_true_defects': 0,
-            'total_correct': 0
-        }
+        return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0, 'total_identified': 0, 'total_true_defects': 0, 'total_correct': 0}
 
 
 # ======================================
 # 清理旧文件
 # ======================================
 def clean_old_files(data_dirs):
-    """清理旧的hdc.json和hdc.csv文件"""
+    """清理旧的临时文件"""
     for data_dir in data_dirs:
         print(f"清理目录: {data_dir}")
-        for file_path in data_dir.glob("*_hdc.csv"):
-            try:
-                file_path.unlink()
-                print(f"✓ 删除文件: {file_path.name}")
-            except Exception as e:
-                print(f"✗ 删除文件失败 {file_path.name}: {e}")
-        for file_path in data_dir.glob("*_hdc.json"):
-            try:
-                file_path.unlink()
-                print(f"✓ 删除文件: {file_path.name}")
-            except Exception as e:
-                print(f"✗ 删除文件失败 {file_path.name}: {e}")
+        patterns = ["*_hdc.csv", "*_label.csv", "*_encoding.csv", "*.csv", "*_predicted_label.csv", "*_predicted.json"]
+        for pattern in patterns:
+            for file_path in data_dir.glob(pattern):
+                # 排除原始 .json 文件
+                if file_path.suffix == '.json' and not file_path.name.endswith('_predicted.json') and '标注' not in file_path.name:
+                    continue
+                try:
+                    file_path.unlink()
+                    print(f"✓ 删除文件: {file_path.name}")
+                except Exception as e:
+                    pass
 
 
 # ======================================
@@ -530,13 +561,13 @@ def convert_data_files(data_files, converter):
 # ======================================
 # 主测试函数
 # ======================================
-def test_channel8_only():
-    """测试只使用通道8的完整流程"""
-    print("=== 开始通道8专用实验 ===")
+def test_full_hdc_pipeline():
+    """测试多通道HDC完整流程"""
+    print("=== 开始多通道HDC实验 ===")
     print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*50)
     
-    OUTPUT_DIR = Path("channel8_test_results")
+    OUTPUT_DIR = Path("hdc_test_results")
     OUTPUT_DIR.mkdir(exist_ok=True)
     
     # 清理旧文件
@@ -545,189 +576,100 @@ def test_channel8_only():
     print("=== 清理完成 ===")
     
     try:
-        # 1. 数据转换
+        # 1. 数据转换 (JSON -> 1.csv, 1_encoding.csv, 1_hdc.csv, 1_label.csv)
         print("\n=== Step 1: 数据转换 ===")
         converter = UltrasonicDataConverter()
         
-        train_files = get_data_files(TRAIN_DATA_DIR)
-        train_csv_files = []
-        for data_file in train_files:
-            try:
-                # 使用新的 generate_all_csvs 方法
-                annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
-                annotation_path = str(annotation_file) if annotation_file.exists() else None
-                
-                print(f"正在转换文件: {data_file.name}")
-                converter.generate_all_csvs(str(data_file), annotation_path)
-                
-                # 为后续步骤添加生成的 _hdc.csv 文件路径
-                output_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
-                if output_csv.exists():
-                    train_csv_files.append(str(output_csv))
+        for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
+            data_files = get_data_files(data_dir)
+            for data_file in data_files:
+                try:
+                    annotation_file = data_file.parent / f"{data_file.stem}标注{data_file.suffix}"
+                    annotation_path = str(annotation_file) if annotation_file.exists() else None
+                    
+                    print(f"正在转换文件: {data_file.name}")
+                    converter.generate_all_csvs(str(data_file), annotation_path)
                     print(f"✓ 转换完成: {data_file.name}")
-                else:
-                    print(f"✗ 转换后未找到 _hdc.csv 文件: {data_file.name}")
-            except Exception as e:
-                print(f"✗ 转换失败 {data_file.name}: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        if not train_csv_files:
-            print("[FAIL] 没有成功转换的训练数据文件")
-            return False
+                except Exception as e:
+                    print(f"✗ 转换失败 {data_file.name}: {e}")
         
         # 2. 模型训练
         print("\n=== Step 2: 模型训练 ===")
-        try:
-            if not train_channel8_model():
-                print("[FAIL] 模型训练失败")
-                return False
-            print("✓ 模型训练成功")
-        except Exception as e:
-            print(f"[FAIL] 模型训练失败: {e}")
-            import traceback
-            traceback.print_exc()
+        if not train_hdc_model():
+            print("[FAIL] 模型训练失败")
             return False
         
-        # 3. 模型预测
+        # 3. 模型预测 (HDC CSV -> _predicted_label.csv)
         print("\n=== Step 3: 模型预测 ===")
-        print("预测训练数据...")
-        try:
-            if not predict_channel8_model(TRAIN_DATA_DIR):
-                print("[FAIL] 模型预测失败")
+        for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
+            if not predict_hdc_model(data_dir):
+                print(f"[FAIL] {data_dir} 模型预测失败")
                 return False
-            print("✓ 训练数据预测完成")
-        except Exception as e:
-            print(f"[FAIL] 模型预测失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
         
-        # 3.5 CSV到HDC JSON转换
-        print("\n=== Step 3.5: CSV到HDC JSON转换 ===")
+        # 4. CSV -> JSON 转换 (_predicted_label.csv -> _predicted.json)
+        print("\n=== Step 4: CSV到HDC JSON转换 ===")
         try:
             from csv_to_hdc_json import CsvToHdcJsonConverter
-            converter = CsvToHdcJsonConverter()
-            converter.batch_convert(str(TRAIN_DATA_DIR), target_channel=8)
-            print("✓ CSV到HDC JSON转换完成（预测点已添加source标识）")
+            json_converter = CsvToHdcJsonConverter()
+            
+            for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
+                # 查找所有 _predicted_label.csv 文件
+                pred_csvs = list(data_dir.glob("*_predicted_label.csv"))
+                for pred_csv in pred_csvs:
+                    # 查找对应的 _hdc.csv 以获取深度信息
+                    base_name = pred_csv.name.replace("_predicted_label.csv", "")
+                    hdc_csv = data_dir / f"{base_name}_hdc.csv"
+                    
+                    if not hdc_csv.exists():
+                        print(f"警告: 找不到对应的 HDC CSV 文件 {hdc_csv.name}，跳过 JSON 转换")
+                        continue
+                        
+                    # 转换
+                    df_pred = pd.read_csv(pred_csv)
+                    df_hdc = pd.read_csv(hdc_csv)
+                    # 合并以获取完整信息
+                    merged_df = pd.merge(df_hdc, df_pred, on='encoding')
+                    
+                    # 聚类并生成 JSON
+                    clustered_df = json_converter.cluster_points(merged_df)
+                    hdc_json = json_converter.generate_hdc_json(clustered_df, str(hdc_csv))
+                    
+                    # 保存 JSON
+                    output_json = data_dir / f"{base_name}_predicted.json"
+                    import json
+                    with open(output_json, 'w', encoding='utf-8') as f:
+                        json.dump(hdc_json, f, ensure_ascii=False, indent=2)
+                    print(f"✓ 已生成预测 JSON: {output_json.name}")
         except Exception as e:
             print(f"[FAIL] CSV到HDC JSON转换失败: {e}")
             import traceback
             traceback.print_exc()
-            return False
         
-        # 3.6 转换test数据
-        print("\n=== Step 3.6: 转换test数据 ===")
-        try:
-            ultrasonic_converter = UltrasonicDataConverter()
-            test_files = get_data_files(TEST_DATA_DIR)
-            test_csv_files = convert_data_files(test_files, ultrasonic_converter)
-            
-            if not test_csv_files:
-                print("[WARN] 没有成功转换的test数据文件")
-            else:
-                print(f"✓ 成功转换 {len(test_csv_files)} 个test数据文件")
-        except Exception as e:
-            print(f"[FAIL] test数据转换失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
+        # 5. 计算准确率
+        print("\n=== Step 5: 计算准确率 ===")
+        all_metrics = []
+        for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
+            data_files = get_data_files(data_dir)
+            for data_file in data_files:
+                original_hdc = data_dir / f"{data_file.stem}_hdc.csv"
+                predicted_label = data_dir / f"{data_file.stem}_predicted_label.csv"
+                
+                if original_hdc.exists() and predicted_label.exists():
+                    metrics = calculate_hdc_accuracy(predicted_label, original_hdc)
+                    metrics['file'] = data_file.name
+                    metrics['type'] = 'train' if data_dir == TRAIN_DATA_DIR else 'test'
+                    all_metrics.append(metrics)
+                    
+                    print(f"  {data_file.name} ({metrics['type']}):")
+                    print(f"    精确率 = {metrics['precision']:.4f}, 召回率 = {metrics['recall']:.4f}, F1 = {metrics['f1']:.4f}")
         
-        # 3.7 预测test数据
-        print("\n=== Step 3.7: 预测test数据 ===")
-        try:
-            if not predict_channel8_model(TEST_DATA_DIR):
-                print("[FAIL] test数据预测失败")
-                return False
-            print("✓ test数据预测完成")
-        except Exception as e:
-            print(f"[FAIL] test数据预测失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-        
-        # 3.8 test数据CSV到HDC JSON转换
-        print("\n=== Step 3.8: test数据CSV到HDC JSON转换 ===")
-        try:
-            from csv_to_hdc_json import CsvToHdcJsonConverter
-            converter = CsvToHdcJsonConverter()
-            converter.batch_convert(str(TEST_DATA_DIR), target_channel=8)
-            print("✓ test数据CSV到HDC JSON转换完成（预测点已添加source标识）")
-        except Exception as e:
-            print(f"[FAIL] test数据CSV到HDC JSON转换失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-        
-        # 4. 计算准确率
-        print("\n=== Step 4: 计算准确率 ===")
-        total_precision = 0.0
-        total_recall = 0.0
-        total_f1 = 0.0
-        total_f2 = 0.0
-        file_count = 0
-        
-        for data_file in train_files:
-            if '标注' in data_file.name:
-                continue
-            
-            original_csv = data_file.parent / f"{data_file.stem}_hdc.csv"
-            predicted_csv = data_file.parent / f"{data_file.stem.replace('_hdc', '')}_hdc.csv"
-            
-            if not original_csv.exists() or not predicted_csv.exists():
-                print(f"✗ 缺少文件，无法计算 {data_file.name} 的准确率")
-                continue
-            
-            metrics = calculate_channel8_accuracy(predicted_csv, original_csv)
-            total_precision += metrics['precision']
-            total_recall += metrics['recall']
-            total_f1 += metrics['f1']
-            total_f2 += metrics['f2']
-            file_count += 1
-            
-            print(f"  {data_file.name}:")
-            print(f"    精确率 = {metrics['precision']:.4f}")
-            print(f"    召回率 = {metrics['recall']:.4f}")
-            print(f"    F1分数 = {metrics['f1']:.4f}")
-            print(f"    F2分数 = {metrics['f2']:.4f}")
-            print(f"    预测点数: {metrics['total_identified']}, 真实伤损点数: {metrics['total_true_defects']}, 正确点数: {metrics['total_correct']}")
-        
-        avg_precision = total_precision / file_count if file_count > 0 else 0.0
-        avg_recall = total_recall / file_count if file_count > 0 else 0.0
-        avg_f1 = total_f1 / file_count if file_count > 0 else 0.0
-        avg_f2 = total_f2 / file_count if file_count > 0 else 0.0
-        
-        print(f"\n  平均精确率: {avg_precision:.4f}")
-        print(f"  平均召回率: {avg_recall:.4f}")
-        print(f"  平均F1分数: {avg_f1:.4f}")
-        print(f"  平均F2分数: {avg_f2:.4f}")
-        
-        # 5. 输出结果
-        print("\n" + "="*50)
-        print("=== 通道8专用实验结果 ===")
-        print(f"测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"使用的窗口大小: {WINDOW}")
-        print(f"使用的滑动步长: {STEP}")
-        print(f"使用的N_GRAM_SIZE: {N_GRAM_SIZE}")
-        print(f"通道8平均精确率: {avg_precision:.4f}")
-        print(f"通道8平均召回率: {avg_recall:.4f}")
-        print(f"通道8平均F1分数: {avg_f1:.4f}")
-        print(f"通道8平均F2分数: {avg_f2:.4f}")
-        print("="*50)
-        
-        # 保存结果
-        results_df = pd.DataFrame([{
-            'window': WINDOW,
-            'step': STEP,
-            'n_gram': N_GRAM_SIZE,
-            'precision': avg_precision,
-            'recall': avg_recall,
-            'f1': avg_f1,
-            'f2': avg_f2
-        }])
-        results_file = OUTPUT_DIR / "channel8_accuracy_results.csv"
-        results_df.to_csv(results_file, index=False)
-        print(f"\n测试结果已保存到: {results_file}")
+        if all_metrics:
+            avg_precision = np.mean([m['precision'] for m in all_metrics])
+            avg_recall = np.mean([m['recall'] for m in all_metrics])
+            avg_f1 = np.mean([m['f1'] for m in all_metrics])
+            print(f"\n  平均精确率: {avg_precision:.4f}")
+            print(f"  平均召回率: {avg_recall:.4f}")
+            print(f"  平均F1分数: {avg_f1:.4f}")
         
         return True
         
@@ -766,7 +708,7 @@ def main():
     print(f"使用的滑动步长: {STEP}")
     print(f"使用的N_GRAM_SIZE: {N_GRAM_SIZE}")
     
-    success = test_channel8_only()
+    success = test_full_hdc_pipeline()
     
     if success:
         print("\n✓ 测试成功完成！")

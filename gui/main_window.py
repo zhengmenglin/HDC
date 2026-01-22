@@ -1064,6 +1064,16 @@ class MainWindow(QMainWindow):
                     f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )
             
+            # 3. 加载HDC预测标注文件（_predicted.json）
+            predicted_annotation_filename = f"{name_without_ext}_predicted.json"
+            predicted_annotation_file_path = os.path.join(json_dir, predicted_annotation_filename)
+            
+            if os.path.exists(predicted_annotation_file_path):
+                self.annotation_manager.load_annotations(predicted_annotation_file_path, replace=False)
+                self.status_bar.showMessage(
+                    f"已加载HDC预测标注文件: {predicted_annotation_filename}", 3000
+                )
+            
             # 更新B显画布，传递标注数据和显示模式
             annotations = self.annotation_manager.get_annotations()
             self.bscan_canvas.update_bscan(self.parser, annotations=annotations, display_mode=self.depth_display_mode)
@@ -1529,59 +1539,55 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "错误", "删除标注失败")
     
     def select_hdc_predicted_points(self):
-        """选中HDC预测的点（直接从CSV文件中选择predicted_label_8 != 0的点）"""
-        # 获取当前打开的CSV文件路径
+        """选中HDC预测的点（从 _predicted.json 中选择）"""
         if self.parser is None or not hasattr(self.parser, 'json_file'):
             QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
             return
         
-        # 构造CSV文件路径（与JSON文件同目录，文件名相同，后缀为_hdc.csv）
+        # 构造 predicted.json 文件路径
         json_file_path = Path(self.parser.json_file)
-        csv_file_path = json_file_path.parent / f"{json_file_path.stem}_hdc.csv"
+        predicted_json_path = json_file_path.parent / f"{json_file_path.stem}_predicted.json"
         
-        if not csv_file_path.exists():
-            QMessageBox.warning(self, "警告", f"找不到CSV文件: {csv_file_path}")
+        if not predicted_json_path.exists():
+            QMessageBox.warning(self, "警告", f"找不到预测结果文件: {predicted_json_path.name}")
             return
         
-        print(f"调试：从CSV文件读取预测点: {csv_file_path}")
+        print(f"调试：从JSON文件读取预测点: {predicted_json_path}")
         
-        # 读取CSV文件
+        # 读取JSON文件
         try:
-            df = pd.read_csv(csv_file_path)
+            with open(predicted_json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"读取CSV文件失败: {str(e)}")
+            QMessageBox.critical(self, "错误", f"读取预测结果文件失败: {str(e)}")
             return
         
-        # 检查是否有predicted_label_8列
-        if 'predicted_label_8' not in df.columns:
-            QMessageBox.warning(self, "警告", "CSV文件中没有predicted_label_8列")
+        if 'annotations' not in data:
+            QMessageBox.warning(self, "警告", "预测结果文件中没有标注数据")
             return
         
-        # 找到所有predicted_label_8 != 0的点
-        pred_mask = df['predicted_label_8'] != 0
-        pred_points_df = df[pred_mask]
+        # 提取所有预测点
+        pred_points = []
+        for anno in data['annotations']:
+            if 'points' in anno:
+                pred_points.extend(anno['points'])
         
-        print(f"调试：CSV中预测点数: {len(pred_points_df)}")
-        
-        # 获取通道8的拼孔值
-        beam_offset = self.parser.params['beam_offset'].get(8, 0)
-        print(f"调试：通道8的拼孔值: {beam_offset}")
+        print(f"调试：JSON中预测点数: {len(pred_points)}")
         
         # 在displayed_points中查找匹配的点
         selected_points = []
-        for _, pred_row in pred_points_df.iterrows():
-            # 逆拼孔处理：原始E值 = CSV编码值 + 拼孔值
-            pred_e = int(pred_row['encoding']) + beam_offset
-            pred_channel = 8  # 固定通道8
-            pred_depth = float(pred_row['channel_8'])
-            pred_amplitude = 100.0  # 默认幅度值
+        for p in pred_points:
+            pred_e = p['e']
+            pred_channel = p['channel']
+            pred_depth = p['depth']
             
-            # 在displayed_points中查找匹配的点（只匹配E值和channel，不检查depth和amplitude）
+            # 在displayed_points中查找匹配的点
             for displayed_point in self.bscan_canvas.displayed_points:
                 orig = displayed_point['original']
-                if orig['e'] == pred_e and orig['channel'] == pred_channel:
+                if (orig['e'] == pred_e and 
+                    orig['channel'] == pred_channel and 
+                    abs(orig['depth'] - pred_depth) < 0.1):
                     selected_points.append(displayed_point)
-                   
                     break
         
         print(f"调试：总共选中 {len(selected_points)} 个点")
@@ -1591,7 +1597,7 @@ class MainWindow(QMainWindow):
             self.point_selector.set_selected_points(selected_points)
             self.status_bar.showMessage(f"已选中 {len(selected_points)} 个HDC预测点")
         else:
-            QMessageBox.warning(self, "警告", "无法找到HDC预测的点")
+            QMessageBox.warning(self, "警告", "无法在当前显示区域找到HDC预测的点")
     
     def on_rect_select_state_changed(self, state):
         """处理框选开关状态变化"""
