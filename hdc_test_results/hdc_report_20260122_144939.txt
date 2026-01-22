@@ -1,0 +1,10 @@
+HDC 点级分类器评估报告
+测试时间: 2026-01-22 14:49:39
+模型路径: d:\HDC\models\hdc_point_level_9ch.pth
+==============================
+Precision: 0.1624
+Recall:    0.4167
+F1-Score:  0.2337
+Total True: 408
+Total Pred: 1047
+Total Correct: 170

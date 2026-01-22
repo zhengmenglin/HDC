@@ -149,38 +149,38 @@ class HDCPointLevelEncoder(nn.Module):
 
     def forward(self, x):
         """
-        前向传播编码逻辑：
-        1. 数值编码 (Level Encoding): 将 0-255 的通道数值映射为高维超向量
-        2. 通道绑定 (Channel Binding): 将数值超向量与对应的通道 ID 超向量进行绑定（异或操作）
-        3. 通道聚合 (Channel Bundling): 在每个时间步，将 9 个通道的绑定结果聚合（叠加并归一化）
-        4. 位置绑定 (Position Binding): 将每个时间步的聚合结果与其在窗口中的位置超向量绑定
-        5. 窗口聚合 (Window Bundling): 将整个窗口 256 个位置的结果聚合，得到代表该窗口的超向量
+        前向传播编码逻辑 (显存优化版)：
+        1. 逐通道处理：避免一次性生成 [batch, 256, 9, 10000] 的巨型张量
+        2. 位置绑定与聚合
         """
         # x: [batch, window_size, channels]
         batch_size = x.size(0)
         
-        # 1. 数值编码
-        # val_hvs: [batch, window_size, channels, out_features]
-        val_hvs = self.value_hvs(x)
-        
-        # 2. 绑定通道信息 (使用 Bind 操作将数值与通道身份结合)
-        # chan_hvs: [1, 1, channels, out_features]
-        chan_hvs = self.channel_hvs.weight.unsqueeze(0).unsqueeze(0)
-        # bound_hvs: [batch, window_size, channels, out_features]
-        bound_hvs = torchhd.bind(val_hvs, chan_hvs)
-        
-        # 3. 聚合通道信息 (在每个采样点，合并 9 个通道的信息)
+        # 逐通道进行数值编码与通道绑定，并立即聚合
         # time_step_hvs: [batch, window_size, out_features]
-        time_step_hvs = torchhd.multiset(bound_hvs)
+        time_step_hvs = None
         
-        # 4. 绑定位置信息 (使用 Bind 操作将时间步信息与其在 256 窗口中的位置结合)
-        # pos_hvs: [1, window_size, out_features]
-        pos_hvs = self.position_hvs.weight.unsqueeze(0)
-        # final_bound: [batch, window_size, out_features]
+        for i in range(NUM_CHANNELS):
+            # 1. 数值编码 (仅针对当前通道)
+            ch_data = x[:, :, i] # [batch, window_size]
+            ch_val_hvs = self.value_hvs(ch_data) # [batch, window_size, out_features]
+            
+            # 2. 绑定通道信息
+            ch_id_hv = self.channel_hvs.weight[i].view(1, 1, -1) # [1, 1, out_features]
+            bound = torchhd.bind(ch_val_hvs, ch_id_hv)
+            
+            # 3. 聚合通道信息 (Bundling)
+            if time_step_hvs is None:
+                time_step_hvs = bound
+            else:
+                # 使用 bundle 操作聚合
+                time_step_hvs = torchhd.bundle(time_step_hvs, bound)
+        
+        # 4. 绑定位置信息
+        pos_hvs = self.position_hvs.weight.unsqueeze(0) # [1, window_size, out_features]
         final_bound = torchhd.bind(time_step_hvs, pos_hvs)
         
-        # 5. 聚合整个窗口 (叠加所有位置的信息，得到窗口特征)
-        # window_hv: [batch, out_features]
+        # 5. 聚合整个窗口
         window_hv = torchhd.multiset(final_bound)
         
         return torchhd.normalize(window_hv)
@@ -292,7 +292,8 @@ def main():
     if os.path.exists(train_dir):
         train_ds = HDCPointLevelDataset(train_dir, is_train=True)
         if len(train_ds) > 0:
-            train_ld = data.DataLoader(train_ds, batch_size=32, shuffle=True)
+            # 显存优化：减小 batch_size
+            train_ld = data.DataLoader(train_ds, batch_size=8, shuffle=True)
             hdc_sys = HDCPointLevelModel(device=device)
             hdc_sys.train(train_ld)
             hdc_sys.save(model_path)
@@ -303,7 +304,8 @@ def main():
     if os.path.exists(test_dir):
         test_ds = HDCPointLevelDataset(test_dir, is_train=False)
         if len(test_ds) > 0:
-            test_ld = data.DataLoader(test_ds, batch_size=32, shuffle=False)
+            # 显存优化：测试 Batch Size 也减小
+            test_ld = data.DataLoader(test_ds, batch_size=8, shuffle=False)
             
             hdc_sys = HDCPointLevelModel(device=device)
             if os.path.exists(model_path):

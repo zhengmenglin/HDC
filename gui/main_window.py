@@ -1002,8 +1002,9 @@ class MainWindow(QMainWindow):
                 try:
                     for filename in os.listdir(folder_path):
                         file_path = os.path.join(folder_path, filename)
-                        # 检查文件是否为.json文件且不是标注文件，同时跳过hdc结尾的.json文件
-                        if filename.endswith('.json') and '标注' not in filename and not filename.endswith('_hdc.json'):
+                        # 检查文件是否为.json文件且不是标注文件，同时跳过hdc结尾和predicted结尾的.json文件
+                        if filename.endswith('.json') and '标注' not in filename and \
+                           not filename.endswith('_hdc.json') and not filename.endswith('_predicted.json'):
                             self.json_files.append(file_path)
                             print(f"找到文件: {file_path}")
                 except Exception as e:
@@ -1064,15 +1065,15 @@ class MainWindow(QMainWindow):
                     f"已加载HDC标注文件: {hdc_annotation_filename}", 3000
                 )
             
-            # 3. 加载HDC预测标注文件（_predicted.json） - 已按要求跳过加载预测标注文件
-            # predicted_annotation_filename = f"{name_without_ext}_predicted.json"
-            # predicted_annotation_file_path = os.path.join(json_dir, predicted_annotation_filename)
+            # 3. 加载HDC预测标注文件（_predicted.json）
+            predicted_annotation_filename = f"{name_without_ext}_predicted.json"
+            predicted_annotation_file_path = os.path.join(json_dir, predicted_annotation_filename)
             
-            # if os.path.exists(predicted_annotation_file_path):
-            #     self.annotation_manager.load_annotations(predicted_annotation_file_path, replace=False)
-            #     self.status_bar.showMessage(
-            #         f"已加载HDC预测标注文件: {predicted_annotation_filename}", 3000
-            #     )
+            if os.path.exists(predicted_annotation_file_path):
+                self.annotation_manager.load_annotations(predicted_annotation_file_path, replace=False)
+                self.status_bar.showMessage(
+                    f"已加载HDC预测标注文件: {predicted_annotation_filename}", 3000
+                )
             
             # 更新B显画布，传递标注数据和显示模式
             annotations = self.annotation_manager.get_annotations()
