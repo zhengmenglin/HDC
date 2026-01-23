@@ -322,7 +322,7 @@ def run_full_test():
     all_train_y_pred = []
 
     # 设置预测 batch size
-    eval_batch_size = 32 if torch.cuda.is_available() else 4
+    eval_batch_size = 16 if torch.cuda.is_available() else 4
     print(f"[INFO] 预测 Batch Size: {eval_batch_size}")
 
     for data_dir, calc_metrics, label in tasks:
@@ -334,8 +334,8 @@ def run_full_test():
             
         ld = torch.utils.data.DataLoader(ds, batch_size=eval_batch_size, shuffle=False)
         # 使用 Margin 逻辑预测：只有当“伤损类”相似度显著高于“正常类”时才保留
-        # 基础阈值设低(0.1)，主要靠 Margin(0.05) 过滤误报
-        predictions, similarities = hdc_sys.predict(ld, threshold=0.95, margin=0.5) 
+        # 基础阈值设低(0.1)，主要靠 Margin(0.5) 过滤误报
+        predictions, normal_sims, max_defect_sims = hdc_sys.predict(ld, threshold=0.88, margin=0.009) 
         
         # 记录每个文件的预测结果
         results_by_file = {}
@@ -347,7 +347,8 @@ def run_full_test():
             results_by_file[file_name].append({
                 'encoding': info['center_encoding'],
                 'pred': pred_row,
-                'sim': similarities[idx]
+                'normal_sim': normal_sims[idx],
+                'max_defect_sim': max_defect_sims[idx]
             })
 
         for file_name, results in results_by_file.items():
@@ -360,7 +361,8 @@ def run_full_test():
             
             # 准备预测矩阵
             y_pred_matrix = np.zeros((len(df_hdc), NUM_CHANNELS), dtype=np.int64)
-            y_sim_matrix = np.zeros((len(df_hdc), NUM_CHANNELS), dtype=np.float32)
+            y_normal_sim_matrix = np.zeros((len(df_hdc), NUM_CHANNELS), dtype=np.float32)
+            y_max_defect_sim_matrix = np.zeros((len(df_hdc), NUM_CHANNELS), dtype=np.float32)
             
             # 填充预测值
             encoding_to_idx = {enc: i for i, enc in enumerate(df_hdc['encoding'].values)}
@@ -368,7 +370,8 @@ def run_full_test():
                 if res['encoding'] in encoding_to_idx:
                     idx = encoding_to_idx[res['encoding']]
                     y_pred_matrix[idx] = res['pred']
-                    y_sim_matrix[idx] = res['sim']
+                    y_normal_sim_matrix[idx] = res['normal_sim']
+                    y_max_defect_sim_matrix[idx] = res['max_defect_sim']
             
             # --- 应用噪声过滤 ---
             # 注意：噪声过滤可能改变预测值，但我们暂时保留过滤前的相似度
@@ -378,7 +381,9 @@ def run_full_test():
             pred_df = pd.DataFrame({'encoding': df_hdc['encoding']})
             for i in range(NUM_CHANNELS):
                 pred_df[f'predicted_label_{i}'] = y_pred_matrix[:, i]
-                pred_df[f'similarity_{i}'] = y_sim_matrix[:, i]
+                # 合并为 "正常,伤损" 字符串
+                sim_strs = [f"{n:.4f},{d:.4f}" for n, d in zip(y_normal_sim_matrix[:, i], y_max_defect_sim_matrix[:, i])]
+                pred_df[f'similarity_{i}'] = sim_strs
             
             pred_csv_path = data_dir / f"{base_name}_predicted_label.csv"
             pred_df.to_csv(pred_csv_path, index=False)

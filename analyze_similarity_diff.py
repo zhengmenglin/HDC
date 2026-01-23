@@ -1,0 +1,92 @@
+
+import pandas as pd
+import os
+import glob
+
+def analyze_csv(file_path):
+    try:
+        df = pd.read_csv(file_path)
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+        return []
+
+    results = []
+    num_channels = 9
+    
+    for i in range(num_channels):
+        sim_col = f'similarity_{i}'
+        if sim_col not in df.columns:
+            continue
+            
+        # 提取 encoding 和 label 用于显示
+        encodings = df['encoding'] if 'encoding' in df.columns else range(len(df))
+        
+        for idx, row in df.iterrows():
+            sim_str = str(row[sim_col])
+            if ',' not in sim_str:
+                continue
+                
+            try:
+                normal_sim, defect_sim = map(float, sim_str.split(','))
+                if defect_sim > normal_sim:
+                    diff = defect_sim - normal_sim
+                    results.append({
+                        'file': os.path.basename(file_path),
+                        'channel': i,
+                        'index': idx,
+                        'encoding': encodings[idx],
+                        'normal_sim': normal_sim,
+                        'defect_sim': defect_sim,
+                        'diff': diff
+                    })
+            except ValueError:
+                continue
+                
+    return results
+
+def main():
+    # 查找所有预测结果文件
+    pattern = r"d:\HDC\data\**\*_predicted_label.csv"
+    files = glob.glob(pattern, recursive=True)
+    
+    all_results = []
+    for f in files:
+        print(f"Processing {f}...")
+        all_results.extend(analyze_csv(f))
+        
+    if not all_results:
+        print("未发现伤损相似度大于正常相似度的数据点。")
+        return
+        
+    # 转换为 DataFrame
+    results_df = pd.DataFrame(all_results)
+    
+    # 排序：差值从大到小
+    results_df = results_df.sort_values(by='diff', ascending=False)
+    
+    # 保存为 Excel
+    output_path = r"d:\HDC\similarity_analysis_results.xlsx"
+    try:
+        # 使用 openpyxl 引擎保存为 Excel
+        results_df.to_excel(output_path, index=False)
+        print(f"\n分析完成！结果已保存至: {output_path}")
+    except Exception as e:
+        print(f"\n保存 Excel 失败: {e}")
+        print("尝试保存为 CSV 备份...")
+        results_df.to_csv(output_path.replace(".xlsx", ".csv"), index=False)
+
+    # 终端预览输出
+    print("\n" + "="*80)
+    print(f"{'文件':<30} {'通道':<5} {'索引':<8} {'编码':<10} {'正常':<8} {'伤损':<8} {'差值':<8}")
+    print("-" * 80)
+    
+    display_limit = 20
+    for _, res in results_df.head(display_limit).iterrows():
+        print(f"{res['file']:<30} {res['channel']:<5} {res['index']:<8} {res['encoding']:<10} {res['normal_sim']:<8.4f} {res['defect_sim']:<8.4f} {res['diff']:<8.4f}")
+    
+    if len(results_df) > display_limit:
+        print(f"... 还有 {len(results_df) - display_limit} 条结果已保存至 Excel。")
+    print("="*80)
+
+if __name__ == "__main__":
+    main()
