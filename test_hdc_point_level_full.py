@@ -215,21 +215,6 @@ def calculate_metrics(y_true, y_pred):
         'total_true': np.sum(true_mask), 'total_pred': np.sum(pred_mask)
     }
 
-def filter_noise_predictions(y_pred_matrix, min_neighbors=5, window_size=11):
-    """
-    增强版噪声过滤。
-    y_pred_matrix: [N, 9] 形状的矩阵
-    """
-    mask = (y_pred_matrix > 0).astype(np.int32)
-    filtered_mask = np.zeros_like(mask)
-    for ch in range(mask.shape[1]):
-        ch_mask = mask[:, ch]
-        kernel = np.ones(window_size)
-        neighbor_counts = np.convolve(ch_mask, kernel, mode='same')
-        # 提高判定门槛，必须在周围 window_size 内有足够多的邻居
-        filtered_mask[:, ch] = (ch_mask == 1) & (neighbor_counts >= min_neighbors)
-    return y_pred_matrix * filtered_mask
-
 # ======================================
 # 主流程
 # ======================================
@@ -373,10 +358,6 @@ def run_full_test():
                     y_pred_matrix[idx] = res['pred']
                     y_normal_sim_matrix[idx] = res['normal_sim']
                     y_max_defect_sim_matrix[idx] = res['max_defect_sim']
-            
-            # --- 应用噪声过滤 ---
-            # 注意：噪声过滤可能改变预测值，但我们暂时保留过滤前的相似度
-            y_pred_matrix = filter_noise_predictions(y_pred_matrix)
             
             # 保存预测结果 CSV
             pred_df = pd.DataFrame({'encoding': df_hdc['encoding']})

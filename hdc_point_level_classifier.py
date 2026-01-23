@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 HDC 点级分类算法方案实现
-根据 d:\\HDC\\docs\\suanfaliucheng.md#L60-63 算法方案实现
-1. 窗长 256, 步长 1
-2. 中心行 (index 127) 标签作为窗口结果
+根据 d:\HDC\docs\suanfaliucheng.md#L60-63 算法方案实现
+1. 窗长 128, 步长 1
+2. 中心行 (index 63) 标签作为窗口结果
 3. 9 通道独立模型方案
 """
 
@@ -27,8 +27,8 @@ from torchhd.models import Centroid
 # 配置参数
 DIMENSIONS = 8192
 NUM_LEVELS = 256
-WINDOW_SIZE = 256
-CENTER_IDX = 127
+WINDOW_SIZE = 128
+CENTER_IDX = 63
 NUM_CHANNELS = 9
 NUM_TYPES = 20  # 0-19
 TOTAL_CLASSES = NUM_TYPES * NUM_CHANNELS  # 180 类别方案
@@ -113,7 +113,7 @@ class HDCPointLevelDataset(data.Dataset):
                 end = start + self.window_size
                 window_x = channel_data[start:end]
                 
-                # 获取中心行的 9 个通道标签 (index 127)
+                # 获取中心行的 9 个通道标签 (index 63)
                 center_labels = label_data[start + CENTER_IDX]
                 
                 self.samples.append(window_x)
@@ -148,13 +148,13 @@ class HDCPointLevelEncoder(nn.Module):
         self.channel_hvs = embeddings.Random(NUM_CHANNELS, out_features)
         # 数值超向量 (256个级别)
         self.value_hvs = embeddings.Level(NUM_LEVELS, out_features, high=256)
-        # 位置超向量 (256个，用于绑定)
+        # 位置超向量 (用于绑定)
         self.position_hvs = embeddings.Random(window_size, out_features)
 
     def forward(self, x):
         """
         前向传播编码逻辑 (显存优化版)：
-        1. 逐通道处理：避免一次性生成 [batch, 256, 9, 10000] 的巨型张量
+        1. 逐通道处理：避免一次性生成 [batch, window_size, 9, DIM] 的巨型张量
         2. 位置绑定与聚合
         """
         # x: [batch, window_size, channels]
