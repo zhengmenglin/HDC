@@ -64,3 +64,5 @@ encoding 和 predicted_label_0-8 组成1_predicted_label.csv .
 
 - 从距离算相似度 ： 相似度 S = (1 - 2 * 距离 D) * 100%
 - 从相似度算距离 ： 距离 D = (1 - 相似度 S / 100) / 2
+
+D为0.476 或0.524 S为94%或96%

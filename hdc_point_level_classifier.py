@@ -77,8 +77,14 @@ class HDCPointLevelDataset(data.Dataset):
             if label_file.exists():
                 try:
                     label_df = pd.read_csv(label_file)
-                    # 按照 encoding 合并特征和标签
-                    df = pd.merge(df, label_df, on='encoding', how='left').fillna(0)
+                    # 确保标签列存在
+                    if all(f'label_{i}' in label_df.columns for i in range(NUM_CHANNELS)):
+                        # 按照 encoding 合并特征和标签
+                        df = pd.merge(df, label_df, on='encoding', how='left').fillna(0)
+                    else:
+                        # 如果标签文件格式不对，填充 0
+                        for i in range(NUM_CHANNELS):
+                            df[f'label_{i}'] = 0
                 except Exception as e:
                     print(f"读取或合并标签文件 {label_file} 失败: {e}")
                     # 回退到全 0 标签
@@ -89,15 +95,22 @@ class HDCPointLevelDataset(data.Dataset):
                 for i in range(NUM_CHANNELS):
                     df[f'label_{i}'] = 0
             
-            # 3. 按照编码值排序，确保时序/空间连续性
-            df = df.sort_values(by='encoding')
+            # 3. 确保所有必要的列都存在
             channel_cols = [f'channel_{i}' for i in range(NUM_CHANNELS)]
             label_cols = [f'label_{i}' for i in range(NUM_CHANNELS)]
             
-            # 检查列是否存在
             if not all(col in df.columns for col in channel_cols):
-                print(f"文件 {csv_file.name} 缺少必要的通道列")
+                print(f"文件 {csv_file.name} 缺少必要的通道列，已跳过")
                 continue
+            
+            if not all(col in df.columns for col in label_cols):
+                # 这种情况不应该发生，因为上面已经做了填充，但为了安全再次检查
+                for col in label_cols:
+                    if col not in df.columns:
+                        df[col] = 0
+            
+            # 按照编码值排序，确保时序/空间连续性
+            df = df.sort_values(by='encoding')
 
             channel_data = df[channel_cols].values.astype(np.float32)
             label_data = df[label_cols].values.astype(np.int64)
@@ -153,39 +166,35 @@ class HDCPointLevelEncoder(nn.Module):
 
     def forward(self, x):
         """
-        前向传播编码逻辑 (显存优化版)：
-        1. 逐通道处理：避免一次性生成 [batch, window_size, 9, DIM] 的巨型张量
-        2. 位置绑定与聚合
+        前向传播编码逻辑 (向量化加速版)：
+        1. 一次性生成所有数值编码 [batch, window_size, channels, DIM]
+        2. 批量绑定通道信息
+        3. 聚合通道与位置信息
         """
         # x: [batch, window_size, channels]
         batch_size = x.size(0)
         
-        # 逐通道进行数值编码与通道绑定，并立即聚合
-        # time_step_hvs: [batch, window_size, out_features]
-        time_step_hvs = None
+        # 1. 数值编码: [batch, window_size, channels, out_features]
+        # x 形状为 [batch, 128, 9], 映射后约为 72MB (batch=8)，CPU 内存完全可承受
+        val_hvs = self.value_hvs(x.long()) 
         
-        for i in range(NUM_CHANNELS):
-            # 1. 数值编码 (仅针对当前通道)
-            ch_data = x[:, :, i] # [batch, window_size]
-            ch_val_hvs = self.value_hvs(ch_data) # [batch, window_size, out_features]
-            
-            # 2. 绑定通道信息
-            ch_id_hv = self.channel_hvs.weight[i].view(1, 1, -1) # [1, 1, out_features]
-            bound = torchhd.bind(ch_val_hvs, ch_id_hv)
-            
-            # 3. 聚合通道信息 (Bundling)
-            if time_step_hvs is None:
-                time_step_hvs = bound
-            else:
-                # 使用 bundle 操作聚合
-                time_step_hvs = torchhd.bundle(time_step_hvs, bound)
+        # 2. 绑定通道信息: [batch, window_size, channels, out_features]
+        # channel_hvs: [channels, out_features] -> [1, 1, channels, out_features]
+        ch_id_hvs = self.channel_hvs.weight.view(1, 1, NUM_CHANNELS, -1)
+        bound_ch = torchhd.bind(val_hvs, ch_id_hvs)
         
-        # 4. 绑定位置信息
-        pos_hvs = self.position_hvs.weight.unsqueeze(0) # [1, window_size, out_features]
+        # 3. 聚合通道信息 (Bundling): [batch, window_size, out_features]
+        # 对 channels 维度进行求和聚合
+        # torchhd.multiset 只支持 dim=-2，这里我们手动求和并保持子类
+        time_step_hvs = torch.sum(bound_ch, dim=2).as_subclass(torchhd.MAPTensor)
+        
+        # 4. 绑定位置信息: [batch, window_size, out_features]
+        # position_hvs: [window_size, out_features] -> [1, window_size, out_features]
+        pos_hvs = self.position_hvs.weight.unsqueeze(0)
         final_bound = torchhd.bind(time_step_hvs, pos_hvs)
         
-        # 5. 聚合整个窗口
-        window_hv = torchhd.multiset(final_bound)
+        # 5. 聚合整个窗口: [batch, out_features]
+        window_hv = torch.sum(final_bound, dim=1).as_subclass(torchhd.MAPTensor)
         
         return torchhd.normalize(window_hv)
 
@@ -246,9 +255,9 @@ class HDCPointLevelModel:
                             # 如果预测错误，则从错误类减去，向正确类加上
                             self.models[ch].add_adapt(hv, ch_targets, lr=lr)
             
-            # 每轮结束进行归一化，以便下一轮 add_adapt 进行相似度计算
-            for ch in range(NUM_CHANNELS):
-                self.models[ch].normalize()
+        # 所有轮次结束后进行归一化，以便后续推理进行相似度计算
+        for ch in range(NUM_CHANNELS):
+            self.models[ch].normalize()
                 
         print("训练完成。")
 
