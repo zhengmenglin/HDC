@@ -539,3 +539,198 @@ HDC算法可以实现点级预测，但需要通过密集滑动窗口或修改�
 2.训练时默认重学习，读取hdc_point_level_9ch.json 记录已学习的数据文件名，只学习新数据。已学习的数据同样不用再转换数据。
 3.预测时要对所有数据预测，包括已学习的数据。
 
+Builder
+
+思考过程
+
+这个相似度之所以都在 80% 左右（或者您看到的 80 多这个数值），是由 超维计算 (HDC) 的数学特性和您数据的 高相关性 共同决定的。
+
+### 1. 相似度是怎么计算的？
+在 hdc_point_level_classifier.py 中，相似度的核心计算逻辑在 predict 函数的这一行：
+
+```
+output = self.models[ch](hv, dot=True) # [batch, NUM_TYPES]
+```
+- 向量化表示 ：每个滑动窗口（256个点）被编码器转换成了一个 8192 维 的超向量（Hypervector）。
+- 点积 (Dot Product) ：模型为每个类别（如“正常”、“螺孔”等）维护了一个“中心向量”（Centroid）。计算时，将当前样本的 8192 维向量与 20 个类别的中心向量分别做点积。
+- 归一化 (Normalization) ：由于我们在训练和编码时都进行了归一化，这个点积本质上就是 余弦相似度 (Cosine Similarity) 。它的值理论上在 [-1, 1] 之间，1 表示完全相同，0 表示完全无关（正交）。
+### 2. 为什么数值全在 80% 左右？
+在您的 CSV 中看到 80.xxxx （或者是 0.80xx 左右的缩放值），主要有以下三个原因：
+ A. 高维空间的“集中效应”
+在 8192 维这样极高维度的空间里，随机向量之间几乎是完全正交的（相似度接近 0）。但是， 有意义的数据向量 会聚拢在某些区域。
+
+- 所有的 9 个通道数据都来自同一个铁轨环境，具有极强的 底噪一致性 。
+- 这意味着“正常”样本和“伤损”样本在 8192 维空间里，其实离得非常近。它们共享了大量的背景特征（比如铁轨的物理结构、电磁干扰背景等）。 B. 数据的“时间重叠”
+您的滑动窗口长度是 256，步长是 1。
+
+- 相邻的两个窗口有 255/256 (99.6%) 的数据是完全一样的。
+- 这种极高的数据重叠导致编码出来的超向量极其相似。即使从“正常”过渡到“伤损”，超向量的变化也是缓慢且微小的。 C. 正常类别的“霸权”
+在训练过程中，“正常” (Label 0) 的样本量通常远大于伤损样本。
+
+- 模型生成的“正常”中心向量聚合了数万个正常点的特征，它成为了一个非常强大的“背景模板”。
+- 即便是一个伤损点，它所处的 256 长度的窗口里，可能大部分点依然是正常的。因此，它与“正常”模板的相似度依然会非常高（比如 0.85），而与“伤损”模板的相似度可能只比这高一点点（比如 0.89）。
+### 3. 为什么需要 Margin（裕度）？
+这就是为什么我们在代码中使用了 margin=0.5 （或者您之前尝试的各种值）：
+
+```
+is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
+```
+因为 相似度绝对值 （如 80%）本身不代表它一定是伤损，它只代表这个窗口“看起来很像铁轨数据”。
+
+真正的判定依据是“领先优势”：
+
+- 如果 相似度_伤损 只比 相似度_正常 高一点点，那可能是噪声。
+- 只有当 相似度_伤损 显著高于 相似度_正常 时，我们才敢判定它是伤损。
+### 总结
+相似度数值都在 80 附近说明 模型已经学到了铁轨数据的共同特征 ，但不同伤损之间的区分界限比较微妙。您现在导出的 CSV 中“正常, 伤损”两个数值，正是为了让您观察： 伤损到底比正常高出多少，才能既保住召回率，又不产生误报。
+
+10:07
+zhengmenglin
+
+归一化汉明距离和这个相似度怎么换算的， torchhd 在这里找到对应源码
+
+Builder
+
+思考过程
+
+在工作区搜索 'class Centroid'
+
+Thought
+
+torchhd\torchhd\models.py
+
+Thought
+
+torchhd\torchhd\functional.py
+
+Thought
+
+在工作区搜索 'def (hamming_similarity|cosine_similarity|dot_similarity)'
+
+Thought
+
+torchhd\torchhd\functional.py
+
+Thought
+
+torchhd\torchhd\tensors\map.py
+
+Thought
+
+torchhd\torchhd\tensors\map.py
+
+Thought
+
+在工作区搜索 'HDCPointLevelModel encoder implementation and normalization'
+
+Thought
+
+hdc_point_level_classifier.py
+
+Thought
+
+在工作区搜索 'class HDCPointLevelModel'
+
+Thought
+
+hdc_point_level_classifier.py
+
+Thought
+
+torchhd\torchhd\models.py
+
+Thought
+
+torchhd\torchhd\models.py
+
+Thought
+
+torchhd\torchhd\models.py
+
+Thought
+
+归一化汉明距离（Normalized Hamming Distance, $D_{nh}$）与您在程序中看到的相似度（Similarity, $S$）之间的换算关系，源于超维向量在双极性（Bipolar, ${-1, 1}$）表示下的数学特性。
+
+### 1. 换算公式
+在您的系统中，使用的是双极性超向量（通过 MAPTensor 实现）。它们之间的关系如下：
+
+$$S = (1 - 2 \times D_{nh}) \times 100%$$
+$$D_{nh} = \frac{1 - S/100}{2}$$
+
+对照表：
+
+- 完全相同 ：$D_{nh} = 0 \rightarrow S = 100%$
+- 完全随机/正交 ：$D_{nh} = 0.5 \rightarrow S = 0%$
+- 完全相反 ：$D_{nh} = 1 \rightarrow S = -100%$
+您看到的 80% 左右相似度： 对应归一化汉明距离 $D_{nh} = (1 - 0.8) / 2 = \mathbf{0.1}$。这意味着两个向量之间只有 10% 的维度不同，相似度非常高。
+
+### 2. 源码位置
+在 d:\HDC\torchhd 目录下，您可以找到相关的计算实现：
+ A. 相似度计算入口
+在 models.py 的 Centroid 类中，定义了分类器的前向计算：
+
+```
+# torchhd/models.py
+def forward(self, input: Tensor, dot: bool = False) -> Tensor:
+    if dot:
+        return functional.dot_similarity(input, self.weight) # 计算点积
+    return functional.cosine_similarity(input, self.weight) # 计算余弦相似度
+```
+由于模型训练后执行了 self.models[ch].normalize() ，中心向量变成了单位向量（Unit Vector），此时 点积 (Dot Product) 就等于余弦相似度 。
+ B. 点积的具体实现
+在 map.py 中， MAPTensor （本项目默认使用的张量类型）实现了点积：
+
+```
+# torchhd/tensors/map.py
+def dot_similarity(self, others: "MAPTensor", *, dtype=None) -> Tensor:
+    # 实际上就是两个高维矩阵的乘法，即各个维度的乘积求和
+    return torch.matmul(self.to(dtype), others.to(dtype))
+``` C. 汉明相似度（Hamming）的定义
+在 functional.py 中，可以看到汉明相似度的原始定义（相同元素的个数）：
+
+```
+# torchhd/functional.py
+def hamming_similarity(input: VSATensor, others: VSATensor) -> LongTensor:
+    """计算输入向量与目标向量之间相同元素的数量"""
+    return torch.sum(input == others, dim=-1, dtype=torch.long)
+```
+### 3. 为什么数值是 80% 而不是 0.5？
+您提供的图片中提到“随机向量的归一化汉明距离集中在 0.5”，这对应相似度为 0。
+
+- 图片描述的是 ：两个 完全不相关 的随机向量。
+- 您的数据是 ：经过编码后的铁轨信号。
+  - 因为滑动窗口（256点）之间有极大的重叠（步长为1），且正常状态下的铁轨信号本身具有很强的规律性，所以它们编码出来的超向量在空间中靠得非常近。
+
+
+推拉机制”在 HDC 中正式称为 自适应迭代训练 (Adaptive HDC) 。它的核心思想不是简单地记住样本，而是通过“奖惩”制度来纠正模型的错误。
+
+在 hdc_point_level_classifier.py 中，我通过调用底层库的 add_adapt 方法实现了这一逻辑：
+
+### 1. 核心数学原理
+假设我们有一个伤损信号的超向量 $HV_{sample}$，它的真实标签是“伤损类”，但模型目前却把它错判为了“正常类”。
+
+推拉操作如下：
+
+- 拉 (Pull) ：将 $HV_{sample}$ 乘以学习率 $\eta$ 后， 加上 到“伤损类”的中心向量中。
+  - $Centroid_{伤损} = Centroid_{伤损} + \eta \times HV_{sample}$
+  - 作用：让伤损类的模板在空间中向这个样本靠近，下次遇到类似的信号，伤损相似度会更高。
+- 推 (Push) ：将 $HV_{sample}$ 乘以学习率 $\eta$ 后，从“正常类”的中心向量中 减去 。
+  - $Centroid_{正常} = Centroid_{正常} - \eta \times HV_{sample}$
+  - 作用：让正常类的模板远离这个伤损样本，减少误报。
+  
+### . OnlineHD (基于 add_online 方法)
+这是目前 HDC 领域非常流行的一种学习算法，比 add_adapt 更智能。
+
+机制： 它不仅看“对不对”，还看“有多像”。
+
+- 非线性权重 ：它会根据当前样本与正确类、错误类之间的 相似度差距 来计算更新强度。
+- 动态调整 ：如果模型对某个样本判错了，且错得很离谱（相似度差距很大），它会加大“推拉”的力度；如果判错了但相似度很接近，更新力度则较小。
+- 优势 ：通常比 add_adapt 收敛更快，且能更好地处理噪声数据。
+  ### 2. 岭回归学习 (Ridge Regression / IntRVFL)
+在一些复杂的回归任务中， torchhd 也支持使用岭回归来计算分类中心。
+
+机制：
+
+- 它不通过迭代加减，而是通过矩阵运算直接解出一个最优的权重矩阵（投影矩阵）。
+- 优势 ：在小数据集上极其精准，一次性完成，不需要跑多个 Epoch。
+- 劣势 ：内存开销极大（需要存储大矩阵的逆），不适合处理数百万级别的点级铁轨数据。

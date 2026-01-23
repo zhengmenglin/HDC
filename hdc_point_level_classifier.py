@@ -200,32 +200,56 @@ class HDCPointLevelModel:
         self.encoder = None
         self.models = nn.ModuleList([Centroid(dimensions, NUM_TYPES) for _ in range(NUM_CHANNELS)]).to(device)
 
-    def train(self, train_loader):
-        print("开始训练点级 HDC 模型 (9通道独立模型)...")
+    def train(self, train_loader, epochs=10, lr=0.1):
+        """
+        训练模型，引入多轮迭代训练 (Adaptive HDC)
+        epochs: 迭代轮数
+        lr: 学习率，用于 add_adapt
+        """
+        print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs})...")
         # 初始化编码器
         try:
             first_batch = next(iter(train_loader))
             sample_shape = first_batch[0].shape[1:] # [window_size, channels]
-            self.encoder = HDCPointLevelEncoder(self.dimensions, sample_shape[0]).to(self.device)
+            if self.encoder is None:
+                self.encoder = HDCPointLevelEncoder(self.dimensions, sample_shape[0]).to(self.device)
         except StopIteration:
             print("训练集为空，无法训练")
             return
 
-        with torch.no_grad():
-            for samples, targets in tqdm(train_loader, desc="训练中"):
-                samples = samples.to(self.device)
-                targets = targets.to(self.device) # [batch, 9]
+        for epoch in range(epochs):
+            total_correct = 0
+            total_samples = 0
+            
+            # 在每一轮开始前，如果不是第一轮，模型已经是归一化的，适合进行预测对比
+            self.encoder.eval()
+            for m in self.models:
+                m.eval()
+
+            with tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}") as pbar:
+                for samples, targets in pbar:
+                    samples = samples.to(self.device)
+                    targets = targets.to(self.device) # [batch, 9]
+                    
+                    with torch.no_grad():
+                        hv = self.encoder(samples) # [batch, dim]
+                    
+                    # 为每个通道的模型进行训练
+                    for ch in range(NUM_CHANNELS):
+                        ch_targets = targets[:, ch]
+                        
+                        if epoch == 0:
+                            # 第一轮：简单累加 (Initial Centroid)
+                            self.models[ch].add(hv, ch_targets)
+                        else:
+                            # 后续轮次：自适应调整 (Adaptive HDC)
+                            # 如果预测错误，则从错误类减去，向正确类加上
+                            self.models[ch].add_adapt(hv, ch_targets, lr=lr)
+            
+            # 每轮结束进行归一化，以便下一轮 add_adapt 进行相似度计算
+            for ch in range(NUM_CHANNELS):
+                self.models[ch].normalize()
                 
-                hv = self.encoder(samples) # [batch, dim]
-                
-                # 为每个通道的模型添加样本
-                for ch in range(NUM_CHANNELS):
-                    ch_targets = targets[:, ch]
-                    self.models[ch].add(hv, ch_targets)
-        
-        # 归一化所有模型
-        for ch in range(NUM_CHANNELS):
-            self.models[ch].normalize()
         print("训练完成。")
 
     def predict(self, test_loader, threshold=0.1, margin=0.02):

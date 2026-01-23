@@ -295,9 +295,10 @@ def run_full_test():
             print("[WARN] 过滤后训练集为空。")
         else:
             print(f"[INFO] 训练样本数: {len(train_ds)}")
-            batch_size = 32 if torch.cuda.is_available() else 8
+            batch_size = 4 if torch.cuda.is_available() else 8
             train_ld = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-            hdc_sys.train(train_ld)
+            # 增加训练轮数以拉开类别间距 (Adaptive Training)
+            hdc_sys.train(train_ld, epochs=5, lr=0.1)
             
             # 保存模型
             MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -322,7 +323,7 @@ def run_full_test():
     all_train_y_pred = []
 
     # 设置预测 batch size
-    eval_batch_size = 16 if torch.cuda.is_available() else 4
+    eval_batch_size = 4 if torch.cuda.is_available() else 4
     print(f"[INFO] 预测 Batch Size: {eval_batch_size}")
 
     for data_dir, calc_metrics, label in tasks:
@@ -335,7 +336,7 @@ def run_full_test():
         ld = torch.utils.data.DataLoader(ds, batch_size=eval_batch_size, shuffle=False)
         # 使用 Margin 逻辑预测：只有当“伤损类”相似度显著高于“正常类”时才保留
         # 基础阈值设低(0.1)，主要靠 Margin(0.5) 过滤误报
-        predictions, normal_sims, max_defect_sims = hdc_sys.predict(ld, threshold=0.88, margin=0.009) 
+        predictions, normal_sims, max_defect_sims = hdc_sys.predict(ld, threshold=0, margin=0) 
         
         # 记录每个文件的预测结果
         results_by_file = {}
