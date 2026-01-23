@@ -23,6 +23,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'torchhd'))
 import torchhd
 from torchhd import embeddings
 from torchhd.models import Centroid
+from torchhd.classifiers import OnlineHD
 
 # 配置参数
 DIMENSIONS = 8192
@@ -201,21 +202,22 @@ class HDCPointLevelEncoder(nn.Module):
 class HDCPointLevelModel:
     """
     HDC 点级分类模型管理类 (9 模型方案)
-    每个通道拥有独立的分类器 (Centroid)
+    每个通道拥有独立的分类器 (OnlineHD)
     """
     def __init__(self, dimensions=DIMENSIONS, device='cpu'):
         self.dimensions = dimensions
         self.device = device
         self.encoder = None
+        # 使用 OnlineHD 模型，每个通道一个模型
         self.models = nn.ModuleList([Centroid(dimensions, NUM_TYPES) for _ in range(NUM_CHANNELS)]).to(device)
 
     def train(self, train_loader, epochs=10, lr=0.1):
         """
-        训练模型，引入多轮迭代训练 (Adaptive HDC)
+        训练模型，使用 OnlineHD 学习方式 (基于 add_online 方法)
         epochs: 迭代轮数
-        lr: 学习率，用于 add_adapt
+        lr: 学习率，用于 add_online
         """
-        print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs})...")
+        print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs}, OnlineHD 学习方式)...")
         # 初始化编码器
         try:
             first_batch = next(iter(train_loader))
@@ -227,10 +229,6 @@ class HDCPointLevelModel:
             return
 
         for epoch in range(epochs):
-            total_correct = 0
-            total_samples = 0
-            
-            # 在每一轮开始前，如果不是第一轮，模型已经是归一化的，适合进行预测对比
             self.encoder.eval()
             for m in self.models:
                 m.eval()
@@ -243,17 +241,11 @@ class HDCPointLevelModel:
                     with torch.no_grad():
                         hv = self.encoder(samples) # [batch, dim]
                     
-                    # 为每个通道的模型进行训练
+                    # 为每个通道的模型进行 OnlineHD 训练
                     for ch in range(NUM_CHANNELS):
                         ch_targets = targets[:, ch]
-                        
-                        if epoch == 0:
-                            # 第一轮：简单累加 (Initial Centroid)
-                            self.models[ch].add(hv, ch_targets)
-                        else:
-                            # 后续轮次：自适应调整 (Adaptive HDC)
-                            # 如果预测错误，则从错误类减去，向正确类加上
-                            self.models[ch].add_adapt(hv, ch_targets, lr=lr)
+                        # 使用 add_online 方法：只在预测错误时更新原型向量
+                        self.models[ch].add_online(hv, ch_targets, lr=lr)
             
         # 所有轮次结束后进行归一化，以便后续推理进行相似度计算
         for ch in range(NUM_CHANNELS):

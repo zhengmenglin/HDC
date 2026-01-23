@@ -280,9 +280,9 @@ def run_full_test():
             print("[WARN] 过滤后训练集为空。")
         else:
             print(f"[INFO] 训练样本数: {len(train_ds)}")
-            batch_size = 4 if torch.cuda.is_available() else 8
+            batch_size = 128 if torch.cuda.is_available() else 8
             train_ld = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-            # 增加训练轮数以拉开类别间距 (Adaptive Training)
+            # 减少训练轮数用于测试 OnlineHD 学习方式
             hdc_sys.train(train_ld, epochs=5, lr=0.1)
             
             # 保存模型
@@ -308,7 +308,7 @@ def run_full_test():
     all_train_y_pred = []
 
     # 设置预测 batch size
-    eval_batch_size = 4 if torch.cuda.is_available() else 4
+    eval_batch_size = 128 if torch.cuda.is_available() else 4
     print(f"[INFO] 预测 Batch Size: {eval_batch_size}")
 
     for data_dir, calc_metrics, label in tasks:
