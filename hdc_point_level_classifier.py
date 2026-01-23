@@ -25,7 +25,7 @@ from torchhd import embeddings
 from torchhd.models import Centroid
 
 # 配置参数
-DIMENSIONS = 10000
+DIMENSIONS = 8192
 NUM_LEVELS = 256
 WINDOW_SIZE = 256
 CENTER_IDX = 127
@@ -38,22 +38,26 @@ class HDCPointLevelDataset(data.Dataset):
     点级分类 HDC 数据集类
     支持 9 模型方案：每个窗口样本对应中心行 (index 127) 的 9 个通道标签
     """
-    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1):
+    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1, files=None):
         self.data_dir = Path(data_dir)
         self.is_train = is_train
         self.window_size = window_size
         self.step = step
         self.samples = []
-        self.labels = [] # 形状为 [N, 9]
-        self.file_info = []
-        
+        self.labels = []
+        self.file_info = [] # 存储样本对应的原始信息，用于还原
+        self.specified_files = files # 可选：指定要加载的文件列表
         self._load_data()
 
     def _load_data(self):
         """
         加载 CSV 数据并生成滑动窗口样本。
         """
-        csv_files = list(self.data_dir.glob("*_hdc.csv"))
+        if self.specified_files is not None:
+            csv_files = [Path(f) for f in self.specified_files]
+        else:
+            csv_files = list(self.data_dir.glob("*_hdc.csv"))
+            
         if not csv_files:
             print(f"警告: 在 {self.data_dir} 未找到 *_hdc.csv 文件")
             return
@@ -224,33 +228,65 @@ class HDCPointLevelModel:
             self.models[ch].normalize()
         print("训练完成。")
 
-    def predict(self, test_loader):
-        print("开始预测 (9通道并行预测)...")
+    def predict(self, test_loader, threshold=0.1, margin=0.02):
+        """
+        预测类别，引入 margin 逻辑提升 Precision
+        threshold: 最小相似度要求
+        margin: 伤损类相似度必须比正常类(索引0)高出多少才判定为伤损
+        返回: (predictions, similarities)
+        """
+        print(f"开始预测 (9通道并行预测, Margin={margin})...")
         if self.encoder is None:
             print("错误: 编码器未初始化")
-            return []
+            return [], []
             
         self.encoder.eval()
         for m in self.models:
             m.eval()
         
         all_preds = []
+        all_sims = []
         with torch.no_grad():
             for samples, _ in tqdm(test_loader, desc="预测中"):
                 samples = samples.to(self.device)
                 hv = self.encoder(samples) # [batch, dim]
                 
                 batch_preds = []
+                batch_sims = []
                 for ch in range(NUM_CHANNELS):
-                    output = self.models[ch](hv, dot=True) # [batch, 20]
-                    pred = torch.argmax(output, dim=1)
-                    batch_preds.append(pred.unsqueeze(1))
+                    # 获取所有类别的相似度
+                    output = self.models[ch](hv, dot=True) # [batch, NUM_TYPES]
+                    
+                    # 获取正常类(0)的相似度
+                    normal_sim = output[:, 0]
+                    
+                    # 获取除正常类外最相似的伤损类
+                    defect_output = output[:, 1:] # 排除索引0
+                    max_defect_sim, defect_pred = torch.max(defect_output, dim=1)
+                    defect_pred = defect_pred + 1 # 还原索引
+                    
+                    # 判定逻辑：
+                    # 1. 伤损类相似度必须大于基础阈值
+                    # 2. 伤损类相似度必须显著高于正常类相似度 (Margin)
+                    is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
+                    
+                    final_pred = torch.zeros_like(normal_sim, dtype=torch.long)
+                    final_pred[is_defect] = defect_pred[is_defect]
+                    
+                    # 记录对应的相似度
+                    final_sim = torch.where(is_defect, max_defect_sim, normal_sim)
+                    
+                    batch_preds.append(final_pred.unsqueeze(1))
+                    batch_sims.append(final_sim.unsqueeze(1))
                 
                 # 合并 9 个通道的预测结果 [batch, 9]
                 combined_pred = torch.cat(batch_preds, dim=1)
+                combined_sim = torch.cat(batch_sims, dim=1)
+                
                 all_preds.append(combined_pred.cpu())
+                all_sims.append(combined_sim.cpu())
         
-        return torch.cat(all_preds, dim=0).numpy()
+        return torch.cat(all_preds, dim=0).numpy(), torch.cat(all_sims, dim=0).numpy()
 
     def save(self, path):
         state = {
@@ -270,6 +306,12 @@ class HDCPointLevelModel:
             checkpoint = torch.load(path, map_location=self.device)
             
         self.dimensions = checkpoint['dimensions']
+        if self.dimensions != DIMENSIONS:
+            print(f"[WARN] 模型维度不匹配 (模型: {self.dimensions}, 配置: {DIMENSIONS})，将重新初始化。")
+            self.dimensions = DIMENSIONS
+            self.encoder = HDCPointLevelEncoder(self.dimensions, window_size).to(self.device)
+            return
+
         self.encoder = HDCPointLevelEncoder(self.dimensions, window_size).to(self.device)
         if checkpoint['encoder']:
             self.encoder.load_state_dict(checkpoint['encoder'])
@@ -310,7 +352,7 @@ def main():
             hdc_sys = HDCPointLevelModel(device=device)
             if os.path.exists(model_path):
                 hdc_sys.load(model_path)
-                predictions = hdc_sys.predict(test_ld) # [N, 9]
+                predictions, similarities = hdc_sys.predict(test_ld) # [N, 9]
                 
                 # 3. 处理预测结果并生成 1_predicted_label.csv
                 print("处理预测结果...")
@@ -323,7 +365,8 @@ def main():
                     
                     file_results[file_name].append({
                         'encoding': info['center_encoding'],
-                        'labels': pred_row # 9 个通道的预测值
+                        'labels': pred_row, # 9 个通道的预测值
+                        'sims': similarities[idx] # 9 个通道的相似度
                     })
                     
                 for file_name, results in file_results.items():
@@ -332,12 +375,18 @@ def main():
                     pred_df = pd.DataFrame({'encoding': df_orig['encoding']})
                     for i in range(NUM_CHANNELS):
                         pred_df[f'predicted_label_{i}'] = 0
+                        pred_df[f'similarity_{i}'] = 0.0
                     
                     # 填充预测值
-                    results_df = pd.DataFrame([
-                        {'encoding': r['encoding'], **{f'predicted_label_{i}': r['labels'][i] for i in range(NUM_CHANNELS)}}
-                        for r in results
-                    ])
+                    results_data = []
+                    for r in results:
+                        row = {'encoding': r['encoding']}
+                        for i in range(NUM_CHANNELS):
+                            row[f'predicted_label_{i}'] = r['labels'][i]
+                            row[f'similarity_{i}'] = r['sims'][i]
+                        results_data.append(row)
+                    
+                    results_df = pd.DataFrame(results_data)
                     
                     # 合并结果
                     pred_df = pd.merge(pred_df[['encoding']], results_df, on='encoding', how='left').fillna(0)
