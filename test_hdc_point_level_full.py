@@ -34,6 +34,9 @@ import json
 # 导入数据转换器
 from ultrasonic_data_converter import UltrasonicDataConverter
 
+# 导入配置管理
+from config import config
+
 # 反向映射：从 ID 到名称
 FLAW_ID_TO_NAME = {
     1: "轨头外侧核伤", 2: "轨头中心核伤", 3: "轨头内侧核伤", 4: "轨头内、外、中心核伤",
@@ -43,13 +46,13 @@ FLAW_ID_TO_NAME = {
 }
 
 # ======================================
-# 配置参数
+# 从配置文件加载参数
 # ======================================
-TRAIN_DATA_DIR = Path(r"d:\HDC\data\train")
-TEST_DATA_DIR = Path(r"d:\HDC\data\test")
-MODEL_PATH = Path(r"d:\HDC\models\hdc_point_level_9ch.pth")
-LEARNED_FILES_PATH = Path(r"d:\HDC\models\hdc_point_level_9ch.json")
-RESULTS_DIR = Path(r"d:\HDC\hdc_test_results")
+TRAIN_DATA_DIR = Path(config.get("data.train_dir"))
+TEST_DATA_DIR = Path(config.get("data.test_dir"))
+MODEL_PATH = Path(config.get("model.model_path"))
+LEARNED_FILES_PATH = Path(config.get("model.learned_files_path"))
+RESULTS_DIR = Path(config.get("test.results_dir"))
 
 # ======================================
 # 工具函数

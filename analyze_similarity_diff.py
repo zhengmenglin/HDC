@@ -2,6 +2,7 @@
 import pandas as pd
 import os
 import glob
+from config import config
 
 def analyze_csv(file_path):
     try:
@@ -45,8 +46,13 @@ def analyze_csv(file_path):
     return results
 
 def main():
+    # 从配置中获取数据目录
+    data_dir = config.get("data.input_dir", "data")
+    # 确保路径是绝对路径
+    data_dir = os.path.abspath(data_dir)
+    
     # 查找所有预测结果文件
-    pattern = r"d:\HDC\data\**\*_predicted_label.csv"
+    pattern = os.path.join(data_dir, "**", "*_predicted_label.csv")
     files = glob.glob(pattern, recursive=True)
     
     all_results = []
@@ -64,8 +70,13 @@ def main():
     # 排序：差值从大到小
     results_df = results_df.sort_values(by='diff', ascending=False)
     
+    # 从配置中获取输出目录
+    output_dir = config.get("data.output_dir", "output")
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+    
     # 保存为 Excel
-    output_path = r"d:\HDC\similarity_analysis_results.xlsx"
+    output_path = os.path.join(os.path.abspath(output_dir), "similarity_analysis_results.xlsx")
     try:
         # 使用 openpyxl 引擎保存为 Excel
         results_df.to_excel(output_path, index=False)

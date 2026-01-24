@@ -30,7 +30,7 @@ class Config:
                 "test_dir": "data/test",  # 测试数据目录
                 "output_dir": "output",  # 输出目录
                 "train_ratio": 0.7,  # 训练集比例
-                "window_size": 64,  # 滑动窗口大小
+                "window_size": 128,  # 滑动窗口大小
                 "downsample": 5,  # 降采样因子
                 "normalize": True  # 是否归一化
             },
@@ -40,14 +40,16 @@ class Config:
                 "dimensions": 10000,  # 超维空间维度
                 "vsa_type": "MAP",  # VSA类型: MAP, HRR, FHRR等
                 "classifier": "OnlineHD",  # 分类器类型
-                "learning_rate": 0.035,  # 学习率
-                "epochs": 120,  # 训练轮数
+                "learning_rate": 0.1,  # 学习率
+                "epochs": 5,  # 训练轮数
+                "model_path": "models/hdc_point_level_9ch.pth",  # 模型文件路径
+                "learned_files_path": "models/hdc_point_level_9ch.json"  # 已学习文件列表路径
             },
             
             # 评估配置
             "evaluation": {
-                "metrics": ["accuracy", "precision", "recall", "f1_score", "mcc", "auc"],  # 评估指标
-                "cross_validation": True,  # 是否使用交叉验证
+                "metrics": ["precision", "recall", "f1_score"],  # 评估指标
+                "cross_validation": False,  # 是否使用交叉验证
                 "folds": 5,  # 交叉验证折数
             },
             
@@ -64,6 +66,11 @@ class Config:
                 "b_scan_height": 600,  # B扫描图像高度
                 "point_size": 5,  # 标注点大小
                 "color_scheme": "viridis"  # 颜色方案
+            },
+            
+            # 测试流程配置
+            "test": {
+                "results_dir": "hdc_test_results"  # 测试结果保存目录
             }
         }
     

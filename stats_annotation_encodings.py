@@ -3,6 +3,7 @@ import json
 import os
 import glob
 import pandas as pd
+from config import config
 
 def get_beam_offsets(data_file):
     """从原始JSON文件中提取拼孔值"""
@@ -120,7 +121,11 @@ def stats_annotations(data_dir):
     return all_stats
 
 def main():
-    base_dir = r"d:\HDC\data"
+    # 从配置中获取数据目录
+    base_dir = config.get("data.input_dir", "data")
+    # 确保路径是绝对路径
+    base_dir = os.path.abspath(base_dir)
+    
     print(f"正在统计 {base_dir} 目录下的标注信息...")
     
     stats = stats_annotations(base_dir)
@@ -134,8 +139,13 @@ def main():
     # 按照文件名和原始起始位置排序
     df = df.sort_values(by=['文件名', '原始起始E'])
     
+    # 从配置中获取输出目录
+    output_dir = config.get("data.output_dir", "output")
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+    
     # 保存到 Excel
-    output_path = r"d:\HDC\annotation_encoding_stats_v4.xlsx"
+    output_path = os.path.join(os.path.abspath(output_dir), "annotation_encoding_stats_v4.xlsx")
     try:
         df.to_excel(output_path, index=False)
         print(f"\n统计完成！共发现 {len(df)} 条标注记录。")
@@ -146,7 +156,9 @@ def main():
         print(df['跨度(点数)'].describe())
     except Exception as e:
         print(f"保存 Excel 失败: {e}")
-        df.to_csv(output_path.replace(".xlsx", ".csv"), index=False, encoding='utf-8-sig')
+        csv_path = output_path.replace(".xlsx", ".csv")
+        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+        print(f"已保存为CSV文件: {csv_path}")
 
 if __name__ == "__main__":
     main()

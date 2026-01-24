@@ -15,33 +15,28 @@
         │                     │                     │
         ▼                     ▼                     ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  数据处理层   │    │  特征提取层   │    │  模型训练层   │
+│  数据转换模块  │    │  HDC核心模块   │    │  GUI可视化模块  │
+│  Converter    │    │  Classifier   │    │  GUI         │
 └──────────────┘    └──────────────┘    └──────────────┘
         │                     │                     │
         ▼                     ▼                     ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ 数据转换器    │    │ 特征提取器    │    │  训练器      │
-│ Converter    │    │ Extractor    │    │  Trainer     │
+│ JSON → CSV   │    │  模型训练     │    │  B显可视化    │
+│ 转换         │    │  与预测       │    │  标注管理     │
 └──────────────┘    └──────────────┘    └──────────────┘
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ HDC编码器     │    │ HDC分类器    │    │  评估器      │
-│ Encoder      │    │ Classifier   │    │  Evaluator   │
-└──────────────┘    └──────────────┘    └──────────────┘
-        │                     │                     │
-        └─────────────────────┼─────────────────────┘
+                              │
                               │
                               ▼
                     ┌──────────────┐
-                    │ 实时处理器    │
-                    │ Processor    │
+                    │  测试管道     │
+                    │  Pipeline    │
                     └──────────────┘
                               │
+                              │
                               ▼
                     ┌──────────────┐
-                    │ 主控制器      │
-                    │ Controller   │
+                    │  辅助工具     │
+                    │  Tools       │
                     └──────────────┘
 ```
 
@@ -64,299 +59,171 @@
         "input_dir": "data",        # 输入数据目录
         "output_dir": "output",      # 输出目录
         "train_ratio": 0.7,          # 训练集比例
-        "window_size": 64,           # 滑动窗口大小
+        "window_size": 128,          # 滑动窗口大小
         "normalize": True             # 是否归一化
     },
     "model": {
         "dimensions": 10000,         # 超维空间维度
         "vsa_type": "MAP",           # VSA类型
         "classifier": "OnlineHD",      # 分类器类型
-        "learning_rate": 0.035,       # 学习率
-        "epochs": 120                # 训练轮数
+        "learning_rate": 0.1,        # 学习率
+        "epochs": 5                  # 训练轮数
     },
     "evaluation": {
-        "metrics": ["accuracy", "precision", "recall", "f1_score", "mcc", "auc"],
-        "cross_validation": True,
-        "folds": 5
-    },
-    "realtime": {
-        "threshold": 0.5,            # 相似度阈值
-        "update_interval": 100,       # 模型更新间隔
-        "batch_size": 1               # 批处理大小
+        "metrics": ["precision", "recall", "f1_score"],
+        "cross_validation": False
     }
 }
 ```
 
-### 2. 数据处理模块 (ultrasonic_data_converter.py)
+### 2. 数据转换模块 (ultrasonic_data_converter.py)
 
 **功能**:
 - JSON到CSV格式转换
-- 数据归一化处理
-- 滑动窗口采样
-- 训练集/测试集划分
+- 支持9个超声波通道的数据处理
+- 考虑BeamOffset调整
+- 生成特征CSV和标签CSV
 
 **核心类**:
 - `UltrasonicDataConverter`: 数据转换器
 
 **主要方法**:
 ```python
-# 数据转换
-convert_json_to_csv(json_file, annotation_file)
-convert_directory(input_dir, output_dir)
+# 生成所有CSV文件
+generate_all_csvs(json_file, annotation_path=None)
 
-# 数据加载
-load_csv(csv_file)
+# JSON到特征CSV转换
+convert_json_to_hdc_csv(json_file)
 
-# 数据预处理
-normalize_data(data)
-apply_window_sampling(data, labels, window_size)
-split_train_test(data, labels, train_ratio)
+# 标注到标签CSV转换
+convert_annotation_to_label_csv(annotation_file)
 ```
 
 **数据流程**:
 ```
-JSON数据 → 解析B扫描数据 → 按编码值分组 → 生成CSV → 归一化 → 划分训练/测试集
+JSON数据 → 解析B扫描数据 → 应用BeamOffset调整 → 按编码值分组 → 生成特征CSV和标签CSV
 ```
 
-### 3. 特征提取模块 (feature_extractor.py)
+### 3. HDC核心模块 (hdc_point_level_classifier.py)
 
 **功能**:
-- 9个通道的独立编码
-- 超维向量生成
-- 特征融合
-- 序列编码
-
-**核心类**:
-- `FeatureExtractor`: 特征提取器
-
-**主要方法**:
-```python
-# 通道分离
-separate_channels(data)
-
-# 通道编码
-encode_channel(channel_data, encoder)
-encode_all_channels(data)
-
-# 特征融合
-bundle_channels(channel_hvs)
-
-# 序列编码
-create_sequence_encoding(data, sequence_length)
-```
-
-**编码流程**:
-```
-输入数据 → 通道分离 → Level编码 → 特征融合 → 超维向量
-```
-
-### 4. HDC编码模块 (hd_encoder.py)
-
-**功能**:
-- Level编码（连续数值）
-- 循环移位编码
-- 绑定和捆绑操作
-- 相似度计算
-
-**核心类**:
-- `HDCEncoder`: HDC编码器
-
-**主要方法**:
-```python
-# 数值编码
-encode_depth_continuous(depth, min_depth, max_depth)
-encode_amplitude_continuous(amplitude, min_amp, max_amp)
-encode_channel(channel_idx)
-encode_encoding_value(encoding_value)
-
-# 高级编码
-circular_shift_encode(hvs)
-bundle_encode(hvs)
-bind_encode(hvs)
-
-# 相似度计算
-compute_similarity(hv1, hv2)
-```
-
-**编码策略**:
-1. **Level编码**: 将连续数值映射到超维空间
-2. **循环移位编码**: 表示序列中的位置信息
-3. **绑定操作**: 组合不同的特征
-4. **捆绑操作**: 聚合多个超向量
-
-### 5. HDC分类模块 (hd_classifier.py)
-
-**功能**:
-- 基于torchhd的分类器封装
-- 支持多种分类器类型
+- 数据集加载和管理
+- 超维编码和分类
 - 模型训练和预测
 - 模型保存和加载
+- 评估指标计算
 
 **核心类**:
-- `HDCClasifier`: HDC分类器
-
-**支持的分类器**:
-- `OnlineHD`: 在线学习，支持增量更新
-- `AdaptHD`: 自适应训练
-- `Vanilla`: 基线分类器
+- `HDCPointLevelDataset`: 数据集类，处理训练和测试数据
+- `HDCPointLevelModel`: HDC模型类，包含训练和预测逻辑
 
 **主要方法**:
 ```python
-# 训练
-train(data, labels, epochs, lr)
+# 训练方法
+def train(self, train_loader, epochs=5, lr=0.1):
+    # 模型训练逻辑
+    pass
 
-# 预测
-predict(data, threshold)
-predict_with_confidence(data)
+# 预测方法
+def predict(self, test_loader, threshold=0, margin=0):
+    # 模型预测逻辑
+    pass
 
-# 数据编码
-encode_data(data)
+# 模型保存
+def save(self, path):
+    # 保存模型到文件
+    pass
 
-# 模型管理
-save_model(filepath)
-load_model(filepath)
+# 模型加载
+def load(self, path):
+    # 从文件加载模型
+    pass
 ```
 
 **分类流程**:
 ```
-输入数据 → HDC编码 → 相似度计算 → 类别判决 → 输出结果
+输入数据 → 滑动窗口生成 → 超维编码 → 相似度计算 → 类别判决 → 输出结果
 ```
 
-### 6. 训练模块 (trainer.py)
+### 4. GUI可视化模块 (gui/)
 
 **功能**:
-- 数据准备和预处理
-- 模型训练
-- 交叉验证
-- 增量训练
+- B显数据可视化
+- 标注管理
+- HDC识别结果可视化
+- 文件操作
 
 **核心类**:
-- `Trainer`: 训练器
+- `MainWindow`: 主窗口类，管理GUI布局和事件
+- `AnnotationManager`: 标注管理类，处理标注的创建、保存和加载
+- `BScanCanvas`: B显画布类，负责绘制B显数据
+- `PointSelector`: 点选择器类，支持在画布上选择点
+- `TypeSelectorDialog`: 类型选择对话框，支持选择标注类型
 
 **主要方法**:
 ```python
-# 数据准备
-prepare_data(input_dir, output_dir, normalize, window_sampling)
+# 主窗口方法
+def open_file_by_path(self, file_path):
+    # 打开并加载JSON文件
+    pass
 
-# 模型训练
-train_model(train_data, train_labels, test_data, test_labels)
-train_from_files(train_csv, test_csv, model_path, save_path)
+def update_bscan(self):
+    # 更新B显图像
+    pass
 
-# 交叉验证
-cross_validate(data, labels, folds)
+# 标注管理方法
+def load_annotations(self, file_path):
+    # 加载标注数据
+    pass
 
-# 增量训练
-train_incremental(model_path, new_data, new_labels)
+def save_annotations(self, file_path):
+    # 保存标注数据
+    pass
 ```
 
-**训练流程**:
-```
-数据准备 → 数据转换 → 模型训练 → 模型评估 → 保存模型
-```
-
-### 7. 评估模块 (evaluator.py)
+### 5. 测试管道模块 (test_hdc_point_level_full.py)
 
 **功能**:
-- 多指标评估
-- 混淆矩阵生成
-- F1/F2分数计算
-- MCC和AUC计算
+- 整合数据转换、模型训练、预测和结果转换
+- 支持增量学习
+- 生成评估报告
+- 清理旧的中间文件
 
-**核心类**:
-- `Evaluator`: 评估器
-
-**评估指标**:
-- **准确率(Accuracy)**: 整体准确率
-- **精确率(Precision)**: 预测为正的样本中真正为正的比例
-- **召回率(Recall)**: 实际为正的样本中被正确预测的比例
-- **F1分数**: 精确率和召回率的调和平均
-- **F2分数**: 召回率权重更高的F分数
-- **MCC**: 马修斯相关系数
-- **AUC**: ROC曲线下面积
-- **漏检率(FNR)**: 实际为正但预测为负的比例
-- **误报率(FPR)**: 实际为负但预测为正的比例
-
-**主要方法**:
+**核心方法**:
 ```python
-# 评估
-evaluate(classifier, data, labels)
+# 完整测试流程
+def run_full_test():
+    # 1. 环境准备与数据转换
+    # 2. 模型训练 (增量)
+    # 3. 执行预测与转换
+    # 4. 汇总训练集指标
+    pass
 
-# 指标计算
-calculate_f2_score(y_true, y_pred, beta)
-calculate_mcc(y_true, y_pred, num_classes)
-calculate_auc(y_true, y_pred, num_classes)
+# 预测结果转换
+def convert_predicted_csv_to_json(csv_path, original_json_path, output_json_path, hdc_csv_path=None):
+    # 将预测结果CSV转换为GUI可识别的_predicted.json格式
+    pass
 
-# 结果输出
-print_evaluation_report(results, classifier)
-save_evaluation_results(results, filepath)
+# 清理旧文件
+def clean_old_files(data_dirs, file_types="all"):
+    # 清理旧的中间文件
+    pass
+
+# 计算评估指标
+def calculate_metrics(y_true, y_pred):
+    # 计算精确率、召回率和F1分数
+    pass
 ```
 
-### 8. 实时处理模块 (realtime_processor.py)
+### 6. 辅助工具模块
 
 **功能**:
-- 实时数据流处理
-- 在线识别
-- 增量学习
-- 统计信息管理
+- 相似度差异分析
+- 标注编码统计
 
-**核心类**:
-- `RealtimeProcessor`: 实时处理器
-
-**主要方法**:
-```python
-# 数据处理
-process_sample(sample, true_label)
-process_batch(samples, true_labels)
-process_stream(data_stream, true_labels)
-
-# 模型更新
-update_model_incremental(new_data, new_labels)
-
-# 统计管理
-get_statistics()
-reset_statistics()
-
-# 结果输出
-save_predictions(filepath)
-generate_annotation_json(predictions, output_path)
-```
-
-**实时处理流程**:
-```
-数据流 → 单样本处理 → 批量处理 → 模型更新 → 结果输出
-```
-
-### 9. 主控制器模块 (main_controller.py)
-
-**功能**:
-- 整合所有模块
-- 提供统一接口
-- 交互模式
-- 流水线执行
-
-**核心类**:
-- `MainController`: 主控制器
-
-**主要方法**:
-```python
-# 数据转换
-convert_data(input_dir, output_dir)
-
-# 模型训练
-train_model(train_csv, test_csv, model_path, save_path)
-
-# 模型评估
-evaluate_model(test_csv, model_path)
-
-# 实时识别
-realtime_recognition(data_stream, model_path)
-
-# 完整流水线
-run_pipeline(input_dir, model_path)
-
-# 交互模式
-interactive_mode()
-```
+**核心文件**:
+- `analyze_similarity_diff.py`: 分析伤损相似度大于正常相似度的数据点
+- `stats_annotation_encodings.py`: 统计标注信息和拼孔后的位置
 
 ## 数据流图
 
@@ -370,156 +237,165 @@ interactive_mode()
 │  数据转换    │ (JSON → CSV)
 └─────────────┘
       │
-      ▼
-┌─────────────┐
-│  数据预处理   │ (归一化、窗口采样)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  特征提取    │ (通道分离、Level编码)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  HDC编码     │ (超维向量生成)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  模型训练    │ (OnlineHD)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  模型评估    │ (多指标评估)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  实时识别    │ (数据流处理)
-└─────────────┘
-      │
-      ▼
-┌─────────────┐
-│  结果输出    │ (标注JSON)
-└─────────────┘
+      ├─────────────┬─────────────┐
+      │             │             │
+      ▼             ▼             ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│  模型训练    │ │  模型预测    │ │  标注统计    │
+└─────────────┘ └─────────────┘ └─────────────┘
+      │             │             │
+      │             ▼             │
+      │       ┌─────────────┐     │
+      │       │  结果转换    │     │
+      │       │ (CSV → JSON) │     │
+      │       └─────────────┘     │
+      │             │             │
+      └─────────────┼─────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────┐
+│           GUI可视化            │
+└─────────────────────────────────┘
 ```
 
 ## 技术特点
 
-### 1. 通道分离处理
+### 1. 点级分类
 
-9个超声波通道独立编码，每个通道使用Level编码器：
+采用点级分类策略，每个滑动窗口的中心点作为分类对象：
 
 ```python
-for channel in range(9):
-    channel_hv = level_encoder.encode(channel_data[channel])
+# 确定窗口标签，使用窗口中心点的标签
+center_idx = (start + end) // 2
+window_label = labels[center_idx]  # 直接使用中心点的所有通道标签
 ```
 
-### 2. 循环移位编码
+### 2. 多通道独立处理
 
-使用循环移位编码表示多个点的深度值：
+9个超声波通道独立编码和分类，每个通道使用独立的标签：
 
 ```python
-for i in range(len(depths)):
-    depth_hv = level_encoder.encode(depths[i])
-    shifted_hv = permute(depth_hv, shifts=i)
-    fused_hv = bundle(fused_hv, shifted_hv)
+# 预测结果格式：[batch_size, NUM_CHANNELS]
+predictions, normal_sims, max_defect_sims = hdc_sys.predict(test_loader, threshold=0, margin=0)
 ```
 
-### 3. 特征融合
+### 3. BeamOffset调整
 
-将编码值和通道数据通过bind操作融合：
+考虑BeamOffset调整，确保各通道数据正确对齐：
 
 ```python
-encoding_hv = encode_encoding_value(encoding)
-channels_hv = bundle(channel_hvs)
-final_hv = bind(encoding_hv, channels_hv)
+# 获取 BeamOffset
+for i in range(0, len(bo), 2):
+    beam_offset_map[int(bo[i])] = bo[i+1]
+
+# 应用 BeamOffset 调整
+offset = beam_offset_map.get(ch, 0)
+original_e = int(encoding + offset)
 ```
 
-### 4. 在线学习
+### 4. 增量学习
 
-使用OnlineHD分类器，支持增量学习：
+支持增量学习，仅训练新添加的数据：
 
 ```python
-for new_sample in new_data:
-    classifier.update(new_sample, new_label)
+# 筛选出真正需要训练的新文件
+actual_new_files = [f for f in get_json_files(TRAIN_DATA_DIR) if f.name not in learned_files]
+if actual_new_files:
+    # 训练新数据
+    # ...
+    # 更新已学习列表
+    for f in actual_new_files:
+        learned_files.add(f.name)
+    save_learned_files(learned_files)
 ```
 
 ## 性能优化
 
-### 1. 维度选择
+### 1. 窗口大小优化
 
-- **10,000维**: 平衡精度和效率，推荐使用
-- **20,000维**: 更高精度，但计算量增加
-- **5,000维**: 更快速度，但可能降低精度
+- **128**: 平衡精度和效率，推荐使用
+- **64**: 更快速度，但可能降低精度
+- **256**: 更高精度，但计算量增加
 
-### 2. VSA类型选择
+### 2. 滑动步长选择
 
-- **MAP**: 推荐使用，适合大多数场景
-- **FHRR**: 适合需要复数运算的场景
-- **HRR**: 适合需要精确绑定的场景
+- **窗口大小的一半**: 推荐使用，平衡重叠度和效率
+- **窗口大小**: 更快速度，但可能降低精度
 
-### 3. 分类器选择
+### 3. 批量大小调整
 
-- **OnlineHD**: 推荐使用，支持在线学习
-- **AdaptHD**: 自适应训练
-- **Vanilla**: 简单快速
+- **GPU环境**: 128，充分利用GPU并行计算能力
+- **CPU环境**: 8-16，平衡内存占用和计算效率
 
 ## 扩展性
 
-### 添加新的编码器
+### 添加新的伤损类型
+
+在hdc_point_level_classifier.py中更新FLAW_ID_TO_NAME字典：
 
 ```python
-class CustomEncoder(HDCEncoder):
-    def custom_encode(self, data):
-        # 自定义编码逻辑
-        pass
+FLAW_ID_TO_NAME = {
+    1: "轨头外侧核伤",
+    # ... 现有类型
+    20: "新伤损类型",  # 添加新类型
+}
 ```
 
-### 添加新的分类器
+### 扩展评估指标
+
+在calculate_metrics函数中添加新指标：
 
 ```python
-class CustomClassifier(HDCClasifier):
-    def __init__(self):
-        self.model = torchhd.YourCustomClassifier(...)
+def calculate_metrics(y_true, y_pred):
+    # 现有指标计算
+    # ...
+    
+    # 添加新指标
+    # ...
+    
+    return {
+        'precision': precision, 
+        'recall': recall, 
+        'f1': f1,
+        # 新增指标
+        # ...
+    }
 ```
 
-### 添加新的评估指标
+### 扩展GUI功能
+
+继承现有GUI类，添加新功能：
 
 ```python
-class CustomEvaluator(Evaluator):
-    def custom_metric(self, y_true, y_pred):
-        # 自定义指标计算
+class EnhancedMainWindow(MainWindow):
+    def new_feature(self):
+        # 新功能实现
         pass
 ```
 
 ## 部署建议
 
-### 1. 离线分析环境
+### 1. 训练环境
 
-- 使用高维度（20,000）
-- 使用完整的评估指标
-- 支持交叉验证
-- 优先保证准确率
+- 使用GPU加速训练
+- 足够的内存用于加载和处理数据
+- 推荐使用10,000维超向量
 
-### 2. 在线检测环境
+### 2. 测试环境
 
-- 使用中等维度（10,000）
-- 使用OnlineHD分类器
-- 支持增量学习
-- 设置合适的相似度阈值
+- 可以使用CPU进行预测
+- 推荐使用10,000维超向量
+- 设置合适的阈值和Margin参数
 
-### 3. 边缘计算环境
+### 3. GUI环境
 
-- 使用低维度（5,000）
-- 使用量化模型
-- 优化推理速度
-- 降低内存占用
+- 安装PyQt5和matplotlib
+- 确保足够的内存用于加载大型B显数据
 
 ## 总结
 
-本系统采用模块化设计，各个模块职责清晰，易于扩展和维护。系统充分利用了超维计算的优势，在保证高准确率的同时，支持实时处理和增量学习，非常适合超声波探伤的应用场景。
+本系统采用模块化设计，各个模块职责清晰，易于扩展和维护。系统充分利用了超维计算的优势，在保证高准确率的同时，支持点级分类和增量学习，非常适合钢轨超声波探伤的应用场景。
 
-通过合理的配置和优化，系统可以在不同的硬件环境和应用场景中发挥最佳性能。
+系统的核心模块包括数据转换、HDC分类、GUI可视化和测试管道，各模块之间通过明确的数据格式进行交互，便于独立开发和测试。
+
+通过合理的配置和优化，系统可以在不同的硬件环境和应用场景中发挥最佳性能，为钢轨探伤提供可靠的智能识别支持。

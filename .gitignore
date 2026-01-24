@@ -29,7 +29,7 @@ wheels/
 
 # Environment
 env/
-venv/
+.venv/
 venv312/
 ENV/
 env.bak/
