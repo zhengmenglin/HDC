@@ -55,6 +55,123 @@ LEARNED_FILES_PATH = Path(config.get("model.learned_files_path"))
 RESULTS_DIR = Path(config.get("test.results_dir"))
 
 # ======================================
+# 从hdc_point_level_classifier.py导入常量
+# ======================================
+from hdc_point_level_classifier import CENTER_IDX
+
+# ======================================
+# 扩展数据集类
+# ======================================
+class HDCCenterDamageDataset(HDCPointLevelDataset):
+    """
+    只包含窗口中心点为伤损的样本数据集类
+    过滤掉窗口中心点标签全为0的正常样本
+    """
+    def _load_data(self):
+        """
+        加载 CSV 数据并生成滑动窗口样本，只保留中心点为伤损的样本。
+        """
+        if self.specified_files is not None:
+            csv_files = [Path(f) for f in self.specified_files]
+        else:
+            csv_files = list(self.data_dir.glob("*_hdc.csv"))
+            
+        if not csv_files:
+            print(f"警告: 在 {self.data_dir} 未找到 *_hdc.csv 文件")
+            return
+        
+        self.samples.clear()
+        self.labels.clear()
+        self.file_info.clear()
+        
+        total_windows = 0
+        damage_windows = 0
+        
+        for csv_file in csv_files:
+            # 1. 读取特征数据 (1_hdc.csv)
+            try:
+                df = pd.read_csv(csv_file)
+            except Exception as e:
+                print(f"读取文件 {csv_file} 失败: {e}")
+                continue
+        
+            base_name = csv_file.name.replace("_hdc.csv", "")
+            
+            # 2. 读取标签数据 (1_label.csv)
+            label_file = self.data_dir / f"{base_name}_label.csv"
+            if label_file.exists():
+                try:
+                    label_df = pd.read_csv(label_file)
+                    # 确保标签列存在
+                    if all(f'label_{i}' in label_df.columns for i in range(NUM_CHANNELS)):
+                        # 按照 encoding 合并特征和标签
+                        df = pd.merge(df, label_df, on='encoding', how='left').fillna(0)
+                    else:
+                        # 如果标签文件格式不对，填充 0
+                        for i in range(NUM_CHANNELS):
+                            df[f'label_{i}'] = 0
+                except Exception as e:
+                    print(f"读取或合并标签文件 {label_file} 失败: {e}")
+                    # 回退到全 0 标签
+                    for i in range(NUM_CHANNELS):
+                        df[f'label_{i}'] = 0
+            else:
+                # 如果没有标签文件，所有通道标签设为 0（正常）
+                for i in range(NUM_CHANNELS):
+                    df[f'label_{i}'] = 0
+            
+            # 3. 确保所有必要的列都存在
+            channel_cols = [f'channel_{i}' for i in range(NUM_CHANNELS)]
+            label_cols = [f'label_{i}' for i in range(NUM_CHANNELS)]
+            
+            if not all(col in df.columns for col in channel_cols):
+                print(f"文件 {csv_file.name} 缺少必要的通道列，已跳过")
+                continue
+            
+            if not all(col in df.columns for col in label_cols):
+                # 这种情况不应该发生，因为上面已经做了填充，但为了安全再次检查
+                for col in label_cols:
+                    if col not in df.columns:
+                        df[col] = 0
+            
+            # 按照编码值排序，确保时序/空间连续性
+            df = df.sort_values(by='encoding')
+        
+            channel_data = df[channel_cols].values.astype(np.float32)
+            label_data = df[label_cols].values.astype(np.int64)
+            encodings = df['encoding'].values
+        
+            # 4. 滑动窗口采样，只保留中心点为伤损的样本
+            if len(df) < self.window_size:
+                print(f"跳过文件 {csv_file.name}: 数据行数 ({len(df)}) 小于窗口大小 ({self.window_size})")
+                continue
+        
+            # 步长为 1，确保每个点都能作为中心点被预测
+            for start in range(0, len(df) - self.window_size + 1, self.step):
+                end = start + self.window_size
+                window_x = channel_data[start:end]
+                
+                # 获取中心行的 9 个通道标签 (index 63)
+                center_labels = label_data[start + CENTER_IDX]
+                
+                total_windows += 1
+                
+                # 只保留中心点标签不为0的样本（即存在伤损）
+                if any(center_labels > 0):
+                    damage_windows += 1
+                    self.samples.append(window_x)
+                    self.labels.append(center_labels)
+                    
+                    if not self.is_train:
+                        self.file_info.append({
+                            'file': str(csv_file),
+                            'center_encoding': encodings[start + CENTER_IDX],
+                            'start': start
+                        })
+        
+        print(f"数据集加载完成: {len(self.samples)} 个伤损样本 (总窗口数: {total_windows}, 伤损窗口占比: {damage_windows/total_windows*100:.2f}%)")
+
+# ======================================
 # 工具函数
 # ======================================
 def load_learned_files():
@@ -285,8 +402,8 @@ def run_full_test():
         clean_old_files([TRAIN_DATA_DIR], file_types="train")
         # 准备新文件的路径列表
         new_csv_files = [TRAIN_DATA_DIR / f"{Path(f).stem}_hdc.csv" for f in actual_new_files]
-        # 创建一个临时的 Dataset 只包含新文件
-        train_ds = HDCPointLevelDataset(TRAIN_DATA_DIR, is_train=True, files=new_csv_files)
+        # 创建一个临时的 Dataset 只包含新文件，且只保留中心点为伤损的样本
+        train_ds = HDCCenterDamageDataset(TRAIN_DATA_DIR, is_train=True, files=new_csv_files)
         
         if len(train_ds) == 0:
             print("[WARN] 过滤后训练集为空。")
