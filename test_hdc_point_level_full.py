@@ -170,10 +170,19 @@ def convert_predicted_csv_to_json(csv_path, original_json_path, output_json_path
     
     # print(f"  ✓ 已生成预测标注: {os.path.basename(output_json_path)}")
 
-def clean_old_files(data_dirs):
+def clean_old_files(data_dirs, file_types="all"):
     """清理旧的中间文件，保持环境整洁"""
-    print("\n[INFO] 正在清理旧的 CSV 和预测文件...")
-    patterns = ["*_hdc.csv", "*_label.csv", "*_encoding.csv", "*_predicted_label.csv"]
+    # 根据 file_types 参数选择要删除的文件类型
+    if file_types == "train":
+        patterns = ["*_encoding.csv"]  # 不再删除hdc.csv和label.csv，训练和指标计算都需要用到
+        print("\n[INFO] 正在清理旧的训练编码文件...")
+    elif file_types == "predict":
+        patterns = ["*_predicted_label.csv", "*_predicted.json"]
+        print("\n[INFO] 正在清理旧的预测相关文件...")
+    else: # all
+        patterns = ["*_hdc.csv", "*_label.csv", "*_encoding.csv", "*_predicted_label.csv", "*_predicted.json"]
+        print("\n[INFO] 正在清理所有旧文件...")
+    
     for data_dir in data_dirs:
         if not data_dir.exists():
             continue
@@ -228,9 +237,6 @@ def run_full_test():
     print(f"[DEVICE] 使用设备: {device}")
 
     # 1. 环境准备与数据转换
-    # 不再盲目清理旧文件，而是根据增量逻辑判断
-    # clean_old_files([TRAIN_DATA_DIR, TEST_DATA_DIR])
-    
     learned_files = load_learned_files()
     new_trained_files = []
     
@@ -270,7 +276,10 @@ def run_full_test():
     if not actual_new_files:
         print("[INFO] 没有新数据需要训练。")
     else:
+        # 如果需要训练，先清理旧的训练相关文件
         print(f"[INFO] 发现 {len(actual_new_files)} 个新文件，开始增量学习...")
+        # 清理旧的训练相关文件
+        clean_old_files([TRAIN_DATA_DIR], file_types="train")
         # 准备新文件的路径列表
         new_csv_files = [TRAIN_DATA_DIR / f"{Path(f).stem}_hdc.csv" for f in actual_new_files]
         # 创建一个临时的 Dataset 只包含新文件
@@ -297,6 +306,8 @@ def run_full_test():
 
     # 4. 执行预测与转换
     print("\n[Step 4] 正在对数据集进行点级预测与转换...")
+    # 清理旧的预测文件，只删除预测相关文件
+    clean_old_files([TRAIN_DATA_DIR, TEST_DATA_DIR], file_types="predict")
     
     # 定义处理流程：(目录, 是否计算指标)
     tasks = [
