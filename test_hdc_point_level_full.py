@@ -403,8 +403,9 @@ def run_full_test():
         # 准备新文件的路径列表
         new_csv_files = [TRAIN_DATA_DIR / f"{Path(f).stem}_hdc.csv" for f in actual_new_files]
         # 创建一个临时的 Dataset 只包含新文件，且只保留中心点为伤损的样本
-        train_ds = HDCCenterDamageDataset(TRAIN_DATA_DIR, is_train=True, files=new_csv_files)
-        
+        #train_ds = HDCCenterDamageDataset(TRAIN_DATA_DIR, is_train=True, files=new_csv_files)
+                # 创建一个临时的 Dataset 只包含新文件
+        train_ds = HDCPointLevelDataset(TRAIN_DATA_DIR, is_train=True, files=new_csv_files)
         if len(train_ds) == 0:
             print("[WARN] 过滤后训练集为空。")
         else:
