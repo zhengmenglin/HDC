@@ -17,6 +17,8 @@ import torch
 from pathlib import Path
 from datetime import datetime
 from tqdm import tqdm
+import random
+import shutil
 
 # 添加 torchhd 库路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'torchhd'))
@@ -192,6 +194,91 @@ def save_learned_files(learned_files):
             json.dump(list(learned_files), f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"[WARN] 保存已学习文件列表失败: {e}")
+
+def augment_data_by_beam_offset():
+    """
+    数据增强：对原始数据的BeamOffset值添加随机整数(0-10)，生成增强数据文件
+    """
+    print("\n[INFO] 正在进行数据增强 (修改BeamOffset)...")
+    data_dirs = [TRAIN_DATA_DIR, TEST_DATA_DIR]
+    
+    for data_dir in data_dirs:
+        original_files = get_json_files(data_dir)
+        
+        for original_file in original_files:
+            # 跳过已增强的文件
+            if '增强' in original_file.name:
+                continue
+            
+            augmented_filename = f"{original_file.stem}增强{original_file.suffix}"
+            augmented_file = data_dir / augmented_filename
+            
+            # 检查增强文件是否已存在
+            if augmented_file.exists():
+                continue
+            
+            # 读取原始JSON数据
+            try:
+                with open(original_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except Exception as e:
+                print(f"  ✗ 读取 {original_file.name} 失败: {e}")
+                continue
+            
+            # 处理BeamOffset
+            beam_offset_key = 'BeamOffset'
+            if isinstance(data, list) and len(data) > 0:
+                if beam_offset_key not in data[0]:
+                    print(f"  [WARN] {original_file.name} 中没有找到 BeamOffset")
+                    continue
+                bo = data[0][beam_offset_key]
+                is_list_data = True
+            elif isinstance(data, dict):
+                if beam_offset_key not in data:
+                    print(f"  [WARN] {original_file.name} 中没有找到 BeamOffset")
+                    continue
+                bo = data[beam_offset_key]
+                is_list_data = False
+            else:
+                print(f"  [WARN] {original_file.name} 数据格式不支持")
+                continue
+            
+            # 生成增强后的BeamOffset：每个通道值加上0-10的随机整数
+            augmented_bo = []
+            for i in range(0, len(bo), 2):
+                channel_id = bo[i]
+                original_value = bo[i+1]
+                random_increment = random.randint(0, 10)
+                augmented_value = original_value + random_increment
+                augmented_bo.extend([channel_id, augmented_value])
+            
+            # 更新数据中的BeamOffset
+            if is_list_data:
+                data[0][beam_offset_key] = augmented_bo
+            else:
+                data[beam_offset_key] = augmented_bo
+            
+            # 保存增强数据文件
+            try:
+                with open(augmented_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                print(f"  ✓ 生成增强数据: {augmented_filename}")
+            except Exception as e:
+                print(f"  ✗ 保存增强数据 {augmented_filename} 失败: {e}")
+                continue
+            
+            # 处理标注文件
+            annotation_file = data_dir / f"{original_file.stem}标注{original_file.suffix}"
+            if annotation_file.exists():
+                augmented_annotation_filename = f"{original_file.stem}增强标注{original_file.suffix}"
+                augmented_annotation_file = data_dir / augmented_annotation_filename
+                
+                try:
+                    shutil.copy(annotation_file, augmented_annotation_file)
+                    print(f"  ✓ 生成增强标注: {augmented_annotation_filename}")
+                except Exception as e:
+                    print(f"  ✗ 复制增强标注 {augmented_annotation_filename} 失败: {e}")
+
 def convert_predicted_csv_to_json(csv_path, original_json_path, output_json_path, hdc_csv_path=None):
     """
     将预测结果 CSV 转换回 GUI 可识别的 _predicted.json 格式
@@ -361,6 +448,8 @@ def run_full_test():
     new_trained_files = []
     
     print("\n[Step 1] 正在进行数据转换 (JSON -> CSV)...")
+    # 执行数据增强
+    augment_data_by_beam_offset()
     converter = UltrasonicDataConverter()
     for data_dir in [TRAIN_DATA_DIR, TEST_DATA_DIR]:
         json_files = get_json_files(data_dir)
