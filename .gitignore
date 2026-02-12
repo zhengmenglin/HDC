@@ -51,6 +51,7 @@ data/
 output/
 *.csv
 *.json
+
 !config.json
 !requirements.txt
 !README.md

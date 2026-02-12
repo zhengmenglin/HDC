@@ -24,6 +24,7 @@ import torchhd
 from torchhd import embeddings
 from torchhd.models import Centroid
 from torchhd.classifiers import OnlineHD
+from torchhd import functional as F
 
 # 配置参数
 DIMENSIONS = 8192
@@ -39,7 +40,7 @@ class HDCPointLevelDataset(data.Dataset):
     点级分类 HDC 数据集类
     支持 9 模型方案：每个窗口样本对应中心行 (index 127) 的 9 个通道标签
     """
-    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1, files=None):
+    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1, files=None, target_encoding=None):
         self.data_dir = Path(data_dir)
         self.is_train = is_train
         self.window_size = window_size
@@ -48,6 +49,7 @@ class HDCPointLevelDataset(data.Dataset):
         self.labels = []
         self.file_info = [] # 存储样本对应的原始信息，用于还原
         self.specified_files = files # 可选：指定要加载的文件列表
+        self.target_encoding = target_encoding # 目标点的编码值，用于过滤样本
         self._load_data()
 
     def _load_data(self):
@@ -129,16 +131,30 @@ class HDCPointLevelDataset(data.Dataset):
                 
                 # 获取中心行的 9 个通道标签 (index 63)
                 center_labels = label_data[start + CENTER_IDX]
+                center_encoding = encodings[start + CENTER_IDX]
+                
+                # 如果指定了目标编码，只保留包含目标编码的窗口
+                if self.target_encoding is not None and center_encoding != self.target_encoding:
+                    continue
                 
                 self.samples.append(window_x)
                 self.labels.append(center_labels)
                 
-                if not self.is_train:
-                    self.file_info.append({
-                        'file': str(csv_file),
-                        'center_encoding': encodings[start + CENTER_IDX],
-                        'start': start
-                    })
+                # 无论是否是训练模式，都记录 file_info，但只有在非训练模式下才会用到它进行结果还原
+                # 这样可以简化逻辑并避免潜在的索引不匹配问题
+                self.file_info.append({
+                    'file': str(csv_file),
+                    'center_encoding': center_encoding,
+                    'start': start
+                })
+        
+        # 如果是训练模式，同步打乱样本和文件信息
+        if self.is_train:
+            import random
+            combined = list(zip(self.samples, self.labels, self.file_info))
+            random.shuffle(combined)
+            if combined:
+                self.samples[:], self.labels[:], self.file_info[:] = zip(*combined)
         
         print(f"数据集加载完成: {len(self.samples)} 个样本")
 
@@ -211,13 +227,12 @@ class HDCPointLevelModel:
         # 使用 OnlineHD 模型，每个通道一个模型
         self.models = nn.ModuleList([Centroid(dimensions, NUM_TYPES) for _ in range(NUM_CHANNELS)]).to(device)
 
-    def train(self, train_loader, epochs=10, lr=0.1):
+    def train_with_ridge(self, train_loader, alpha=1.0):
         """
-        训练模型，使用 OnlineHD 学习方式 (基于 add_online 方法)
-        epochs: 迭代轮数
-        lr: 学习率，用于 add_online
+        使用岭回归学习方式训练模型
+        alpha: 正则化参数，默认为1.0
         """
-        print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs}, OnlineHD 学习方式)...")
+        print(f"开始训练点级 HDC 模型 (9通道独立模型, 岭回归学习方式, alpha={alpha})...")
         # 初始化编码器
         try:
             first_batch = next(iter(train_loader))
@@ -228,42 +243,104 @@ class HDCPointLevelModel:
             print("训练集为空，无法训练")
             return
 
-        for epoch in range(epochs):
-            self.encoder.eval()
-            for m in self.models:
-                m.eval()
-
-            with tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}") as pbar:
+        # 收集所有训练数据
+        all_hv = []
+        all_targets = []
+        
+        self.encoder.eval()
+        with torch.no_grad():
+            with tqdm(train_loader, desc="收集训练数据") as pbar:
                 for samples, targets in pbar:
                     samples = samples.to(self.device)
                     targets = targets.to(self.device) # [batch, 9]
                     
-                    with torch.no_grad():
-                        hv = self.encoder(samples) # [batch, dim]
-                    
-                    # 为每个通道的模型进行 OnlineHD 训练
-                    for ch in range(NUM_CHANNELS):
-                        ch_targets = targets[:, ch]
-                        # 使用 add_online 方法：只在预测错误时更新原型向量
-                        self.models[ch].add_online(hv, ch_targets, lr=lr)
+                    hv = self.encoder(samples) # [batch, dim]
+                    all_hv.append(hv)
+                    all_targets.append(targets)
+        
+        # 合并所有数据
+        all_hv = torch.cat(all_hv, dim=0)
+        all_targets = torch.cat(all_targets, dim=0)
+        
+        # 对每个通道分别执行岭回归学习
+        for ch in range(NUM_CHANNELS):
+            ch_targets = all_targets[:, ch]
             
-        # 所有轮次结束后进行归一化，以便后续推理进行相似度计算
+            # 转换为one-hot编码
+            one_hot = torch.zeros(len(ch_targets), NUM_TYPES, device=self.device)
+            one_hot[torch.arange(len(ch_targets)), ch_targets] = 1
+            
+            # 使用岭回归计算权重
+            weights = F.ridge_regression(all_hv, one_hot, alpha=alpha)
+            
+            # 更新模型权重
+            self.models[ch].weight.copy_(weights)
+        
+        # 所有通道结束后进行归一化，以便后续推理进行相似度计算
         for ch in range(NUM_CHANNELS):
             self.models[ch].normalize()
                 
-        print("训练完成。")
+        print("岭回归训练完成。")
 
-    def predict(self, test_loader, threshold=0.1, margin=0.02):
+    def train(self, train_loader, epochs=10, lr=0.1, method="onlinehd", alpha=1.0):
         """
-        预测类别，引入 margin 逻辑提升 Precision
+        训练模型
+        method: 学习方式，可选 "onlinehd" 或 "ridge"
+        epochs: 迭代轮数 (仅用于 onlinehd)
+        lr: 学习率 (仅用于 onlinehd)
+        alpha: 正则化参数 (仅用于 ridge)
+        """
+        if method == "ridge":
+            self.train_with_ridge(train_loader, alpha=alpha)
+        else:
+            # 使用 OnlineHD 学习方式
+            print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs}, OnlineHD 学习方式)...")
+            # 初始化编码器
+            try:
+                first_batch = next(iter(train_loader))
+                sample_shape = first_batch[0].shape[1:] # [window_size, channels]
+                if self.encoder is None:
+                    self.encoder = HDCPointLevelEncoder(self.dimensions, sample_shape[0]).to(self.device)
+            except StopIteration:
+                print("训练集为空，无法训练")
+                return
+
+            for epoch in range(epochs):
+                self.encoder.eval()
+                for m in self.models:
+                    m.eval()
+
+                with tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}") as pbar:
+                    for samples, targets in pbar:
+                        samples = samples.to(self.device)
+                        targets = targets.to(self.device) # [batch, 9]
+                        
+                        with torch.no_grad():
+                            hv = self.encoder(samples) # [batch, dim]
+                        
+                        # 为每个通道的模型进行 OnlineHD 训练
+                        for ch in range(NUM_CHANNELS):
+                            ch_targets = targets[:, ch]
+                            # 使用 add_online 方法：只在预测错误时更新原型向量
+                            self.models[ch].add_online(hv, ch_targets, lr=lr)
+            
+            # 所有轮次结束后进行归一化，以便后续推理进行相似度计算
+            for ch in range(NUM_CHANNELS):
+                self.models[ch].normalize()
+                    
+            print("训练完成。")
+
+    def predict(self, test_loader, threshold=0.1, margin=0.0):
+        """
+        预测类别，基于类别自身阈值判断
         threshold: 最小相似度要求
-        margin: 伤损类相似度必须比正常类(索引0)高出多少才判定为伤损
-        返回: (predictions, normal_sims, max_defect_sims)
+        margin: 保留参数，不再使用
+        返回: (predictions, normal_sims, max_defect_sims, all_class_sims)
         """
-        print(f"开始预测 (9通道并行预测, Margin={margin})...")
+        print(f"开始预测 (9通道并行预测, Threshold={threshold})...")
         if self.encoder is None:
             print("错误: 编码器未初始化")
-            return [], [], []
+            return [], [], [], []
             
         self.encoder.eval()
         for m in self.models:
@@ -272,6 +349,7 @@ class HDCPointLevelModel:
         all_preds = []
         all_normal_sims = []
         all_max_defect_sims = []
+        all_class_sims = []  # 存储所有类别的相似度
         
         with torch.no_grad():
             for samples, _ in tqdm(test_loader, desc="预测中"):
@@ -281,6 +359,7 @@ class HDCPointLevelModel:
                 batch_preds = []
                 batch_normal_sims = []
                 batch_max_defect_sims = []
+                batch_class_sims = []  # 存储当前批次所有类别的相似度
                 
                 for ch in range(NUM_CHANNELS):
                     # 获取所有类别的余弦相似度 (范围 -1 到 1)
@@ -295,9 +374,8 @@ class HDCPointLevelModel:
                     defect_pred = defect_pred + 1 # 还原索引
                     
                     # 判定逻辑：
-                    # 1. 伤损类相似度必须大于基础阈值
-                    # 2. 伤损类相似度必须显著高于正常类相似度 (Margin)
-                    is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
+                    # 伤损类相似度必须大于基础阈值
+                    is_defect = (max_defect_sim > threshold)
                     
                     final_pred = torch.zeros_like(normal_sim, dtype=torch.long)
                     final_pred[is_defect] = defect_pred[is_defect]
@@ -305,20 +383,24 @@ class HDCPointLevelModel:
                     batch_preds.append(final_pred.unsqueeze(1))
                     batch_normal_sims.append(normal_sim.unsqueeze(1))
                     batch_max_defect_sims.append(max_defect_sim.unsqueeze(1))
+                    batch_class_sims.append(output.unsqueeze(1))  # 存储所有类别的相似度
                 
                 # 合并 9 个通道的结果
                 combined_pred = torch.cat(batch_preds, dim=1)
                 combined_normal_sim = torch.cat(batch_normal_sims, dim=1)
                 combined_max_defect_sim = torch.cat(batch_max_defect_sims, dim=1)
+                combined_class_sims = torch.cat(batch_class_sims, dim=1)  # 合并所有类别的相似度
                 
                 all_preds.append(combined_pred.cpu())
                 all_normal_sims.append(combined_normal_sim.cpu())
                 all_max_defect_sims.append(combined_max_defect_sim.cpu())
+                all_class_sims.append(combined_class_sims.cpu())  # 添加到总列表
         
         return (
             torch.cat(all_preds, dim=0).numpy(), 
             torch.cat(all_normal_sims, dim=0).numpy(), 
-            torch.cat(all_max_defect_sims, dim=0).numpy()
+            torch.cat(all_max_defect_sims, dim=0).numpy(),
+            torch.cat(all_class_sims, dim=0).numpy()  # 返回所有类别的相似度
         )
 
     def save(self, path):
@@ -385,7 +467,7 @@ def main():
             hdc_sys = HDCPointLevelModel(device=device)
             if os.path.exists(model_path):
                 hdc_sys.load(model_path)
-                predictions, normal_sims, max_defect_sims = hdc_sys.predict(test_ld) # [N, 9]
+                predictions, normal_sims, max_defect_sims, all_class_sims = hdc_sys.predict(test_ld) # [N, 9]
                 
                 # 3. 处理预测结果并生成 1_predicted_label.csv
                 print("处理预测结果...")

@@ -1,0 +1,182 @@
+{
+  "annotations": [
+    {
+      "id": "1",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 839,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 839,
+      "end_E": 839,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T15:14:39.265316"
+    },
+    {
+      "id": "2",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 802,
+          "channel": 8,
+          "depth": 62.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 802,
+      "end_E": 802,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:53:32.327076"
+    },
+    {
+      "id": "3",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 760,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 760,
+      "end_E": 760,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:56:53.827572"
+    },
+    {
+      "id": "4",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 879,
+          "channel": 8,
+          "depth": 61.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 879,
+      "end_E": 879,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:56:57.037830"
+    },
+    {
+      "id": "5",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 719,
+          "channel": 8,
+          "depth": 64.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 719,
+      "end_E": 719,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:57:00.203852"
+    },
+    {
+      "id": "6",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 682,
+          "channel": 8,
+          "depth": 66.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 682,
+      "end_E": 682,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:57:02.582278"
+    },
+    {
+      "id": "7",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 644,
+          "channel": 8,
+          "depth": 56.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 644,
+      "end_E": 644,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:57:07.230122"
+    },
+    {
+      "id": "8",
+      "type": "结构",
+      "subtype": {
+        "id": "101",
+        "name": "螺孔"
+      },
+      "points": [
+        {
+          "e": 621,
+          "channel": 8,
+          "depth": 53.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 621,
+      "end_E": 621,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-11T16:57:09.793648"
+    }
+  ],
+  "timestamp": "2026-02-11T16:57:09.794656",
+  "version": "1.0"
+}

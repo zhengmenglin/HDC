@@ -40,8 +40,10 @@ class Config:
                 "dimensions": 10000,  # 超维空间维度
                 "vsa_type": "MAP",  # VSA类型: MAP, HRR, FHRR等
                 "classifier": "OnlineHD",  # 分类器类型
-                "learning_rate": 0.1,  # 学习率
-                "epochs": 5,  # 训练轮数
+                "learning_method": "onlinehd",  # 学习方式: onlinehd, ridge
+                "learning_rate": 0.05,  # 学习率
+                "ridge_alpha": 1.0,  # 岭回归正则化参数
+                "epochs": 40,  # 训练轮数
                 "model_path": "models/hdc_point_level_9ch.pth",  # 模型文件路径
                 "learned_files_path": "models/hdc_point_level_9ch.json"  # 已学习文件列表路径
             },
@@ -70,7 +72,10 @@ class Config:
             
             # 测试流程配置
             "test": {
-                "results_dir": "hdc_test_results"  # 测试结果保存目录
+                "results_dir": "hdc_test_results",  # 测试结果保存目录
+                "train_strategy": "all",  # 训练策略: damage_only, mixed, all
+                "predict_threshold": 0.7,  # 预测时的阈值
+                "predict_margin": 0.0  # 预测时的margin，不再使用与正常类的比较
             }
         }
     

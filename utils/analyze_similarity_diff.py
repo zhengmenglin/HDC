@@ -1,7 +1,14 @@
 
+import sys
+from pathlib import Path
 import pandas as pd
 import os
 import glob
+
+# 获取项目根目录并添加到搜索路径
+root_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(root_dir))
+
 from config import config
 
 def analyze_csv(file_path):

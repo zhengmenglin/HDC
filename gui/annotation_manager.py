@@ -80,7 +80,8 @@ class AnnotationManager:
         try:
             # 直接保存当前内存中的所有标注，包括删除操作后的结果
             # 不合并现有文件，确保删除的标注不会出现在保存的文件中
-            all_annotations = self.annotations
+            # 过滤掉算法预测的结果，只保存人工标注的结果
+            all_annotations = [anno for anno in self.annotations if anno.get('source') != 'predicted']
             
             # 保存所有标注
             with open(file_path, 'w', encoding='utf-8') as f:

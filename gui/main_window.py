@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSlider,
     QLabel, QMenuBar, QAction, QFileDialog, QMessageBox,
     QStatusBar, QSplitter, QTextEdit, QGroupBox, QComboBox,
-    QPushButton, QRadioButton, QButtonGroup, QFrame, QCheckBox
+    QPushButton, QRadioButton, QButtonGroup, QFrame, QCheckBox,
+    QDialog
 )
 from PyQt5.QtCore import Qt
 import matplotlib
@@ -34,6 +35,7 @@ from datetime import datetime
 from gui.type_selector import TypeSelectorDialog
 from gui.point_selector import PointSelector
 from gui.annotation_manager import AnnotationManager
+from gui.point_editor import PointEditorDialog
 
 
 class FlawDetectionDataParser:
@@ -395,6 +397,10 @@ class BScanCanvas(FigureCanvas):
         for channel in range(9):  # 0-8通道
             self.channel_visible[channel] = True
         
+        # 标注显示开关
+        self.show_manual_annotations = True  # 显示手动标注
+        self.show_predicted_annotations = True  # 显示算法预测标注
+        
     def update_bscan(self, parser, display_range=255, current_e=None, annotations=None, display_mode="V型"  ):
         """更新B显图像"""
         # 保存当前的轴范围，以便在更新后恢复（如果需要）
@@ -657,6 +663,14 @@ class BScanCanvas(FigureCanvas):
             for annotation in annotations:
                 points = annotation['points']
                 if not points:
+                    continue
+
+                # 根据标注类型开关过滤
+                annotation_id = int(annotation['id'])
+                is_hdc = annotation_id >= 100
+                if is_hdc and not self.show_predicted_annotations:
+                    continue
+                if not is_hdc and not self.show_manual_annotations:
                     continue
 
                 # 计算标注框的边界 - 使用实际绘制点的坐标
@@ -1612,6 +1626,26 @@ class MainWindow(QMainWindow):
         enabled = state == 2  # 2表示选中，0表示未选中
         self.bscan_canvas.auto_reset_zoom = enabled
     
+    def on_manual_annotation_toggled(self, state):
+        """处理手动标注显示开关变化"""
+        self.bscan_canvas.show_manual_annotations = (state == 2)
+        if self.parser is not None:
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(
+                self.parser, self.display_range, self.current_e,
+                annotations, self.depth_display_mode
+            )
+    
+    def on_predicted_annotation_toggled(self, state):
+        """处理算法预测标注显示开关变化"""
+        self.bscan_canvas.show_predicted_annotations = (state == 2)
+        if self.parser is not None:
+            annotations = self.annotation_manager.get_annotations()
+            self.bscan_canvas.update_bscan(
+                self.parser, self.display_range, self.current_e,
+                annotations, self.depth_display_mode
+            )
+    
     def on_channel_visibility_changed(self, channel, state):
         """处理通道可见性变化事件"""
         # 设置通道可见性
@@ -1696,6 +1730,31 @@ class MainWindow(QMainWindow):
         self.auto_zoom_reset_checkbox.setChecked(True)  # 默认开启
         self.auto_zoom_reset_checkbox.stateChanged.connect(self.on_auto_zoom_reset_changed)
         left_layout1.addWidget(self.auto_zoom_reset_checkbox)
+        
+        # 添加"删除选中的点"按钮
+        self.delete_points_btn = QPushButton("删除选中的点")
+        self.delete_points_btn.clicked.connect(self.delete_selected_points)
+        self.delete_points_btn.setEnabled(False)
+        left_layout1.addWidget(self.delete_points_btn)
+        
+        # 添加"修改最后选中点"按钮
+        self.edit_last_point_btn = QPushButton("修改最后选中点")
+        self.edit_last_point_btn.clicked.connect(self.edit_last_selected_point)
+        self.edit_last_point_btn.setEnabled(False)
+        left_layout1.addWidget(self.edit_last_point_btn)
+        
+        # 添加标注显示开关
+        annotation_toggle_layout = QHBoxLayout()
+        self.manual_annotation_checkbox = QCheckBox("显示手动标注")
+        self.manual_annotation_checkbox.setChecked(True)
+        self.manual_annotation_checkbox.stateChanged.connect(self.on_manual_annotation_toggled)
+        annotation_toggle_layout.addWidget(self.manual_annotation_checkbox)
+        
+        self.predicted_annotation_checkbox = QCheckBox("显示算法预测标注")
+        self.predicted_annotation_checkbox.setChecked(True)
+        self.predicted_annotation_checkbox.stateChanged.connect(self.on_predicted_annotation_toggled)
+        annotation_toggle_layout.addWidget(self.predicted_annotation_checkbox)
+        left_layout1.addLayout(annotation_toggle_layout)
         
         # 右侧：标注控制面板
         right_layout1 = QVBoxLayout()
@@ -1829,3 +1888,300 @@ class MainWindow(QMainWindow):
         has_points = len(selected_points) > 0
         has_valid_subtype = self.subtype_combo.currentIndex() > 0
         self.save_annotation_btn.setEnabled(has_points and has_valid_subtype)
+        self.delete_points_btn.setEnabled(has_points)
+        self.edit_last_point_btn.setEnabled(has_points)
+
+    def delete_selected_points(self):
+        """删除选中的点，直接从原始JSON文件中移除对应的B1/B2数据"""
+        if self.parser is None:
+            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
+            return
+
+        selected_points = self.point_selector.get_selected_points()
+        if not selected_points:
+            QMessageBox.warning(self, "警告", "请先选择要删除的点")
+            return
+
+        # 确认对话框
+        reply = QMessageBox.question(
+            self, "确认删除",
+            f"确定要从JSON文件中删除选中的 {len(selected_points)} 个点吗？\n此操作将直接修改原始数据文件，不可恢复！",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        # 读取原始JSON文件
+        json_file_path = self.parser.json_file
+        try:
+            with open(json_file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+            data = json.loads(content)
+            if not isinstance(data, list):
+                data = [data]
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"读取JSON文件失败: {str(e)}")
+            return
+
+        # 构建E值到事件的索引映射，加速查找
+        e_to_event = {}
+        for event in data:
+            if isinstance(event, dict) and 'E' in event:
+                e_to_event[int(event['E'])] = event
+
+        # 遍历选中的点，从JSON数据中删除
+        deleted_count = 0
+        for point_info in selected_points:
+            point = point_info['original']
+            e_val = point['e']
+            channel = point['channel']
+            depth = point['depth']
+            amplitude = point['amplitude']
+
+            event = e_to_event.get(e_val)
+            if not event:
+                continue
+
+            # 在B1和B2字段中查找并删除匹配的点
+            for b_key in ['B1', 'B2']:
+                if b_key not in event:
+                    continue
+                b_list = event[b_key]
+                if not isinstance(b_list, list):
+                    continue
+
+                # 每5个元素为一组: channel, depth, amplitude, x, y
+                new_b_list = []
+                found = False
+                i = 0
+                while i < len(b_list):
+                    if i + 2 < len(b_list):
+                        b_channel = b_list[i]
+                        b_depth = b_list[i + 1]
+                        b_amplitude = b_list[i + 2]
+
+                        # 判断当前组的元素个数（可能是3个或5个）
+                        group_size = 5 if (i + 4 < len(b_list)) else (len(b_list) - i)
+                        if group_size > 5:
+                            group_size = 5
+
+                        # 匹配点：channel, depth, amplitude 都相同
+                        if (not found and
+                            int(b_channel) == int(channel) and
+                            abs(float(b_depth) - float(depth)) < 0.1 and
+                            abs(float(b_amplitude) - float(amplitude)) < 0.1):
+                            # 跳过这一组（删除）
+                            found = True
+                            i += group_size
+                            continue
+
+                        # 保留这一组
+                        new_b_list.extend(b_list[i:i + group_size])
+                        i += group_size
+                    else:
+                        # 剩余不足一组的元素，保留
+                        new_b_list.extend(b_list[i:])
+                        break
+
+                if found:
+                    deleted_count += 1
+                    if new_b_list:
+                        event[b_key] = new_b_list
+                    else:
+                        del event[b_key]
+                    break  # 已找到并删除，不再搜索另一个B字段
+
+        if deleted_count == 0:
+            QMessageBox.warning(self, "警告", "未能在JSON文件中找到匹配的点")
+            return
+
+        # 写回JSON文件
+        try:
+            with open(json_file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"写入JSON文件失败: {str(e)}")
+            return
+
+        # 清空选中的点
+        self.point_selector.clear_selection()
+
+        # 重新加载文件以刷新内存数据和界面
+        self.open_file_by_path(json_file_path)
+
+        QMessageBox.information(
+            self, "成功",
+            f"已成功删除 {deleted_count} 个点，JSON文件已更新。"
+        )
+
+    def edit_last_selected_point(self):
+        """修改最后选中的点的信息"""
+        if self.parser is None:
+            QMessageBox.warning(self, "警告", "请先打开一个JSON文件")
+            return
+
+        selected_points = self.point_selector.get_selected_points()
+        if not selected_points:
+            QMessageBox.warning(self, "警告", "请先选择要修改的点")
+            return
+
+        # 获取最后一个选中的点
+        last_point = selected_points[-1]
+        
+        # 创建并显示修改对话框
+        dialog = PointEditorDialog(last_point, self)
+        if dialog.exec_() == QDialog.Accepted:
+            # 获取修改后的值
+            new_depth, new_amplitude = dialog.get_modified_values()
+            
+            # 更新原始点信息
+            original_point = last_point['original']
+            old_depth = original_point['depth']
+            old_amplitude = original_point['amplitude']
+            
+            # 更新原始点的值
+            original_point['depth'] = new_depth
+            original_point['amplitude'] = new_amplitude
+            
+            # 更新JSON文件中的点信息
+            if self.update_point_in_json(original_point, old_depth, old_amplitude):
+                # 更新标注数据中的点信息
+                self.update_point_in_annotations(original_point, old_depth, old_amplitude)
+                
+                # 重新加载文件以刷新内存数据和界面
+                self.open_file_by_path(self.parser.json_file)
+                
+                QMessageBox.information(
+                    self, "成功",
+                    f"已成功修改点信息：深度从 {old_depth:.1f} 改为 {new_depth:.1f}，幅度从 {old_amplitude:.1f} 改为 {new_amplitude:.1f}"
+                )
+            else:
+                QMessageBox.critical(self, "错误", "修改点信息失败")
+
+    def update_point_in_json(self, point, old_depth, old_amplitude):
+        """更新原始JSON文件中的点信息
+        
+        Args:
+            point: 包含更新后信息的点字典
+            old_depth: 原始深度值
+            old_amplitude: 原始幅度值
+            
+        Returns:
+            bool: 更新是否成功
+        """
+        if self.parser is None:
+            return False
+        
+        # 读取原始JSON文件
+        json_file_path = self.parser.json_file
+        try:
+            with open(json_file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            print(f"读取JSON文件失败: {str(e)}")
+            return False
+        
+        # 构建E值到事件的索引映射，加速查找
+        e_to_event = {}
+        for event in data:
+            if isinstance(event, dict) and 'E' in event:
+                e_to_event[int(event['E'])] = event
+        
+        # 查找并更新对应的点
+        e_val = point['e']
+        channel = point['channel']
+        new_depth = point['depth']
+        new_amplitude = point['amplitude']
+        
+        event = e_to_event.get(e_val)
+        if not event:
+            return False
+        
+        # 在B1和B2字段中查找并更新匹配的点
+        updated = False
+        for b_key in ['B1', 'B2']:
+            if b_key not in event:
+                continue
+            b_list = event[b_key]
+            if not isinstance(b_list, list):
+                continue
+            
+            # 每5个元素为一组: channel, depth, amplitude, x, y
+            i = 0
+            while i < len(b_list):
+                if i + 2 < len(b_list):
+                    b_channel = b_list[i]
+                    b_depth = b_list[i + 1]
+                    b_amplitude = b_list[i + 2]
+                    
+                    # 匹配点：channel, depth, amplitude 都相同
+                    if (int(b_channel) == int(channel) and 
+                        abs(float(b_depth) - float(old_depth)) < 0.1 and 
+                        abs(float(b_amplitude) - float(old_amplitude)) < 0.1):
+                        # 更新深度和幅度
+                        b_list[i + 1] = new_depth
+                        b_list[i + 2] = new_amplitude
+                        updated = True
+                        break
+                i += 5
+            if updated:
+                break
+        
+        # 写回JSON文件
+        if updated:
+            try:
+                with open(json_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+                return True
+            except Exception as e:
+                print(f"写入JSON文件失败: {str(e)}")
+                return False
+        
+        return False
+
+    def update_point_in_annotations(self, point, old_depth, old_amplitude):
+        """更新标注数据中的点信息
+        
+        Args:
+            point: 包含更新后信息的点字典
+            old_depth: 原始深度值
+            old_amplitude: 原始幅度值
+        """
+        if self.annotation_manager is None:
+            return
+        
+        # 获取所有标注
+        annotations = self.annotation_manager.get_annotations()
+        
+        # 查找并更新标注中的点
+        updated = False
+        for annotation in annotations:
+            points = annotation['points']
+            for i, annot_point in enumerate(points):
+                # 匹配点：E值、通道、深度、幅度都相同
+                if (annot_point['e'] == point['e'] and 
+                    annot_point['channel'] == point['channel'] and 
+                    abs(annot_point['depth'] - old_depth) < 0.1 and 
+                    abs(annot_point['amplitude'] - old_amplitude) < 0.1):
+                    # 更新深度和幅度
+                    annot_point['depth'] = point['depth']
+                    annot_point['amplitude'] = point['amplitude']
+                    updated = True
+        
+        # 如果有更新，保存标注数据
+        if updated:
+            # 自动生成保存路径
+            import os
+            json_file_path = self.parser.json_file
+            json_dir = os.path.dirname(json_file_path)
+            json_filename = os.path.basename(json_file_path)
+            
+            # 去掉扩展名，添加"标注"后缀
+            name_without_ext = os.path.splitext(json_filename)[0]
+            annotation_filename = f"{name_without_ext}标注.json"
+            
+            annotation_file_path = os.path.join(json_dir, annotation_filename)
+            
+            # 保存标注
+            self.annotation_manager.save_annotations(annotation_file_path)
