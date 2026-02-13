@@ -1,0 +1,10 @@
+HDC 训练集评估报告 (9通道)
+测试时间: 2026-02-13 10:54:52
+模型路径: models\hdc_point_level.pth
+==============================
+Precision: 0.0030
+Recall:    1.0000
+F1-Score:  0.0059
+Total True: 191
+Total Pred: 64035
+Total Correct: 191

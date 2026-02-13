@@ -180,6 +180,9 @@ class HDCPointLevelEncoder(nn.Module):
         self.value_hvs = embeddings.Level(NUM_LEVELS, out_features, high=256)
         # 位置超向量 (用于绑定)
         self.position_hvs = embeddings.Random(window_size, out_features)
+        
+        # 验证超向量相似度
+        self._validate_hypervectors()
 
     def forward(self, x):
         """
@@ -214,6 +217,106 @@ class HDCPointLevelEncoder(nn.Module):
         window_hv = torch.sum(final_bound, dim=1).as_subclass(torchhd.MAPTensor)
         
         return torchhd.normalize(window_hv)
+    
+    def _validate_hypervectors(self):
+        """验证超向量相似度分布"""
+        import torch
+        
+        print("\n[HDC] 验证超向量相似度分布...")
+        
+        # 验证通道超向量
+        channel_hvs = self.channel_hvs.weight
+        self._check_similarity(channel_hvs, "通道")
+        
+        # 验证位置超向量
+        position_hvs = self.position_hvs.weight
+        self._check_similarity(position_hvs, "位置")
+        
+        # 验证数值超向量
+        try:
+            value_hvs = self.value_hvs.weight
+            self._check_level_similarity(value_hvs, "数值")
+        except AttributeError:
+            print("[INFO] 数值超向量使用 Level 编码，无需验证相似度")
+    
+    def _check_similarity(self, hvs, name):
+        """检查超向量相似度统计"""
+        import torch
+        
+        norm_hvs = torch.nn.functional.normalize(hvs, dim=1)
+        sim_matrix = torch.matmul(norm_hvs, norm_hvs.t())
+        
+        triu_sim = torch.triu(sim_matrix, diagonal=1)
+        non_zero_sim = triu_sim[triu_sim > 0]
+        
+        if len(non_zero_sim) > 0:
+            mean_sim = non_zero_sim.mean().item()
+            max_sim = non_zero_sim.max().item()
+            min_sim = non_zero_sim.min().item()
+            std_sim = non_zero_sim.std().item()
+            
+            print(f"{name} 超向量相似度统计:")
+            print(f"  平均相似度: {mean_sim:.4f}")
+            print(f"  最大相似度: {max_sim:.4f}")
+            print(f"  最小相似度: {min_sim:.4f}")
+            print(f"  标准差: {std_sim:.4f}")
+            
+            if max_sim > 0.2:
+                print(f"  [警告] {name} 超向量最大相似度较高，可能影响编码效果")
+        else:
+            print(f"{name} 超向量无有效相似度数据")
+    
+    def _check_level_similarity(self, hvs, name):
+        """检查 Level 编码的相似度特性"""
+        import torch
+        
+        print(f"{name} 超向量 (Level 编码) 相似度分析:")
+        
+        norm_hvs = torch.nn.functional.normalize(hvs, dim=1)
+        sim_matrix = torch.matmul(norm_hvs, norm_hvs.t())
+        
+        # 1. 相邻级别相似度
+        adjacent_sims = []
+        for i in range(len(hvs) - 1):
+            sim = sim_matrix[i, i+1].item()
+            adjacent_sims.append(sim)
+        
+        if adjacent_sims:
+            avg_adjacent = sum(adjacent_sims) / len(adjacent_sims)
+            print(f"  相邻级别平均相似度: {avg_adjacent:.4f}")
+            if 0.7 <= avg_adjacent <= 0.9:
+                print(f"  ✅ 相邻级别相似度在预期范围内 (0.7-0.9)")
+            else:
+                print(f"  ⚠️  相邻级别相似度可能异常")
+        
+        # 2. 间隔级别相似度
+        interval_sims = []
+        max_interval = min(5, len(hvs) // 2)
+        for interval in range(2, max_interval + 1):
+            sims = []
+            for i in range(len(hvs) - interval):
+                sim = sim_matrix[i, i+interval].item()
+                sims.append(sim)
+            if sims:
+                avg_sim = sum(sims) / len(sims)
+                interval_sims.append(avg_sim)
+                print(f"  间隔 {interval} 级别平均相似度: {avg_sim:.4f}")
+        
+        if len(interval_sims) >= 2:
+            decreasing = all(interval_sims[i] >= interval_sims[i+1] for i in range(len(interval_sims) - 1))
+            if decreasing:
+                print(f"  ✅ 间隔级别相似度递减")
+            else:
+                print(f"  ⚠️  间隔级别相似度未递减")
+        
+        # 3. 最远级别相似度
+        if len(hvs) >= 10:
+            farthest_sim = sim_matrix[0, -1].item()
+            print(f"  最远级别相似度: {farthest_sim:.4f}")
+            if 0.1 <= farthest_sim <= 0.3:
+                print(f"  ✅ 最远级别相似度在预期范围内 (0.1-0.3)")
+            else:
+                print(f"  ⚠️  最远级别相似度可能异常")
 
 class HDCPointLevelModel:
     """
@@ -330,14 +433,14 @@ class HDCPointLevelModel:
                     
             print("训练完成。")
 
-    def predict(self, test_loader, threshold=0.1, margin=0.0):
+    def predict(self, test_loader, threshold=0.1, margin=0.02):
         """
-        预测类别，基于类别自身阈值判断
+        预测类别，引入 margin 逻辑提升 Precision
         threshold: 最小相似度要求
-        margin: 保留参数，不再使用
+        margin: 伤损类相似度必须比正常类(索引0)高出多少才判定为伤损
         返回: (predictions, normal_sims, max_defect_sims, all_class_sims)
         """
-        print(f"开始预测 (9通道并行预测, Threshold={threshold})...")
+        print(f"开始预测 (9通道并行预测, Margin={margin})...")
         if self.encoder is None:
             print("错误: 编码器未初始化")
             return [], [], [], []
@@ -374,8 +477,9 @@ class HDCPointLevelModel:
                     defect_pred = defect_pred + 1 # 还原索引
                     
                     # 判定逻辑：
-                    # 伤损类相似度必须大于基础阈值
-                    is_defect = (max_defect_sim > threshold)
+                    # 1. 伤损类相似度必须大于基础阈值
+                    # 2. 伤损类相似度必须显著高于正常类相似度 (Margin)
+                    is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
                     
                     final_pred = torch.zeros_like(normal_sim, dtype=torch.long)
                     final_pred[is_defect] = defect_pred[is_defect]
@@ -428,9 +532,10 @@ class HDCPointLevelModel:
             return
 
         self.encoder = HDCPointLevelEncoder(self.dimensions, window_size).to(self.device)
-        if checkpoint['encoder']:
+        if checkpoint.get('encoder'):
             self.encoder.load_state_dict(checkpoint['encoder'])
-        self.models.load_state_dict(checkpoint['models'])
+        if 'models' in checkpoint:
+            self.models.load_state_dict(checkpoint['models'])
         print(f"模型已从 {path} 加载。")
 
 def main():
