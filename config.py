@@ -43,8 +43,8 @@ class Config:
                 "learning_method": "onlinehd",  # 学习方式: onlinehd, ridge, neuralhd
                 "learning_rate": 0.05,  # 学习率
                 "ridge_alpha": 1.0,  # 岭回归正则化参数
-                "epochs": 40,  # 训练轮数
-                "channels": [0, 1, 2, 3, 4, 5, 6, 7, 8],  # 使用的通道列表，[8]表示只用通道8
+                "epochs": 1,  # 训练轮数
+                "channels": [0, 1, 2, 3, 4, 5, 6, 7, 8],#[8],#[0, 1, 2, 3, 4, 5, 6, 7, 8],  # 使用的通道列表，[8]表示只用通道8
                 "regen_freq": 20,  # NeuralHD重新生成频率
                 "regen_rate": 0.04,  # NeuralHD重新生成率
                 "model_path": "models/hdc_point_level.pth",  # 模型文件路径

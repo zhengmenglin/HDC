@@ -210,12 +210,20 @@ class HDCPointLevelEncoder(nn.Module):
         
         # 4. 绑定位置信息: [batch, window_size, out_features]
         # position_hvs: [window_size, out_features] -> [1, window_size, out_features]
-        pos_hvs = self.position_hvs.weight.unsqueeze(0)
-        final_bound = torchhd.bind(time_step_hvs, pos_hvs)
+        pos_hvs = self.position_hvs.weight.unsqueeze(0)#unsqueeze(0) 增加 batch 维度
+        final_bound = torchhd.bind(time_step_hvs, pos_hvs)#time_step_hvs: [batch, window_size, out_features] 
+        # pos_hvs: [1, window_size, out_features]
+        # final_bound: [batch, window_size, out_features]
         
         # 5. 聚合整个窗口: [batch, out_features]
         window_hv = torch.sum(final_bound, dim=1).as_subclass(torchhd.MAPTensor)
-        
+        #在这里计算归一化前后的相似度
+        window_hv_normalized = torchhd.normalize(window_hv)
+        # 计算每个样本的相似度并取平均值
+        sim_normalized_vs_original = torch.cosine_similarity(window_hv_normalized, window_hv)
+        avg_sim = sim_normalized_vs_original.mean().detach().cpu().item()
+        print(f"归一化与原始向量的平均余弦相似度: {avg_sim:.4f}")
+
         return torchhd.normalize(window_hv)
     
     def _validate_hypervectors(self):

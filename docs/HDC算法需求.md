@@ -738,3 +738,9 @@ def hamming_similarity(input: VSATensor, others: VSATensor) -> LongTensor:
 
 针对螺孔和螺孔裂纹的识别，可以把偏移20当作一个数据增强的值
 
+curl -fsSL https://openclaw.tos-cn-beijing.volces.com/setup.sh | bash -s -- \
+    --ark-coding-plan "true" \
+    --ark-model-id "deepseek-v3.2" \
+    --ark-api-key "ce75ef07-34cd-4c00-a63f-a2456a3756a6" \
+    --feishu-app-id "cli_a905599679f89cee" \
+    --feishu-app-secret "aWZJ3ZNryaBCWpdg53Wc2cBi2yQjtkS2"

@@ -599,7 +599,7 @@ def run_unified_test():
         )
         
         results_by_file = {}
-        for idx, pred_row in enumerate(predictions):
+        for idx, pred_row in enumerate(predictions):# 遍历每个样本的预测结果
             info = ds.file_info[idx]
             file_name = Path(info['file']).name
             if file_name not in results_by_file:
@@ -609,7 +609,7 @@ def run_unified_test():
                 'pred_idx': idx
             })
 
-        for file_name, results in results_by_file.items():
+        for file_name, results in results_by_file.items():# 遍历每个文件的预测结果
             base_name = file_name.replace("_hdc.csv", "")
             hdc_file = data_dir / file_name
             label_file = data_dir / f"{base_name}_label.csv"
@@ -617,19 +617,19 @@ def run_unified_test():
             df_hdc = pd.read_csv(hdc_file)
             
             y_pred_matrix, y_normal_sim_matrix, y_max_defect_sim_matrix, y_class_sims_dict = \
-                process_prediction_results(
+                process_prediction_results(# 处理预测结果，生成预测矩阵和相似度矩阵
                     predictions, normal_sims, max_defect_sims, all_class_sims,
                     ds.file_info, df_hdc, CHANNELS
                 )
             
-            pred_csv_path = data_dir / f"{base_name}_predicted_label.csv"
-            save_prediction_csv(
+            pred_csv_path = data_dir / f"{base_name}_predicted_label.csv"# 预测结果的CSV文件路径
+            save_prediction_csv(# 保存预测结果到CSV文件
                 df_hdc, y_pred_matrix, y_normal_sim_matrix, y_max_defect_sim_matrix,
                 y_class_sims_dict, CHANNELS, pred_csv_path
             )
             
             original_json = None
-            for ext in ['.json', '.xxc.json']:
+            for ext in ['.json', '.xxc.json']:# 遍历可能的JSON文件扩展名
                 potential_json = data_dir / f"{base_name}{ext}"
                 if potential_json.exists():
                     original_json = potential_json
@@ -637,7 +637,7 @@ def run_unified_test():
             
             if original_json:
                 output_json = data_dir / f"{base_name}_predicted.json"
-                convert_predicted_csv_to_json(pred_csv_path, original_json, output_json, hdc_file, 
+                convert_predicted_csv_to_json(pred_csv_path, original_json, output_json, hdc_file, # 转换预测结果CSV为JSON文件
                                              channel_ids=CHANNELS)
 
             if calc_metrics and label_file.exists():
@@ -649,7 +649,7 @@ def run_unified_test():
                                         on='encoding', how='left').fillna(0)
                     y_true_matrix = df_merged[label_cols].values
                     
-                    metrics = calculate_metrics(y_true_matrix, y_pred_matrix)
+                    metrics = calculate_metrics(y_true_matrix, y_pred_matrix)# 计算分类指标
                     all_y_true.append(y_true_matrix)
                     all_y_pred.append(y_pred_matrix)
                     
@@ -658,7 +658,7 @@ def run_unified_test():
     if all_y_true:
         final_y_true = np.vstack(all_y_true)
         final_y_pred = np.vstack(all_y_pred)
-        total_metrics = calculate_metrics(final_y_true, final_y_pred)
+        total_metrics = calculate_metrics(final_y_true, final_y_pred)# 计算最终分类指标
         generate_report(total_metrics, MODEL_PATH, RESULTS_DIR, CHANNELS)
 
 
