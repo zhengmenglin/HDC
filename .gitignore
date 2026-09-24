@@ -47,10 +47,13 @@ venv.bak/
 Thumbs.db
 
 # Project specific
-data/
+
 output/
-*.csv
-*.json
+
+# 大型归档文件（不纳入版本控制）
+HDC.zip
+*.zip
+
 
 !config.json
 !requirements.txt
