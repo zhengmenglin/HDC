@@ -1,0 +1,2042 @@
+{
+  "annotations": [
+    {
+      "id": "1000",
+      "type": "结构",
+      "subtype": {
+        "name": "螺孔",
+        "id": "13"
+      },
+      "points": [
+        {
+          "e": 615,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 638,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 676,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 713,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 754,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 796,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 833,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 838,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 839,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 840,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 841,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 842,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 843,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 857,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 858,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 859,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 860,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 861,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 862,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 863,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 873,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 882,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 883,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 884,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 885,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 886,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 887,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 888,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 889,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 890,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 891,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 892,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 893,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 894,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 921,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 922,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 923,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 924,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 925,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 926,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 927,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 928,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 929,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 930,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 931,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 932,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 933,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 939,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 940,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 941,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 942,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 943,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 944,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 945,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 946,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 947,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 948,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 959,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 960,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 961,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 962,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 963,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 964,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 965,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 966,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 967,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 968,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 969,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 970,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 971,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 978,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 979,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 980,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 981,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 982,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 983,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 984,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 985,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 986,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 987,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 988,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 989,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 990,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 991,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 992,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 993,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 994,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 995,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1018,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1019,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1020,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1021,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1022,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1023,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1024,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1025,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1026,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1027,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1028,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1029,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1030,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1031,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1032,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1033,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1034,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1035,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1036,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1037,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1087,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1088,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1089,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1090,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1091,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1092,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1093,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1094,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1095,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1096,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1104,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1105,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1106,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1107,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1108,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1109,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1110,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1111,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1112,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1113,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1114,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1115,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1116,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1117,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1118,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1119,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1120,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1121,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1122,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1123,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1124,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1125,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1126,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1127,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1128,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1129,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1130,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1131,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1132,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1133,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1134,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1135,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1136,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1137,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1142,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1143,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1144,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1145,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1146,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1147,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1148,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1149,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1150,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1151,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1152,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1153,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1154,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1155,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1156,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1157,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1158,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1159,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1160,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1161,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1162,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1163,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1164,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1165,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1166,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1167,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1168,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1169,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1170,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1171,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1172,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1173,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1174,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1175,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1176,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1177,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1180,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1181,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1182,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1183,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1184,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1185,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1186,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1187,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1188,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1189,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1190,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1191,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1192,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1193,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1194,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1195,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1196,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1197,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1198,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1199,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1206,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1207,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1208,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1209,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1210,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1211,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1212,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1213,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1214,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1215,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1216,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1217,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1218,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1219,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1220,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1221,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1233,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1234,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1245,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1246,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1247,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1248,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1249,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1250,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1251,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1252,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1253,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1254,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1255,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1256,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1257,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1258,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1259,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1260,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1261,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1284,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1285,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1286,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1287,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1288,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1289,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1290,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1291,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1293,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1294,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1295,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1296,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1297,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1298,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1299,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1300,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 615,
+      "end_E": 1300,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-14T08:39:49.860709",
+      "source": "predicted"
+    },
+    {
+      "id": "1001",
+      "type": "伤损",
+      "subtype": {
+        "name": "螺孔裂纹",
+        "id": "11"
+      },
+      "points": [
+        {
+          "e": 1062,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1063,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1064,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1065,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1066,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1067,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1068,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1069,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1070,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1071,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1072,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1073,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1074,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1080,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1081,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1082,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1083,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1084,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1085,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1086,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1097,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1243,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1244,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1278,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1279,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1280,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1281,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1282,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1283,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1292,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1321,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1322,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1323,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1324,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1325,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1326,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1327,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1328,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1329,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1330,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1363,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1364,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1365,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1366,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1367,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1368,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1369,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1370,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1371,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1372,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1373,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1402,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1403,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1404,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1405,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1406,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1407,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1408,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1409,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1410,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1411,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1412,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1413,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1414,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1415,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1441,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1442,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1443,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1444,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1445,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1446,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1447,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1448,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1449,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        },
+        {
+          "e": 1450,
+          "channel": 8,
+          "depth": 0.0,
+          "amplitude": 100.0
+        }
+      ],
+      "start_E": 1062,
+      "end_E": 1450,
+      "channels": [
+        8
+      ],
+      "timestamp": "2026-02-14T08:39:49.860709",
+      "source": "predicted"
+    }
+  ]
+}
