@@ -64,3 +64,25 @@ HDC.zip
 
 # Logs
 *.log
+
+# ===== 大规模数据（禁止入库；63 万张图 ≈ 12GB）=====
+data/0646/
+data/0646.rar
+data/2223/
+data/png/
+data/shengyu/
+data/第三批/
+data/轨头伤损/
+data/核伤*/
+*.rar
+*.7z
+
+# ===== 运行产物 / 缓存 =====
+outputs/
+tools/_out/
+tools/_cache/
+.workbuddy-ai/
+
+# ===== 大体积二进制（安装包等）=====
+docs/*.exe
+docs/*.msi
