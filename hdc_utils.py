@@ -83,13 +83,27 @@ def clean_old_files(data_dirs, file_types="all"):
 
 
 def get_json_files(data_dir):
-    """获取目录下的原始 JSON 数据文件（排除标注文件）"""
+    """获取目录下的原始 JSON 数据文件（排除标注/派生文件）。
+
+    注意：*.json 也会匹配 *.xxc.json，旧实现会把同一个文件返回两次，
+    导致训练样本被重复计入（实测 1855 → 3710）。这里按绝对路径去重。
+    """
     if not data_dir.exists():
         return []
-    data_files = []
+    candidates = []
     for ext in ['*.json', '*.xxc.json']:
-        data_files.extend(data_dir.glob(ext))
-    return [f for f in data_files if '标注' not in f.name and not f.name.endswith('_predicted.json') and not f.name.endswith('_hdc.json')]
+        candidates.extend(data_dir.glob(ext))
+    out, seen = [], set()
+    for f in candidates:
+        key = f.resolve()
+        if key in seen:
+            continue
+        if ('标注' in f.name or f.name.endswith('_predicted.json')
+                or f.name.endswith('_hdc.json')):
+            continue
+        seen.add(key)
+        out.append(f)
+    return out
 
 
 def calculate_metrics(y_true, y_pred):
@@ -299,7 +313,7 @@ def get_channel_info(channels):
 
 
 def process_prediction_results(predictions, normal_sims, max_defect_sims, all_class_sims, 
-                                file_info, df_hdc, channels):
+                                file_info, df_hdc, channels, file_name=None):
     """
     处理预测结果，填充预测矩阵
     
@@ -333,6 +347,10 @@ def process_prediction_results(predictions, normal_sims, max_defect_sims, all_cl
     
     for idx, pred_row in enumerate(predictions):
         info = file_info[idx]
+        # 旧版用全局 predictions 填单文件矩阵：不同文件的 encoding 重叠时，
+        # 别的文件的预测会覆盖进来（跨文件串台）。这里按文件名过滤。
+        if file_name is not None and Path(info['file']).name != file_name:
+            continue
         if info['center_encoding'] in encoding_to_idx:
             matrix_idx = encoding_to_idx[info['center_encoding']]
             y_pred_matrix[matrix_idx] = pred_row
@@ -385,7 +403,8 @@ def save_prediction_csv(df_hdc, y_pred_matrix, y_normal_sim_matrix, y_max_defect
     pred_df.to_csv(output_path, index=False)
 
 
-def generate_report(total_metrics, model_path, results_dir, channels, timestamp=None):
+def generate_report(total_metrics, model_path, results_dir, channels, timestamp=None,
+                    split_name="训练集"):
     """
     生成评估报告
     
@@ -405,7 +424,7 @@ def generate_report(total_metrics, model_path, results_dir, channels, timestamp=
     channel_str = "通道8" if len(channels) == 1 and channels[0] == 8 else f"{len(channels)}通道"
     
     print("\n" + "="*40)
-    print(f"训练集汇总评估报告 ({channel_str})")
+    print(f"{split_name}汇总评估报告 ({channel_str})")
     print("="*40)
     print(f"总体精准率 (Precision): {total_metrics['precision']:.4f}")
     print(f"总体召回率 (Recall):    {total_metrics['recall']:.4f}")
@@ -417,10 +436,11 @@ def generate_report(total_metrics, model_path, results_dir, channels, timestamp=
     print("="*40)
     
     results_dir.mkdir(parents=True, exist_ok=True)
-    report_path = results_dir / f"hdc_train_report_{timestamp.strftime('%Y%m%d_%H%M%S')}.txt"
+    tag = "test" if split_name == "测试集" else "train"
+    report_path = results_dir / f"hdc_{tag}_report_{timestamp.strftime('%Y%m%d_%H%M%S')}.txt"
     
     with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(f"HDC 训练集评估报告 ({channel_str})\n")
+        f.write(f"HDC {split_name}评估报告 ({channel_str})\n")
         f.write(f"测试时间: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"模型路径: {model_path}\n")
         f.write("="*30 + "\n")

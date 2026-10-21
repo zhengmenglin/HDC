@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-HDC 点级分类算法方案实现
-根据 d:\HDC\docs\suanfaliucheng.md#L60-63 算法方案实现
-1. 窗长 128, 步长 1
-2. 中心行 (index 63) 标签作为窗口结果
-3. 9 通道独立模型方案
+HDC 点级分类算法实现（2026-10-21 修复版）
+
+设计要点（与旧版的差异都写在这里，改代码前先读）：
+1. 窗长 128，中心点 index 63 的 9 通道标签作为该窗口的监督信号；
+2. 每个通道独立一个 Centroid 分类器（不再共用 9 个固定槽位，支持通道子集）；
+3. 编码 = Level(值) ⊕ bind(Random(通道)) ⊕ bind(Random(位置)) → sum → normalize；
+4. **原型用有监督类均值累加**，不再依赖 Centroid 的零初始化 + add_online——
+   后者在“全预测为 0 且标签也是 0”时会自锁，原型永远为零（旧版 P=R=F1=0 的根因之一）；
+5. **相似度判据用训练集标定的 z-score**，不再用裸 cosine margin——
+   旧版 normal_sim≈0.918 / max_defect≈0.184 时，`md > ns + margin` 恒假；
+6. 输入默认做“窗内 z-score”再量化到 Level：
+   超声信号有很强的公共分量（尤其通道 8 底波），直接量化会让所有窗口的 HV 几乎相同；
+   窗内标准化把“相对起伏”放大，是让编码可分的最小改动。
 """
 
-import sys
 import os
-import pandas as pd
+import sys
+
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.utils.data as data
@@ -19,54 +28,65 @@ from pathlib import Path
 from tqdm import tqdm
 
 # 添加 torchhd 库路径
-sys.path.append(os.path.join(os.path.dirname(__file__), 'torchhd'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "torchhd"))
 import torchhd
 from torchhd import embeddings
 from torchhd.models import Centroid
-from torchhd.classifiers import OnlineHD
-from torchhd import functional as F
 
-# 配置参数
+# ---------------- 配置参数 ----------------
 DIMENSIONS = 8192
-NUM_LEVELS = 256
+NUM_LEVELS = 64          # 旧版 256 超出 8192 维的分辨力（经验 ~O(√D)≈90）；64 留安全余量
 WINDOW_SIZE = 128
 CENTER_IDX = 63
 NUM_CHANNELS = 9
-NUM_TYPES = 20  # 0-19
-TOTAL_CLASSES = NUM_TYPES * NUM_CHANNELS  # 180 类别方案
+NUM_TYPES = 20           # 0-19
+TOTAL_CLASSES = NUM_TYPES * NUM_CHANNELS  # 兼容旧引用
+
+INPUT_MODE = os.environ.get("HDC_INPUT_MODE", "window_z")  # raw | window_z
+CLIP_Z = 3.0             # 窗内 z-score 的截断范围，映射到 [0, NUM_LEVELS-1]
+VERBOSE = os.environ.get("HDC_VERBOSE", "0") == "1"
+
+
+def _log(msg):
+    if VERBOSE:
+        print(msg)
+
 
 class HDCPointLevelDataset(data.Dataset):
+    """点级分类数据集：滑动窗口，中心行标签作为监督。
+
+    与旧版的区别：支持 channels 子集，标签文件按 CSV 所在目录查找
+    （旧版固定用 data_dir，指定外部文件时会静默读不到标签）。
     """
-    点级分类 HDC 数据集类
-    支持 9 模型方案：每个窗口样本对应中心行 (index 127) 的 9 个通道标签
-    """
-    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1, files=None, target_encoding=None):
+
+    def __init__(self, data_dir, is_train=True, window_size=WINDOW_SIZE, step=1,
+                 files=None, target_encoding=None, channels=None, seed=42):
         self.data_dir = Path(data_dir)
         self.is_train = is_train
         self.window_size = window_size
         self.step = step
         self.samples = []
         self.labels = []
-        self.file_info = [] # 存储样本对应的原始信息，用于还原
-        self.specified_files = files # 可选：指定要加载的文件列表
-        self.target_encoding = target_encoding # 目标点的编码值，用于过滤样本
+        self.file_info = []
+        self.specified_files = files
+        self.target_encoding = target_encoding
+        self.channel_ids = list(channels) if channels is not None else list(range(NUM_CHANNELS))
+        self.channel_cols = [f"channel_{c}" for c in self.channel_ids]
+        self.label_cols = [f"label_{c}" for c in self.channel_ids]
+        self.seed = seed
         self._load_data()
 
     def _load_data(self):
-        """
-        加载 CSV 数据并生成滑动窗口样本。
-        """
         if self.specified_files is not None:
             csv_files = [Path(f) for f in self.specified_files]
         else:
-            csv_files = list(self.data_dir.glob("*_hdc.csv"))
-            
+            csv_files = sorted(self.data_dir.glob("*_hdc.csv"))
+
         if not csv_files:
             print(f"警告: 在 {self.data_dir} 未找到 *_hdc.csv 文件")
             return
 
         for csv_file in csv_files:
-            # 1. 读取特征数据 (1_hdc.csv)
             try:
                 df = pd.read_csv(csv_file)
             except Exception as e:
@@ -74,89 +94,65 @@ class HDCPointLevelDataset(data.Dataset):
                 continue
 
             base_name = csv_file.name.replace("_hdc.csv", "")
-            
-            # 2. 读取标签数据 (1_label.csv)
-            label_file = self.data_dir / f"{base_name}_label.csv"
+            # 标签必须跟着 CSV 走，而不是跟着 data_dir 走
+            label_file = csv_file.parent / f"{base_name}_label.csv"
             if label_file.exists():
                 try:
                     label_df = pd.read_csv(label_file)
-                    # 确保标签列存在
-                    if all(f'label_{i}' in label_df.columns for i in range(NUM_CHANNELS)):
-                        # 按照 encoding 合并特征和标签
-                        df = pd.merge(df, label_df, on='encoding', how='left').fillna(0)
-                    else:
-                        # 如果标签文件格式不对，填充 0
-                        for i in range(NUM_CHANNELS):
-                            df[f'label_{i}'] = 0
+                    merge_cols = ["encoding"] + [c for c in self.label_cols if c in label_df.columns]
+                    if len(merge_cols) > 1:
+                        df = pd.merge(df, label_df[merge_cols], on="encoding", how="left").fillna(0)
+                    for c in self.label_cols:
+                        if c not in df.columns:
+                            df[c] = 0
                 except Exception as e:
                     print(f"读取或合并标签文件 {label_file} 失败: {e}")
-                    # 回退到全 0 标签
-                    for i in range(NUM_CHANNELS):
-                        df[f'label_{i}'] = 0
+                    for c in self.label_cols:
+                        df[c] = 0
             else:
-                # 如果没有标签文件，所有通道标签设为 0（正常）
-                for i in range(NUM_CHANNELS):
-                    df[f'label_{i}'] = 0
-            
-            # 3. 确保所有必要的列都存在
-            channel_cols = [f'channel_{i}' for i in range(NUM_CHANNELS)]
-            label_cols = [f'label_{i}' for i in range(NUM_CHANNELS)]
-            
-            if not all(col in df.columns for col in channel_cols):
-                print(f"文件 {csv_file.name} 缺少必要的通道列，已跳过")
+                for c in self.label_cols:
+                    df[c] = 0
+
+            if not all(col in df.columns for col in self.channel_cols):
+                print(f"文件 {csv_file.name} 缺少通道列 {self.channel_cols}，已跳过")
                 continue
-            
-            if not all(col in df.columns for col in label_cols):
-                # 这种情况不应该发生，因为上面已经做了填充，但为了安全再次检查
-                for col in label_cols:
-                    if col not in df.columns:
-                        df[col] = 0
-            
-            # 按照编码值排序，确保时序/空间连续性
-            df = df.sort_values(by='encoding')
 
-            channel_data = df[channel_cols].values.astype(np.float32)
-            label_data = df[label_cols].values.astype(np.int64)
-            encodings = df['encoding'].values
+            df = df.sort_values(by="encoding")
+            channel_data = df[self.channel_cols].values.astype(np.float32)
+            label_data = df[self.label_cols].values.astype(np.int64)
+            encodings = df["encoding"].values
 
-            # 4. 滑动窗口采样
             if len(df) < self.window_size:
                 print(f"跳过文件 {csv_file.name}: 数据行数 ({len(df)}) 小于窗口大小 ({self.window_size})")
                 continue
 
-            # 步长为 1，确保每个点都能作为中心点被预测
             for start in range(0, len(df) - self.window_size + 1, self.step):
                 end = start + self.window_size
                 window_x = channel_data[start:end]
-                
-                # 获取中心行的 9 个通道标签 (index 63)
                 center_labels = label_data[start + CENTER_IDX]
                 center_encoding = encodings[start + CENTER_IDX]
-                
-                # 如果指定了目标编码，只保留包含目标编码的窗口
+
                 if self.target_encoding is not None and center_encoding != self.target_encoding:
                     continue
-                
+
                 self.samples.append(window_x)
                 self.labels.append(center_labels)
-                
-                # 无论是否是训练模式，都记录 file_info，但只有在非训练模式下才会用到它进行结果还原
-                # 这样可以简化逻辑并避免潜在的索引不匹配问题
                 self.file_info.append({
-                    'file': str(csv_file),
-                    'center_encoding': center_encoding,
-                    'start': start
+                    "file": str(csv_file),
+                    "center_encoding": center_encoding,
+                    "start": start,
                 })
-        
-        # 如果是训练模式，同步打乱样本和文件信息
-        if self.is_train:
+
+        if self.is_train and self.samples:
+            # 固定种子，避免每次训练样本顺序不同导致结果漂移
             import random
+            rng = random.Random(self.seed)
             combined = list(zip(self.samples, self.labels, self.file_info))
-            random.shuffle(combined)
-            if combined:
-                self.samples[:], self.labels[:], self.file_info[:] = zip(*combined)
-        
-        print(f"数据集加载完成: {len(self.samples)} 个样本")
+            rng.shuffle(combined)
+            self.samples, self.labels, self.file_info = map(list, zip(*combined))
+
+        print(f"数据集加载完成: {len(self.samples)} 个样本 "
+              f"({len(self.channel_ids)} 通道: {self.channel_ids})")
 
     def __len__(self):
         return len(self.samples)
@@ -164,471 +160,493 @@ class HDCPointLevelDataset(data.Dataset):
     def __getitem__(self, idx):
         return torch.from_numpy(self.samples[idx]), torch.from_numpy(self.labels[idx])
 
+
 class HDCPointLevelEncoder(nn.Module):
-    """
-    点级超维编码器
-    实现：位置编码(Permutation) + 通道编码(Binding) + 数值编码(Level)
-    """
-    def __init__(self, out_features, window_size):
-        super(HDCPointLevelEncoder, self).__init__()
+    """点级超维编码器：Level(值) ⊕ bind(通道) ⊕ bind(位置) → sum → normalize。"""
+
+    def __init__(self, out_features, window_size, num_channels=NUM_CHANNELS,
+                 num_levels=NUM_LEVELS, input_mode=INPUT_MODE, clip_z=CLIP_Z):
+        super().__init__()
         self.out_features = out_features
         self.window_size = window_size
-        
-        # 通道超向量 (9个)
-        self.channel_hvs = embeddings.Random(NUM_CHANNELS, out_features)
-        # 数值超向量 (256个级别)
-        self.value_hvs = embeddings.Level(NUM_LEVELS, out_features, high=256)
-        # 位置超向量 (用于绑定)
+        self.num_channels = num_channels
+        self.num_levels = num_levels
+        self.input_mode = input_mode
+        self.clip_z = clip_z
+        # 按位置分块编码：整窗一次物化 [B,128,C,8192] 在 CUDA batch=128 时
+        # 要 4.5GB/张量，必然 OOM；分块后峰值降到 ~1/16。
+        self.chunk_size = 8
+
+        self.channel_hvs = embeddings.Random(num_channels, out_features)
+        # Level 的 high 用 num_levels，输入按下标 0..num_levels-1 取级
+        self.value_hvs = embeddings.Level(num_levels, out_features, high=num_levels)
         self.position_hvs = embeddings.Random(window_size, out_features)
-        
-        # 验证超向量相似度
-        self._validate_hypervectors()
 
-    def forward(self, x):
-        """
-        前向传播编码逻辑 (向量化加速版)：
-        1. 一次性生成所有数值编码 [batch, window_size, channels, DIM]
-        2. 批量绑定通道信息
-        3. 聚合通道与位置信息
-        """
-        # x: [batch, window_size, channels]
-        batch_size = x.size(0)
-        
-        # 1. 数值编码: [batch, window_size, channels, out_features]
-        # x 形状为 [batch, 128, 9], 映射后约为 72MB (batch=8)，CPU 内存完全可承受
-        val_hvs = self.value_hvs(x.long()) 
-        
-        # 2. 绑定通道信息: [batch, window_size, channels, out_features]
-        # channel_hvs: [channels, out_features] -> [1, 1, channels, out_features]
-        ch_id_hvs = self.channel_hvs.weight.view(1, 1, NUM_CHANNELS, -1)
-        bound_ch = torchhd.bind(val_hvs, ch_id_hvs)
-        
-        # 3. 聚合通道信息 (Bundling): [batch, window_size, out_features]
-        # 对 channels 维度进行求和聚合
-        # torchhd.multiset 只支持 dim=-2，这里我们手动求和并保持子类
-        time_step_hvs = torch.sum(bound_ch, dim=2).as_subclass(torchhd.MAPTensor)
-        
-        # 4. 绑定位置信息: [batch, window_size, out_features]
-        # position_hvs: [window_size, out_features] -> [1, window_size, out_features]
-        pos_hvs = self.position_hvs.weight.unsqueeze(0)#unsqueeze(0) 增加 batch 维度
-        final_bound = torchhd.bind(time_step_hvs, pos_hvs)#time_step_hvs: [batch, window_size, out_features] 
-        # pos_hvs: [1, window_size, out_features]
-        # final_bound: [batch, window_size, out_features]
-        
-        # 5. 聚合整个窗口: [batch, out_features]
-        window_hv = torch.sum(final_bound, dim=1).as_subclass(torchhd.MAPTensor)
-        #在这里计算归一化前后的相似度
-        window_hv_normalized = torchhd.normalize(window_hv)
-        # 计算每个样本的相似度并取平均值
-        sim_normalized_vs_original = torch.cosine_similarity(window_hv_normalized, window_hv)
-        avg_sim = sim_normalized_vs_original.mean().detach().cpu().item()
-        print(f"归一化与原始向量的平均余弦相似度: {avg_sim:.4f}")
+        if VERBOSE:
+            self._validate_hypervectors()
 
+    def _to_level_index(self, x):
+        """把原始幅值映射到 [0, num_levels-1]。
+
+        window_z：每个窗口、每个通道各自标准化。目的不是“提特征”，
+        而是去掉窗口内的直流/公共分量——否则 128 个位置绑定后，
+        所有样本的 HV 都指向同一方向（旧版 normal_sim≈0.918 的来源）。
+        """
+        if self.input_mode == "raw":
+            return x.round().long().clamp_(0, self.num_levels - 1)
+
+        mu = x.mean(dim=1, keepdim=True)
+        sd = x.std(dim=1, keepdim=True, unbiased=False).clamp_min(1e-3)
+        z = (x - mu) / sd
+        z = z.clamp(-self.clip_z, self.clip_z)
+        idx = ((z + self.clip_z) / (2.0 * self.clip_z) * (self.num_levels - 1)).round().long()
+        return idx.clamp_(0, self.num_levels - 1)
+
+    def forward(self, x, per_channel=False):
+        """编码一个窗口。
+
+        per_channel=True 返回 [B, C, D]：每个通道自己的窗口 HV。
+        这是“9 通道独立建模”的关键——旧版把所有通道 sum 成一个 HV，
+        再让 9 个分类器共用，通道越多彼此稀释越严重（实测 9 通道 F1 从
+        0.58 掉到 0.24）。per_channel=False 仅保留给旧的单 HV 调用。
+        """
+        idx = self._to_level_index(x)
+        B, W, C = idx.shape
+        ch_id_hvs = self.channel_hvs.weight.view(1, 1, self.num_channels, -1)
+
+        acc = None
+        for t0 in range(0, W, self.chunk_size):
+            t1 = min(W, t0 + self.chunk_size)
+            val_hvs = self.value_hvs(idx[:, t0:t1, :])          # [B, chunk, C, D]
+            bound = torchhd.bind(val_hvs, ch_id_hvs)            # 绑通道
+            pos_hvs = self.position_hvs.weight[t0:t1].view(1, t1 - t0, 1, -1)
+            bound = torchhd.bind(bound, pos_hvs)                # 绑位置
+            step = torch.sum(bound, dim=1)                      # [B, C, D]
+            acc = step if acc is None else acc + step
+
+        per = torchhd.normalize(acc.as_subclass(torchhd.MAPTensor))  # [B, C, D]
+        if per_channel:
+            return per
+
+        window_hv = torch.sum(per, dim=1).as_subclass(torchhd.MAPTensor)
         return torchhd.normalize(window_hv)
-    
+
     def _validate_hypervectors(self):
-        """验证超向量相似度分布"""
-        import torch
-        
         print("\n[HDC] 验证超向量相似度分布...")
-        
-        # 验证通道超向量
-        channel_hvs = self.channel_hvs.weight
-        self._check_similarity(channel_hvs, "通道")
-        
-        # 验证位置超向量
-        position_hvs = self.position_hvs.weight
-        self._check_similarity(position_hvs, "位置")
-        
-        # 验证数值超向量
+        self._check_similarity(self.channel_hvs.weight, "通道")
+        self._check_similarity(self.position_hvs.weight, "位置")
         try:
-            value_hvs = self.value_hvs.weight
-            self._check_level_similarity(value_hvs, "数值")
+            self._check_level_similarity(self.value_hvs.weight, "数值")
         except AttributeError:
             print("[INFO] 数值超向量使用 Level 编码，无需验证相似度")
-    
-    def _check_similarity(self, hvs, name):
-        """检查超向量相似度统计"""
-        import torch
-        
+
+    @staticmethod
+    def _check_similarity(hvs, name):
         norm_hvs = torch.nn.functional.normalize(hvs, dim=1)
         sim_matrix = torch.matmul(norm_hvs, norm_hvs.t())
-        
-        triu_sim = torch.triu(sim_matrix, diagonal=1)
-        non_zero_sim = triu_sim[triu_sim > 0]
-        
-        if len(non_zero_sim) > 0:
-            mean_sim = non_zero_sim.mean().item()
-            max_sim = non_zero_sim.max().item()
-            min_sim = non_zero_sim.min().item()
-            std_sim = non_zero_sim.std().item()
-            
-            print(f"{name} 超向量相似度统计:")
-            print(f"  平均相似度: {mean_sim:.4f}")
-            print(f"  最大相似度: {max_sim:.4f}")
-            print(f"  最小相似度: {min_sim:.4f}")
-            print(f"  标准差: {std_sim:.4f}")
-            
-            if max_sim > 0.2:
-                print(f"  [警告] {name} 超向量最大相似度较高，可能影响编码效果")
-        else:
-            print(f"{name} 超向量无有效相似度数据")
-    
-    def _check_level_similarity(self, hvs, name):
-        """检查 Level 编码的相似度特性"""
-        import torch
-        
-        print(f"{name} 超向量 (Level 编码) 相似度分析:")
-        
+        triu = torch.triu(sim_matrix, diagonal=1)
+        vals = triu[triu > 0]
+        if len(vals):
+            print(f"{name} 超向量相似度: mean={vals.mean():.4f} max={vals.max():.4f} "
+                  f"min={vals.min():.4f} std={vals.std():.4f}")
+
+    @staticmethod
+    def _check_level_similarity(hvs, name):
         norm_hvs = torch.nn.functional.normalize(hvs, dim=1)
         sim_matrix = torch.matmul(norm_hvs, norm_hvs.t())
-        
-        # 1. 相邻级别相似度
-        adjacent_sims = []
-        for i in range(len(hvs) - 1):
-            sim = sim_matrix[i, i+1].item()
-            adjacent_sims.append(sim)
-        
-        if adjacent_sims:
-            avg_adjacent = sum(adjacent_sims) / len(adjacent_sims)
-            print(f"  相邻级别平均相似度: {avg_adjacent:.4f}")
-            if 0.7 <= avg_adjacent <= 0.9:
-                print(f"  ✅ 相邻级别相似度在预期范围内 (0.7-0.9)")
-            else:
-                print(f"  ⚠️  相邻级别相似度可能异常")
-        
-        # 2. 间隔级别相似度
-        interval_sims = []
-        max_interval = min(5, len(hvs) // 2)
-        for interval in range(2, max_interval + 1):
-            sims = []
-            for i in range(len(hvs) - interval):
-                sim = sim_matrix[i, i+interval].item()
-                sims.append(sim)
-            if sims:
-                avg_sim = sum(sims) / len(sims)
-                interval_sims.append(avg_sim)
-                print(f"  间隔 {interval} 级别平均相似度: {avg_sim:.4f}")
-        
-        if len(interval_sims) >= 2:
-            decreasing = all(interval_sims[i] >= interval_sims[i+1] for i in range(len(interval_sims) - 1))
-            if decreasing:
-                print(f"  ✅ 间隔级别相似度递减")
-            else:
-                print(f"  ⚠️  间隔级别相似度未递减")
-        
-        # 3. 最远级别相似度
+        adj = [sim_matrix[i, i + 1].item() for i in range(len(hvs) - 1)]
+        if adj:
+            print(f"{name} Level 相邻相似度: {sum(adj) / len(adj):.4f}")
         if len(hvs) >= 10:
-            farthest_sim = sim_matrix[0, -1].item()
-            print(f"  最远级别相似度: {farthest_sim:.4f}")
-            if 0.1 <= farthest_sim <= 0.3:
-                print(f"  ✅ 最远级别相似度在预期范围内 (0.1-0.3)")
-            else:
-                print(f"  ⚠️  最远级别相似度可能异常")
+            print(f"{name} Level 最远相似度: {sim_matrix[0, -1].item():.4f}")
+
 
 class HDCPointLevelModel:
+    """9 通道（或通道子集）独立的 HDC 分类器。
+
+    原型保存的是“类内样本 HV 之和”，不是均值；cosine 对尺度不变，
+    这样增量训练可以直接累加，不需要反解均值。
     """
-    HDC 点级分类模型管理类 (9 模型方案)
-    每个通道拥有独立的分类器 (OnlineHD)
-    """
-    def __init__(self, dimensions=DIMENSIONS, device='cpu'):
+
+    def __init__(self, dimensions=DIMENSIONS, device="cpu", channels=None,
+                 num_levels=NUM_LEVELS, input_mode=INPUT_MODE, z_threshold=2.75):
         self.dimensions = dimensions
         self.device = device
+        self.channels = list(channels) if channels is not None else list(range(NUM_CHANNELS))
+        self.num_channels = len(self.channels)
+        self.num_levels = num_levels
+        self.input_mode = input_mode
+        self.z_threshold = z_threshold
+        self.window_size = WINDOW_SIZE
         self.encoder = None
-        # 使用 OnlineHD 模型，每个通道一个模型
-        self.models = nn.ModuleList([Centroid(dimensions, NUM_TYPES) for _ in range(NUM_CHANNELS)]).to(device)
+        self.models = nn.ModuleList([Centroid(dimensions, NUM_TYPES) for _ in self.channels]).to(device)
+        # 类计数用于增量训练/诊断；CPU float64，避免长期累加误差
+        self.class_counts = torch.zeros(self.num_channels, NUM_TYPES, dtype=torch.float64)
+        self.score_stats = None  # [num_channels, 2]：(mu, sigma) of (max_defect_sim - normal_sim)
 
-    def train_with_ridge(self, train_loader, alpha=1.0):
-        """
-        使用岭回归学习方式训练模型
-        alpha: 正则化参数，默认为1.0
-        """
-        print(f"开始训练点级 HDC 模型 (9通道独立模型, 岭回归学习方式, alpha={alpha})...")
-        # 初始化编码器
+    # ---------------- 编码器 ----------------
+    def _create_encoder(self, sample_shape):
+        """旧版缺失的方法（test_hdc_unified.py:348/486 调用）——补上。"""
+        window_size = int(sample_shape[0])
+        return HDCPointLevelEncoder(
+            self.dimensions, window_size,
+            num_channels=self.num_channels,
+            num_levels=self.num_levels,
+            input_mode=self.input_mode,
+        ).to(self.device)
+
+    def _ensure_encoder(self, loader):
+        if self.encoder is not None:
+            return True
         try:
-            first_batch = next(iter(train_loader))
-            sample_shape = first_batch[0].shape[1:] # [window_size, channels]
-            if self.encoder is None:
-                self.encoder = HDCPointLevelEncoder(self.dimensions, sample_shape[0]).to(self.device)
+            samples, _ = next(iter(loader))
         except StopIteration:
-            print("训练集为空，无法训练")
+            print("训练集为空，无法初始化编码器")
+            return False
+        self.window_size = int(samples.shape[1])
+        self.encoder = self._create_encoder(samples.shape[1:])
+        return True
+
+    def _cosine_scores(self, hv, ch_idx):
+        """手工计算余弦相似度。
+
+        不用 Centroid.forward 的原因：没有正样本的类原型是零向量，
+        torchhd 会走 0/0 并打 "norm nearly zero" 警告；这里把零向量
+        的分数定义为 0，既无警告也不会污染 argmax。
+        """
+        w = self.models[ch_idx].weight.detach().float()
+        h = hv.detach().float()
+        wn = w.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        hn = h.norm(dim=1, keepdim=True).clamp_min(1e-12)
+        return torch.matmul(h, (w / wn).t()) / hn
+
+    def defect_mask(self):
+        """哪些通道在训练集里见过伤损类（class 1..19）。"""
+        return (self.class_counts[:, 1:].sum(dim=1) > 0)
+
+    # ---------------- 训练 ----------------
+    def fit_centroids(self, train_loader, reset=True):
+        """有监督类均值累加：一次遍历即可，不会出现零原型死锁。
+
+        reset=False 时在现有原型上累加（增量学习）；class_counts 同步累加。
+        """
+        if not self._ensure_encoder(train_loader):
             return
+        if reset:
+            for m in self.models:
+                m.weight.zero_()
+            self.class_counts.zero_()
+        # class_counts 固定放 CPU：它只做计数，避免 map_location=cuda 把它搬走后
+        # 与 torch.bincount 的 CPU 结果设备不一致。
+        self.class_counts = self.class_counts.cpu()
 
-        # 收集所有训练数据
-        all_hv = []
-        all_targets = []
-        
-        self.encoder.eval()
-        with torch.no_grad():
-            with tqdm(train_loader, desc="收集训练数据") as pbar:
-                for samples, targets in pbar:
-                    samples = samples.to(self.device)
-                    targets = targets.to(self.device) # [batch, 9]
-                    
-                    hv = self.encoder(samples) # [batch, dim]
-                    all_hv.append(hv)
-                    all_targets.append(targets)
-        
-        # 合并所有数据
-        all_hv = torch.cat(all_hv, dim=0)
-        all_targets = torch.cat(all_targets, dim=0)
-        
-        # 对每个通道分别执行岭回归学习
-        for ch in range(NUM_CHANNELS):
-            ch_targets = all_targets[:, ch]
-            
-            # 转换为one-hot编码
-            one_hot = torch.zeros(len(ch_targets), NUM_TYPES, device=self.device)
-            one_hot[torch.arange(len(ch_targets)), ch_targets] = 1
-            
-            # 使用岭回归计算权重
-            weights = F.ridge_regression(all_hv, one_hot, alpha=alpha)
-            
-            # 更新模型权重
-            self.models[ch].weight.copy_(weights)
-        
-        # 所有通道结束后进行归一化，以便后续推理进行相似度计算
-        for ch in range(NUM_CHANNELS):
-            self.models[ch].normalize()
-                
-        print("岭回归训练完成。")
-
-    def train(self, train_loader, epochs=10, lr=0.1, method="onlinehd", alpha=1.0):
-        """
-        训练模型
-        method: 学习方式，可选 "onlinehd" 或 "ridge"
-        epochs: 迭代轮数 (仅用于 onlinehd)
-        lr: 学习率 (仅用于 onlinehd)
-        alpha: 正则化参数 (仅用于 ridge)
-        """
-        if method == "ridge":
-            self.train_with_ridge(train_loader, alpha=alpha)
-        else:
-            # 使用 OnlineHD 学习方式
-            print(f"开始训练点级 HDC 模型 (9通道独立模型, Epochs={epochs}, OnlineHD 学习方式)...")
-            # 初始化编码器
-            try:
-                first_batch = next(iter(train_loader))
-                sample_shape = first_batch[0].shape[1:] # [window_size, channels]
-                if self.encoder is None:
-                    self.encoder = HDCPointLevelEncoder(self.dimensions, sample_shape[0]).to(self.device)
-            except StopIteration:
-                print("训练集为空，无法训练")
-                return
-
-            for epoch in range(epochs):
-                self.encoder.eval()
-                for m in self.models:
-                    m.eval()
-
-                with tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}") as pbar:
-                    for samples, targets in pbar:
-                        samples = samples.to(self.device)
-                        targets = targets.to(self.device) # [batch, 9]
-                        
-                        with torch.no_grad():
-                            hv = self.encoder(samples) # [batch, dim]
-                        
-                        # 为每个通道的模型进行 OnlineHD 训练
-                        for ch in range(NUM_CHANNELS):
-                            ch_targets = targets[:, ch]
-                            # 使用 add_online 方法：只在预测错误时更新原型向量
-                            self.models[ch].add_online(hv, ch_targets, lr=lr)
-            
-            # 所有轮次结束后进行归一化，以便后续推理进行相似度计算
-            for ch in range(NUM_CHANNELS):
-                self.models[ch].normalize()
-                    
-            print("训练完成。")
-
-    def predict(self, test_loader, threshold=0.1, margin=0.02):
-        """
-        预测类别，引入 margin 逻辑提升 Precision
-        threshold: 最小相似度要求
-        margin: 伤损类相似度必须比正常类(索引0)高出多少才判定为伤损
-        返回: (predictions, normal_sims, max_defect_sims, all_class_sims)
-        """
-        print(f"开始预测 (9通道并行预测, Margin={margin})...")
-        if self.encoder is None:
-            print("错误: 编码器未初始化")
-            return [], [], [], []
-            
         self.encoder.eval()
         for m in self.models:
             m.eval()
-        
-        all_preds = []
-        all_normal_sims = []
-        all_max_defect_sims = []
-        all_class_sims = []  # 存储所有类别的相似度
-        
+
+        with torch.no_grad():
+            for samples, targets in tqdm(train_loader, desc="拟合类原型"):
+                samples = samples.to(self.device)
+                targets = targets.to(self.device).long()
+                hv = self.encoder(samples, per_channel=True)  # [B, C, D]
+                for i in range(self.num_channels):
+                    t = targets[:, i]
+                    self.models[i].weight.index_add_(0, t, hv[:, i])
+                    self.class_counts[i] += torch.bincount(
+                        t.detach().cpu(), minlength=NUM_TYPES).to(self.class_counts.dtype)
+
+        nonzero = int((self.class_counts > 0).sum().item())
+        print(f"类原型拟合完成：{nonzero}/{self.num_channels * NUM_TYPES} 个类非零")
+
+    def calibrate(self, loader):
+        """用训练集的正常样本标定每个通道的 (md - ns) 分布。
+
+        旧版用裸 cosine margin，在两类原型质量不对称时恒假；
+        这里把判据换成 z-score：伤损分数必须显著高于“正常样本的常规波动”。
+        """
+        if self.encoder is None:
+            return
+        diffs = [[] for _ in range(self.num_channels)]
+        self.encoder.eval()
+        for m in self.models:
+            m.eval()
+        with torch.no_grad():
+            for samples, targets in loader:
+                samples = samples.to(self.device)
+                targets = targets.to(self.device).long()
+                hv = self.encoder(samples, per_channel=True)
+                for i in range(self.num_channels):
+                    out = self._cosine_scores(hv[:, i], i)
+                    ns = out[:, 0]
+                    md = out[:, 1:].max(dim=1).values
+                    if not bool(self.defect_mask()[i]):
+                        md = torch.zeros_like(md)
+                    normal = targets[:, i] == 0
+                    if normal.any():
+                        diffs[i].append((md - ns)[normal].cpu())
+
+        stats = []
+        for i in range(self.num_channels):
+            if diffs[i]:
+                d = torch.cat(diffs[i]).double()
+                sd_raw = d.std(unbiased=False).item()
+                if len(d) >= 10 and sd_raw >= 1e-4:
+                    mu = d.mean().item()
+                    sd = sd_raw
+                else:
+                    # 分数几乎没有波动（典型：ridge 权重退化）⇒ 标定失效。
+                    # 退回 (0,1)，让 z≈原始分，避免 sigma→0 把噪声放大成海量虚警。
+                    mu, sd = 0.0, 1.0
+            else:
+                mu, sd = 0.0, 1.0
+            stats.append((mu, sd))
+        self.score_stats = torch.tensor(stats, dtype=torch.float32)
+        print("判据标定完成（每通道 mu/sigma）:")
+        for i, (mu, sd) in enumerate(stats):
+            print(f"  ch{self.channels[i]}: mu={mu:+.4f} sigma={sd:.4f}")
+
+    def train_with_ridge(self, train_loader, alpha=1.0, reset=True):
+        print(f"开始训练点级 HDC 模型（{self.num_channels} 通道，岭回归，alpha={alpha}）...")
+        if not self._ensure_encoder(train_loader):
+            return
+
+        all_hv, all_targets = [], []
+        self.encoder.eval()
+        with torch.no_grad():
+            for samples, targets in tqdm(train_loader, desc="收集训练数据"):
+                samples = samples.to(self.device)
+                hv = self.encoder(samples, per_channel=True)
+                all_hv.append(hv)
+                all_targets.append(targets.to(self.device))
+
+        all_hv = torch.cat(all_hv, dim=0)
+        all_targets = torch.cat(all_targets, dim=0)
+
+        # 岭回归不经过 fit_centroids，必须同步类计数，否则 defect_mask 全 False
+        # （所有通道都会被当成“没学过伤损”，预测恒为 0）。
+        self.class_counts.zero_()
+        for i in range(self.num_channels):
+            self.class_counts[i] += torch.bincount(
+                all_targets[:, i].long().detach().cpu(), minlength=NUM_TYPES).double()
+
+        for i in range(self.num_channels):
+            ch_targets = all_targets[:, i].long()
+            one_hot = torch.zeros(len(ch_targets), NUM_TYPES, device=self.device)
+            one_hot[torch.arange(len(ch_targets)), ch_targets] = 1
+
+            # 岭回归的对偶形式：样本数 n 通常远小于维度 d（这里是 232 vs 8192）。
+            # torchhd.functional.ridge_regression 走 d×d 的 pinv，GPU 上会卡死；
+            # 用 Woodbury 恒等式解 n×n 系统，等价且快几个数量级。
+            X = all_hv[:, i].float()
+            n, d = X.shape
+            if n <= d:
+                A = X @ X.t() + alpha * torch.eye(n, device=X.device)
+                W = X.t() @ torch.linalg.solve(A, one_hot)
+            else:
+                A = X.t() @ X + alpha * torch.eye(d, device=X.device)
+                W = torch.linalg.solve(A, X.t() @ one_hot)
+            self.models[i].weight.copy_(W.t())
+
+        self.calibrate(train_loader)
+        print("岭回归训练完成。")
+
+    def train(self, train_loader, epochs=1, lr=0.1, method="centroid", alpha=1.0, reset=True):
+        """训练入口。
+
+        method:
+          - centroid（默认）：有监督类均值，稳定、无死锁；
+          - onlinehd：先类均值，再用 OnlineHD 在训练集上做少量纠错；
+          - ridge：岭回归（保留旧能力）。
+        reset=False 用于增量学习：在已有原型上累加。
+        """
+        if method == "ridge":
+            self.train_with_ridge(train_loader, alpha=alpha, reset=reset)
+            return
+
+        self.fit_centroids(train_loader, reset=reset)
+
+        if method == "onlinehd" and epochs > 0:
+            print(f"OnlineHD 纠错：{epochs} 个 epoch，lr={lr}")
+            if not self._ensure_encoder(train_loader):
+                return
+            for m in self.models:
+                m.normalize()
+            self.encoder.eval()
+            for epoch in range(epochs):
+                for samples, targets in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}"):
+                    samples = samples.to(self.device)
+                    targets = targets.to(self.device).long()
+                    with torch.no_grad():
+                        hv = self.encoder(samples, per_channel=True)
+                        for i in range(self.num_channels):
+                            self.models[i].add_online(hv[:, i], targets[:, i], lr=lr)
+            for m in self.models:
+                m.normalize()
+
+        self.calibrate(train_loader)
+        print("训练完成。")
+
+    # ---------------- 推理 ----------------
+    def predict(self, test_loader, threshold=None, margin=None, z_threshold=None):
+        """返回 (predictions, normal_sims, max_defect_sims, all_class_sims)。
+
+        有 score_stats 时走 z-score 判据：z = (md - ns - mu) / sigma > z_threshold；
+        否则回退到旧版的 raw 判据（md > threshold 且 md > ns + margin），仅用于兼容。
+        """
+        if self.encoder is None:
+            print("错误: 编码器未初始化")
+            return [], [], [], []
+
+        self.encoder.eval()
+        for m in self.models:
+            m.eval()
+
+        all_preds, all_ns, all_md, all_sims = [], [], [], []
+        use_z = self.score_stats is not None
+        z_thr = self.z_threshold if z_threshold is None else z_threshold
+        print(f"开始预测（{self.num_channels} 通道，"
+              f"{'z-score 阈值=' + str(z_thr) if use_z else 'raw 判据'}）...")
+
         with torch.no_grad():
             for samples, _ in tqdm(test_loader, desc="预测中"):
                 samples = samples.to(self.device)
-                hv = self.encoder(samples) # [batch, dim]
-                
-                batch_preds = []
-                batch_normal_sims = []
-                batch_max_defect_sims = []
-                batch_class_sims = []  # 存储当前批次所有类别的相似度
-                
-                for ch in range(NUM_CHANNELS):
-                    # 获取所有类别的余弦相似度 (范围 -1 到 1)
-                    output = self.models[ch](hv) # dot=False, 计算余弦相似度
-                    
-                    # 获取正常类(0)的相似度
-                    normal_sim = output[:, 0]
-                    
-                    # 获取除正常类外最相似的伤损类
-                    defect_output = output[:, 1:] # 排除索引0
-                    max_defect_sim, defect_pred = torch.max(defect_output, dim=1)
-                    defect_pred = defect_pred + 1 # 还原索引
-                    
-                    # 判定逻辑：
-                    # 1. 伤损类相似度必须大于基础阈值
-                    # 2. 伤损类相似度必须显著高于正常类相似度 (Margin)
-                    is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
-                    
-                    final_pred = torch.zeros_like(normal_sim, dtype=torch.long)
-                    final_pred[is_defect] = defect_pred[is_defect]
-                    
-                    batch_preds.append(final_pred.unsqueeze(1))
-                    batch_normal_sims.append(normal_sim.unsqueeze(1))
-                    batch_max_defect_sims.append(max_defect_sim.unsqueeze(1))
-                    batch_class_sims.append(output.unsqueeze(1))  # 存储所有类别的相似度
-                
-                # 合并 9 个通道的结果
-                combined_pred = torch.cat(batch_preds, dim=1)
-                combined_normal_sim = torch.cat(batch_normal_sims, dim=1)
-                combined_max_defect_sim = torch.cat(batch_max_defect_sims, dim=1)
-                combined_class_sims = torch.cat(batch_class_sims, dim=1)  # 合并所有类别的相似度
-                
-                all_preds.append(combined_pred.cpu())
-                all_normal_sims.append(combined_normal_sim.cpu())
-                all_max_defect_sims.append(combined_max_defect_sim.cpu())
-                all_class_sims.append(combined_class_sims.cpu())  # 添加到总列表
-        
+                hv = self.encoder(samples, per_channel=True)
+
+                batch_preds, batch_ns, batch_md, batch_sims = [], [], [], []
+                dmask = self.defect_mask()
+                for i in range(self.num_channels):
+                    out = self._cosine_scores(hv[:, i], i)  # cosine similarity
+                    ns = out[:, 0]
+                    md, dp = out[:, 1:].max(dim=1)
+                    dp = dp + 1
+
+                    if not bool(dmask[i]):
+                        # 该通道训练集没有伤损样本：只学正常原型，不应报伤损
+                        is_defect = torch.zeros_like(ns, dtype=torch.bool)
+                    elif use_z:
+                        mu = self.score_stats[i, 0].to(out.device)
+                        sd = self.score_stats[i, 1].to(out.device)
+                        z = (md - ns - mu) / sd
+                        is_defect = z > z_thr
+                    else:
+                        t = 0.1 if threshold is None else threshold
+                        mg = 0.0 if margin is None else margin
+                        is_defect = (md > t) & (md > ns + mg)
+
+                    pred = torch.zeros_like(ns, dtype=torch.long)
+                    pred[is_defect] = dp[is_defect]
+
+                    batch_preds.append(pred.unsqueeze(1))
+                    batch_ns.append(ns.unsqueeze(1))
+                    batch_md.append(md.unsqueeze(1))
+                    batch_sims.append(out.unsqueeze(1))
+
+                all_preds.append(torch.cat(batch_preds, dim=1).cpu())
+                all_ns.append(torch.cat(batch_ns, dim=1).cpu())
+                all_md.append(torch.cat(batch_md, dim=1).cpu())
+                all_sims.append(torch.cat(batch_sims, dim=1).cpu())
+
         return (
-            torch.cat(all_preds, dim=0).numpy(), 
-            torch.cat(all_normal_sims, dim=0).numpy(), 
-            torch.cat(all_max_defect_sims, dim=0).numpy(),
-            torch.cat(all_class_sims, dim=0).numpy()  # 返回所有类别的相似度
+            torch.cat(all_preds, dim=0).numpy(),
+            torch.cat(all_ns, dim=0).numpy(),
+            torch.cat(all_md, dim=0).numpy(),
+            torch.cat(all_sims, dim=0).numpy(),
         )
 
+    # ---------------- 持久化 ----------------
     def save(self, path):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         state = {
-            'encoder': self.encoder.state_dict() if self.encoder else None,
-            'models': self.models.state_dict(),
-            'dimensions': self.dimensions
+            "version": 2,
+            "dimensions": self.dimensions,
+            "channels": self.channels,
+            "num_levels": self.num_levels,
+            "window_size": self.window_size,
+            "input_mode": self.input_mode,
+            "encoder": self.encoder.state_dict() if self.encoder else None,
+            "models": self.models.state_dict(),
+            "class_counts": self.class_counts,
+            "score_stats": self.score_stats,
         }
         torch.save(state, path)
         print(f"模型已保存至: {path}")
 
-    def load(self, path, window_size=WINDOW_SIZE):
-        # 使用 weights_only=False 以兼容自定义类 (如 torchhd 的 Tensor 类型)
+    def load(self, path, window_size=WINDOW_SIZE, **_ignored):
         try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+            ck = torch.load(path, map_location=self.device, weights_only=False)
         except TypeError:
-            # 兼容旧版本 PyTorch 不支持 weights_only 参数
-            checkpoint = torch.load(path, map_location=self.device)
-            
-        self.dimensions = checkpoint['dimensions']
-        if self.dimensions != DIMENSIONS:
-            print(f"[WARN] 模型维度不匹配 (模型: {self.dimensions}, 配置: {DIMENSIONS})，将重新初始化。")
-            self.dimensions = DIMENSIONS
-            self.encoder = HDCPointLevelEncoder(self.dimensions, window_size).to(self.device)
-            return
+            ck = torch.load(path, map_location=self.device)
 
-        self.encoder = HDCPointLevelEncoder(self.dimensions, window_size).to(self.device)
-        if checkpoint.get('encoder'):
-            self.encoder.load_state_dict(checkpoint['encoder'])
-        if 'models' in checkpoint:
-            self.models.load_state_dict(checkpoint['models'])
-        print(f"模型已从 {path} 加载。")
+        # v1 = 旧版（raw 输入 + 256 级 Level + 零初始化原型）。它的原型本身
+        # 就是坏的，且编码语义与当前 window_z/64 级不兼容；静默加载会得到
+        # “看似能跑、结果全错”的模型，必须明确拒绝。
+        if int(ck.get("version", 1)) < 2:
+            raise ValueError(
+                "旧版检查点（v1：raw 编码 / 256 级 / 零原型）与当前编码不兼容，"
+                "请用 --force-retrain 从零训练。"
+            )
+
+        self.dimensions = int(ck.get("dimensions", DIMENSIONS))
+        self.channels = list(ck.get("channels", list(range(NUM_CHANNELS))))
+        self.num_channels = len(self.channels)
+        self.num_levels = int(ck.get("num_levels", NUM_LEVELS))
+        self.window_size = int(ck.get("window_size", window_size))
+        self.input_mode = ck.get("input_mode", INPUT_MODE)
+
+        enc_state = ck.get("encoder")
+        if not enc_state:
+            raise ValueError(
+                "模型文件缺少 encoder（旧版只保存了原型）。"
+                "编码与原型必须同源，不能只加载原型——请用 --force-retrain 从零训练。"
+            )
+
+        self.encoder = self._create_encoder((self.window_size, self.num_channels))
+        self.encoder.load_state_dict(enc_state)
+
+        # 维度/通道数可能与当前配置不同，重建分类器
+        self.models = nn.ModuleList(
+            [Centroid(self.dimensions, NUM_TYPES) for _ in self.channels]).to(self.device)
+        self.models.load_state_dict(ck["models"])
+
+        cc = ck.get("class_counts")
+        if cc is not None and tuple(cc.shape) == (self.num_channels, NUM_TYPES):
+            self.class_counts = cc.double().cpu()
+        else:
+            self.class_counts = torch.zeros(self.num_channels, NUM_TYPES, dtype=torch.float64)
+
+        ss = ck.get("score_stats")
+        if ss is not None and tuple(ss.shape) == (self.num_channels, 2):
+            self.score_stats = ss.float().cpu()
+        else:
+            self.score_stats = None
+
+        print(f"模型已从 {path} 加载（{self.num_channels} 通道，D={self.dimensions}，"
+              f"levels={self.num_levels}，mode={self.input_mode}）")
+
 
 def main():
-    # 示例用法
+    """最小自检：训练 + 预测，供手工排障用。"""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # 路径配置
-    train_dir = r"d:\HDC\data\train"
-    test_dir = r"d:\HDC\data\test"
-    model_path = r"d:\HDC\models\hdc_point_level_9ch.pth"
-    
-    # 创建模型保存目录
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    
-    # 1. 训练
-    if os.path.exists(train_dir):
-        train_ds = HDCPointLevelDataset(train_dir, is_train=True)
-        if len(train_ds) > 0:
-            # 显存优化：减小 batch_size
-            train_ld = data.DataLoader(train_ds, batch_size=8, shuffle=True)
-            hdc_sys = HDCPointLevelModel(device=device)
-            hdc_sys.train(train_ld)
+    train_dir = Path(r"D:/HDC/data/train")
+    test_dir = Path(r"D:/HDC/data/test")
+    model_path = Path(r"D:/HDC/models/hdc_point_level_9ch.pth")
+
+    hdc_sys = HDCPointLevelModel(device=device)
+    if train_dir.exists():
+        ds = HDCPointLevelDataset(train_dir, is_train=True)
+        if len(ds):
+            ld = data.DataLoader(ds, batch_size=8, shuffle=True)
+            hdc_sys.train(ld, epochs=1, method="centroid")
             hdc_sys.save(model_path)
-        else:
-            print("训练集样本数为 0")
-    
-    # 2. 预测
-    if os.path.exists(test_dir):
-        test_ds = HDCPointLevelDataset(test_dir, is_train=False)
-        if len(test_ds) > 0:
-            # 显存优化：测试 Batch Size 也减小
-            test_ld = data.DataLoader(test_ds, batch_size=8, shuffle=False)
-            
-            hdc_sys = HDCPointLevelModel(device=device)
-            if os.path.exists(model_path):
-                hdc_sys.load(model_path)
-                predictions, normal_sims, max_defect_sims, all_class_sims = hdc_sys.predict(test_ld) # [N, 9]
-                
-                # 3. 处理预测结果并生成 1_predicted_label.csv
-                print("处理预测结果...")
-                file_results = {}
-                for idx, pred_row in enumerate(predictions):
-                    info = test_ds.file_info[idx]
-                    file_name = Path(info['file']).name
-                    if file_name not in file_results:
-                        file_results[file_name] = []
-                    
-                    file_results[file_name].append({
-                        'encoding': info['center_encoding'],
-                        'labels': pred_row, # 9 个通道的预测值
-                        'normal_sims': normal_sims[idx], # 9 个通道的正常类相似度
-                        'max_defect_sims': max_defect_sims[idx] # 9 个通道的最强伤损相似度
-                    })
-                    
-                for file_name, results in file_results.items():
-                    # 读取原始数据以获取所有 encoding
-                    df_orig = pd.read_csv(Path(test_dir) / file_name)
-                    pred_df = pd.DataFrame({'encoding': df_orig['encoding']})
-                    for i in range(NUM_CHANNELS):
-                        pred_df[f'predicted_label_{i}'] = 0
-                        pred_df[f'similarity_{i}'] = "0.0,0.0"
-                    
-                    # 填充预测值
-                    results_data = []
-                    for r in results:
-                        row = {'encoding': r['encoding']}
-                        for i in range(NUM_CHANNELS):
-                            row[f'predicted_label_{i}'] = r['labels'][i]
-                            # 格式化相似度为 "正常,伤损"
-                            sim_str = f"{r['normal_sims'][i]:.4f},{r['max_defect_sims'][i]:.4f}"
-                            row[f'similarity_{i}'] = sim_str
-                        results_data.append(row)
-                    
-                    results_df = pd.DataFrame(results_data)
-                    
-                    # 合并结果
-                    pred_df = pd.merge(pred_df[['encoding']], results_df, on='encoding', how='left').fillna(0)
-                    
-                    out_name = file_name.replace("_hdc.csv", "_predicted_label.csv")
-                    pred_df.to_csv(Path(test_dir) / out_name, index=False)
-                    print(f"预测结果已保存至: {out_name}")
-            else:
-                print(f"未找到模型文件: {model_path}")
-        else:
-            print("测试集样本数为 0")
+
+    if test_dir.exists() and model_path.exists():
+        ds = HDCPointLevelDataset(test_dir, is_train=False)
+        if len(ds):
+            ld = data.DataLoader(ds, batch_size=8, shuffle=False)
+            hdc_sys.load(model_path)
+            preds, ns, md, sims = hdc_sys.predict(ld)
+            print("预测完成:", preds.shape, ns.shape, md.shape, sims.shape)
+
 
 if __name__ == "__main__":
     main()

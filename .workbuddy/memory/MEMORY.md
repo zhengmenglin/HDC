@@ -27,6 +27,10 @@
 `docs/软件详细设计.md`（最权威）。
 
 ## HDC 现状（根因已定位，细节见 docs/算法原理图解与问题清单_20261012.md）
+✅ **2026-10-21 已修复**：pilot 留出录制 P/R/F1=0.620/0.481/0.542，AUC 0.92~0.99；
+训练集 F1=0.846。修复清单/复现见 `docs/HDC修复报告_20261021.md`。新默认
+centroid + window_z + 64 levels + z=2.75；v1 检查点会被明确拒绝，必须 `--force-retrain`。
+以下为历史根因（保留供理解）：
 2026-02-14 P=R=F1=0 / Total Pred=0。四层叠加：
 1) `_create_encoder` 全项目无定义 ⇒ 9 通道 + 已有 .pth 时 load 必崩（定时炸弹）；
 2) train 仅 1 文件、正样本只在通道 8（8 个点），通道 0-7 正样本=0；
@@ -36,7 +40,8 @@
 其他缺陷：首训 OnlineHD / load 用 NeuralHD；增量学习 learned_files 恒空；指标混算 train+test；
 `process_prediction_results` 用全局 predictions 填单文件矩阵（跨文件串台）；Level 256 挤在 1 span
 （相邻 cos 0.9961，超出 8192 维分辨力）；randomness 不是可用旋钮（r=1 悬崖崩）。
-`config.json` 不存在 ⇒ 默认 threshold=0 / margin=0 / channels=[0..8] / epochs=1 / onlinehd。
+`config.json` 不存在 ⇒ 默认 channels=[0..8] / epochs=1 / **centroid** / **64 levels** /
+**window_z** / **z=2.75**（旧的 threshold/margin 判据仅作兜底）。
 
 ## 关键数据事实
 BeamAngle ⇒ 通道 0-5=70°、6-7=37°、8=0°。channel_8 非零率 73.9%（底波连续），其余 2~4.3%。

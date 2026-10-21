@@ -23,14 +23,12 @@ from hdc_point_level_classifier import (
     HDCPointLevelModel, 
     WINDOW_SIZE, 
     NUM_TYPES, 
-    CENTER_IDX
+    CENTER_IDX,
+    NUM_LEVELS,
+    INPUT_MODE,
+    DIMENSIONS,
 )
-import torchhd
-from torchhd import functional as F
-from torchhd.models import Centroid
-from torchhd.classifiers import NeuralHD, OnlineHD
-from torchhd.embeddings import Random, Level
-import torch.nn.functional as F_pt
+# torchhd 由 hdc_point_level_classifier 统一导入（编码器/模型都在那里）
 from ultrasonic_data_converter import UltrasonicDataConverter
 from config import config
 from hdc_utils import (
@@ -61,6 +59,11 @@ REGEN_RATE = config.get("model.regen_rate", 0.04)
 TRAIN_STRATEGY = config.get("test.train_strategy", "damage_only")
 PREDICT_THRESHOLD = config.get("test.predict_threshold", 0)
 PREDICT_MARGIN = config.get("test.predict_margin", 0)
+# 新判据：训练集标定的 (md-ns) z-score 阈值；2.5 ≈ 正常波动之外 2.5σ（偏召回）
+Z_THRESHOLD = config.get("test.z_threshold", 2.75)
+NUM_LEVELS_CFG = config.get("model.num_levels", NUM_LEVELS)
+INPUT_MODE_CFG = config.get("model.input_mode", INPUT_MODE)
+DIMENSIONS_CFG = config.get("model.dimensions", DIMENSIONS)
 
 
 class HDCUnifiedDataset(HDCPointLevelDataset):
@@ -74,7 +77,8 @@ class HDCUnifiedDataset(HDCPointLevelDataset):
         self.channels = channels if channels is not None else CHANNELS
         self.num_channels = len(self.channels)
         self.is_single_channel = self.num_channels == 1
-        super().__init__(data_dir, is_train, window_size, step, files, target_encoding)
+        super().__init__(data_dir, is_train, window_size, step, files, target_encoding,
+                         channels=self.channels)
     
     def _load_data(self):
         if self.specified_files is not None:
@@ -161,7 +165,8 @@ class HDCUnifiedDataset(HDCPointLevelDataset):
             return None, None, None
 
         base_name = csv_file.name.replace("_hdc.csv", "")
-        label_file = self.data_dir / f"{base_name}_label.csv"
+        # 标签跟着 CSV 走；用 data_dir 会在“指定外部文件”时静默读不到标签
+        label_file = csv_file.parent / f"{base_name}_label.csv"
         
         if self.is_single_channel:
             ch = self.channels[0]
@@ -267,237 +272,70 @@ class HDCUnifiedDataset(HDCPointLevelDataset):
 
 
 class HDCUnifiedModel(HDCPointLevelModel):
+    """统一模型类：单通道/多通道都走父类的 Level 编码 + 类均值原型。
+
+    旧版单通道用 OnlineHD(Sinusoid)、多通道用 Level 编码，是两套算法，
+    指标不可比；现已统一。
     """
-    统一模型类，支持单通道和多通道模式
-    - 单通道模式：使用 NeuralHD/OnlineHD 单一分类器
-    - 全通道模式：使用父类的9个 Centroid 分类器
-    """
-    def __init__(self, device='cpu', channels=None):
-        super().__init__(device=device)
-        self.channels = channels if channels is not None else CHANNELS
-        self.num_channels = len(self.channels)
-        self.is_single_channel = self.num_channels == 1
-        self.single_model = None
-
-    def train(self, train_loader, epochs=5, lr=0.1, method="onlinehd", 
-              alpha=1.0, regen_freq=20, regen_rate=0.04):
-        if self.is_single_channel:
-            self._train_single_channel(train_loader, epochs, lr, method, regen_freq, regen_rate)
-        else:
-            if method == "ridge":
-                self._train_multi_channel_ridge(train_loader, alpha)
-            else:
-                super().train(train_loader, epochs=epochs, lr=lr)
-
-    def _train_single_channel(self, train_loader, epochs, lr, method, regen_freq, regen_rate):
-        try:
-            first_batch = next(iter(train_loader))
-            sample_shape = first_batch[0].shape[1:]
-            input_dim = sample_shape[0] * sample_shape[1]
-            
-            if self.single_model is None:
-                if method == "neuralhd":
-                    print(f"开始训练单通道 (NeuralHD, epochs={epochs}, lr={lr})...")
-                    self.single_model = NeuralHD(
-                        n_features=input_dim,
-                        n_dimensions=self.dimensions,
-                        n_classes=NUM_TYPES,
-                        regen_freq=regen_freq,
-                        regen_rate=regen_rate,
-                        epochs=epochs,
-                        lr=lr,
-                        device=self.device
-                    )
-                else:
-                    print(f"开始训练单通道 (OnlineHD, epochs={epochs}, lr={lr})...")
-                    self.single_model = OnlineHD(
-                        n_features=input_dim,
-                        n_dimensions=self.dimensions,
-                        n_classes=NUM_TYPES,
-                        epochs=epochs,
-                        lr=lr,
-                        device=self.device
-                    )
-        except StopIteration:
-            print("训练集为空，无法训练")
-            return
-
-        class AdaptedDataLoader:
-            def __init__(self, data_loader):
-                self.data_loader = data_loader
-            
-            def __iter__(self):
-                for samples, targets in self.data_loader:
-                    adapted_samples = samples.view(samples.size(0), -1)
-                    if targets.dim() > 1:
-                        adapted_targets = targets.squeeze(-1)
-                    else:
-                        adapted_targets = targets
-                    yield adapted_samples, adapted_targets
-
-        adapted_loader = AdaptedDataLoader(train_loader)
-        self.single_model.fit(adapted_loader)
-        print("单通道训练完成。")
-
-    def _train_multi_channel_ridge(self, train_loader, alpha=1.0):
-        print(f"开始训练全通道 (岭回归, alpha={alpha})...")
-        try:
-            first_batch = next(iter(train_loader))
-            sample_shape = first_batch[0].shape[1:]
-            if self.encoder is None:
-                self.encoder = self._create_encoder(sample_shape)
-                self.encoder = self.encoder.to(self.device)
-        except StopIteration:
-            print("训练集为空，无法训练")
-            return
-
-        all_hv = []
-        all_targets = []
-        
-        self.encoder.eval()
-        with torch.no_grad():
-            with tqdm(train_loader, desc="收集训练数据") as pbar:
-                for samples, targets in pbar:
-                    samples = samples.to(self.device)
-                    targets = targets.to(self.device)
-                    
-                    hv = self.encoder(samples)
-                    all_hv.append(hv)
-                    all_targets.append(targets)
-        
-        all_hv = torch.cat(all_hv, dim=0)
-        all_targets = torch.cat(all_targets, dim=0)
-        
-        for ch in range(self.num_channels):
-            ch_targets = all_targets[:, ch]
-            one_hot = torch.zeros(len(ch_targets), NUM_TYPES, device=self.device)
-            one_hot[torch.arange(len(ch_targets)), ch_targets] = 1
-            
-            weights = torchhd.functional.ridge_regression(all_hv, one_hot, alpha=alpha)
-            self.models[ch].weight.copy_(weights)
-            self.models[ch].normalize()
-        
-        print("全通道岭回归训练完成。")
-
-    def predict(self, test_loader, threshold=0.1, margin=0.02):
-        if self.is_single_channel:
-            return self._predict_single_channel(test_loader, threshold, margin)
-        else:
-            return super().predict(test_loader, threshold=threshold, margin=margin)
-
-    def _predict_single_channel(self, test_loader, threshold=0.1, margin=0.02):
-        print(f"开始预测单通道 (threshold={threshold}, margin={margin})...")
-        if self.single_model is None:
-            print("错误: 单通道模型未初始化")
-            return [], [], [], []
-            
-        self.single_model.eval()
-        
-        all_preds = []
-        all_normal_sims = []
-        all_max_defect_sims = []
-        all_class_sims = []
-        
-        with torch.no_grad():
-            for samples, _ in tqdm(test_loader, desc="预测中"):
-                samples = samples.to(self.device)
-                adapted_samples = samples.view(samples.size(0), -1)
-                
-                normalized_weights = F_pt.normalize(self.single_model.model.weight, dim=1)
-                encoded = self.single_model.encoder(adapted_samples)
-                normalized_encoded = F_pt.normalize(encoded, dim=1)
-                output = torch.matmul(normalized_encoded, normalized_weights.t())
-                
-                normal_sim = output[:, 0]
-                
-                defect_output = output[:, 1:]
-                max_defect_sim, defect_pred = torch.max(defect_output, dim=1)
-                defect_pred = defect_pred + 1
-                
-                is_defect = (max_defect_sim > threshold) & (max_defect_sim > (normal_sim + margin))
-                
-                final_pred = torch.zeros_like(normal_sim, dtype=torch.long)
-                final_pred[is_defect] = defect_pred[is_defect]
-                
-                all_preds.append(final_pred.unsqueeze(1).cpu())
-                all_normal_sims.append(normal_sim.unsqueeze(1).cpu())
-                all_max_defect_sims.append(max_defect_sim.unsqueeze(1).cpu())
-                all_class_sims.append(output.unsqueeze(1).cpu())
-        
-        return (
-            torch.cat(all_preds, dim=0).numpy(), 
-            torch.cat(all_normal_sims, dim=0).numpy(), 
-            torch.cat(all_max_defect_sims, dim=0).numpy(),
-            torch.cat(all_class_sims, dim=0).numpy()
+    def __init__(self, device='cpu', channels=None, num_levels=NUM_LEVELS,
+                 input_mode=None, z_threshold=None, dimensions=None):
+        ch = channels if channels is not None else CHANNELS
+        super().__init__(
+            device=device, channels=ch,
+            dimensions=DIMENSIONS_CFG if dimensions is None else dimensions,
+            num_levels=num_levels,
+            input_mode=input_mode or INPUT_MODE,
+            z_threshold=Z_THRESHOLD if z_threshold is None else z_threshold,
         )
 
+    def train(self, train_loader, epochs=5, lr=0.1, method="centroid",
+              alpha=1.0, regen_freq=20, regen_rate=0.04, reset=True):
+        # 单通道/多通道统一走父类的“类均值 + 标定”。
+        # 旧版单通道用 OnlineHD(Sinusoid)、多通道用 Level 编码，是两套算法，
+        # 指标不可比；这里统一，regen_* 参数保留仅为兼容旧调用。
+        super().train(train_loader, epochs=epochs, lr=lr, method=method,
+                      alpha=alpha, reset=reset)
+
     def save(self, path):
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        
-        if self.is_single_channel:
-            checkpoint = {
-                'dimensions': self.dimensions,
-                'channels': self.channels,
-                'model': self.single_model.state_dict() if self.single_model else None
-            }
-        else:
-            checkpoint = {
-                'dimensions': self.dimensions,
-                'channels': self.channels,
-                'encoder': self.encoder.state_dict() if self.encoder else None,
-                'models': self.models.state_dict()
-            }
-        
-        torch.save(checkpoint, str(path))
-        print(f"[INFO] 模型已保存至: {path}")
+        # 统一检查点格式：包含 encoder / channels / num_levels / class_counts / score_stats
+        super().save(Path(path))
 
     def load(self, path, window_size=WINDOW_SIZE, regen_freq=20, regen_rate=0.04):
-        try:
-            checkpoint = torch.load(path, map_location=self.device, weights_only=False)
-        except TypeError:
-            checkpoint = torch.load(path, map_location=self.device)
-            
-        self.dimensions = checkpoint.get('dimensions', 10000)
-        
-        if 'channels' in checkpoint:
-            self.channels = checkpoint['channels']
-            self.num_channels = len(self.channels)
-            self.is_single_channel = self.num_channels == 1
-        
-        if self.is_single_channel:
-            input_dim = window_size * 1
-            self.single_model = NeuralHD(
-                n_features=input_dim,
-                n_dimensions=self.dimensions,
-                n_classes=NUM_TYPES,
-                regen_freq=regen_freq,
-                regen_rate=regen_rate,
-                device=self.device
-            )
-            if 'model' in checkpoint and checkpoint['model']:
-                try:
-                    self.single_model.load_state_dict(checkpoint['model'])
-                    print(f"单通道模型已从 {path} 加载。")
-                except Exception as e:
-                    print(f"[WARN] 加载单通道模型状态失败: {e}")
-        else:
-            if 'encoder' in checkpoint and checkpoint['encoder']:
-                self.encoder = self._create_encoder((window_size, self.num_channels))
-                self.encoder = self.encoder.to(self.device)
-                self.encoder.load_state_dict(checkpoint['encoder'])
-            if 'models' in checkpoint:
-                self.models.load_state_dict(checkpoint['models'])
-            print(f"全通道模型已从 {path} 加载。")
+        # 统一加载：父类会校验 encoder 是否存在、维度/通道是否匹配。
+        # 旧检查点若只有原型没有 encoder，会抛出明确错误，由调用方转为从零训练。
+        super().load(path, window_size=window_size)
 
 
-def run_unified_test():
+def run_unified_test(force_retrain=False, train_dir=None, test_dir=None,
+                     model_path=None, results_dir=None, channels=None,
+                     z_threshold=None):
+    """训练 + 预测 + 评估。
+
+    force_retrain=True：忽略已有模型与 learned_files，从零训练（修 bug/换编码后必须）。
+    旧模型若缺少 encoder，会自动转为从零训练，不会只加载原型造成“编码与原型不同源”。
+    """
+    global TRAIN_DATA_DIR, TEST_DATA_DIR, MODEL_PATH, RESULTS_DIR
+    global CHANNELS, NUM_CHANNELS, IS_SINGLE_CHANNEL, CHANNEL_ID, Z_THRESHOLD
+    if channels:
+        CHANNELS = list(channels)
+        NUM_CHANNELS, IS_SINGLE_CHANNEL, CHANNEL_ID = get_channel_info(CHANNELS)
+    if z_threshold is not None:
+        Z_THRESHOLD = float(z_threshold)
+    if train_dir is not None:
+        TRAIN_DATA_DIR = Path(train_dir)
+    if test_dir is not None:
+        TEST_DATA_DIR = Path(test_dir)
+    if model_path is not None:
+        MODEL_PATH = Path(model_path)
+    if results_dir is not None:
+        RESULTS_DIR = Path(results_dir)
+
     channel_str = f"通道{CHANNEL_ID}" if IS_SINGLE_CHANNEL else f"{len(CHANNELS)}通道"
     print("="*60)
     print(f"HDC 点级分类器测试 ({channel_str}) - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
     
-    RESULTS_DIR.mkdir(exist_ok=True)# 确保结果目录存在
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[DEVICE] 使用设备: {device}")
 
@@ -524,20 +362,41 @@ def run_unified_test():
                 print(f"  ✗ {json_file.name} 转换失败: {e}")
 
     print("\n[Step 2] 正在进行 HDC 模型训练...")
-    hdc_sys = HDCUnifiedModel(device=device, channels=CHANNELS)
-    
-    if MODEL_PATH.exists():
-        print(f"[INFO] 加载现有模型进行增量训练: {MODEL_PATH}")
-        hdc_sys.load(str(MODEL_PATH), regen_freq=REGEN_FREQ, regen_rate=REGEN_RATE)
-    
-    actual_new_files = [f for f in get_json_files(TRAIN_DATA_DIR) if f.name not in learned_files]
-    
+    hdc_sys = HDCUnifiedModel(device=device, channels=CHANNELS,
+                              num_levels=NUM_LEVELS_CFG,
+                              input_mode=INPUT_MODE_CFG,
+                              z_threshold=Z_THRESHOLD,
+                              dimensions=DIMENSIONS_CFG)
+
+    model_loaded = False
+    if MODEL_PATH.exists() and not force_retrain:
+        print(f"[INFO] 尝试加载现有模型: {MODEL_PATH}")
+        try:
+            hdc_sys.load(str(MODEL_PATH), regen_freq=REGEN_FREQ, regen_rate=REGEN_RATE)
+            model_loaded = True
+        except Exception as e:
+            print(f"[WARN] 旧模型不可用（{e}）→ 改为从零训练")
+            force_retrain = True
+
+    if force_retrain:
+        # 换编码/修 bug 后必须重训；清空学习记录，避免“以为学过”而跳过
+        learned_files = set()
+        save_learned_files(learned_files, LEARNED_FILES_PATH)
+
+    actual_new_files = (get_json_files(TRAIN_DATA_DIR)
+                        if (force_retrain or not model_loaded)
+                        else [f for f in get_json_files(TRAIN_DATA_DIR)
+                              if f.name not in learned_files])
+
     if not actual_new_files:
-        print("[INFO] 没有新数据需要训练。")
+        if not model_loaded:
+            raise RuntimeError("没有可训练数据，也没有可用模型；请检查 --train-dir")
+        print("[INFO] 没有新数据需要训练，直接使用已加载模型评估。")
     else:
-        print(f"[INFO] 发现 {len(actual_new_files)} 个新文件，开始增量学习...")
+        print(f"[INFO] 待训练文件 {len(actual_new_files)} 个"
+              f"（{'从零训练' if not model_loaded else '增量累加'}）...")
         clean_old_files([TRAIN_DATA_DIR], file_types="train")
-        new_csv_files = [TRAIN_DATA_DIR / f"{Path(f).stem}_hdc.csv" for f in actual_new_files]
+        new_csv_files = [Path(f).parent / f"{Path(f).stem}_hdc.csv" for f in actual_new_files]
         
         train_ds = HDCUnifiedDataset(
             TRAIN_DATA_DIR, 
@@ -562,7 +421,8 @@ def run_unified_test():
                 method=LEARNING_METHOD,
                 alpha=RIDGE_ALPHA,
                 regen_freq=REGEN_FREQ,
-                regen_rate=REGEN_RATE
+                regen_rate=REGEN_RATE,
+                reset=not model_loaded,
             )
             
             hdc_sys.save(str(MODEL_PATH))
@@ -572,21 +432,25 @@ def run_unified_test():
             save_learned_files(learned_files, LEARNED_FILES_PATH)
             print(f"[INFO] 已更新学习记录: {len(learned_files)} 个文件")
 
+    if hdc_sys.encoder is None:
+        raise RuntimeError("训练未完成：编码器未初始化（训练样本为空？），无法进入预测")
+
     print("\n[Step 3] 正在对数据集进行点级预测与转换...")
     clean_old_files([TRAIN_DATA_DIR, TEST_DATA_DIR], file_types="predict")
     
     tasks = [
-        (TRAIN_DATA_DIR, True, "训练集"),
-        (TEST_DATA_DIR, True, "测试集")
+        (TRAIN_DATA_DIR, "训练集"),
+        (TEST_DATA_DIR, "测试集"),
     ]
-    
-    all_y_true = []
-    all_y_pred = []
+    # 旧版把 train+test 的矩阵拼在一起算一个总指标，报告却写“训练集”，
+    # 分母不可追溯；这里按 split 分开统计，测试集单独出报告。
+    split_true = {"训练集": [], "测试集": []}
+    split_pred = {"训练集": [], "测试集": []}
 
     eval_batch_size = 128 if torch.cuda.is_available() else 4
     print(f"[INFO] 预测 Batch Size: {eval_batch_size}")
 
-    for data_dir, calc_metrics, label in tasks:
+    for data_dir, label in tasks:
         print(f"\n--- 处理{label} ({data_dir}) ---")
         ds = HDCUnifiedDataset(data_dir, is_train=False, channels=CHANNELS)
         if len(ds) == 0:
@@ -594,9 +458,7 @@ def run_unified_test():
             continue
             
         ld = torch.utils.data.DataLoader(ds, batch_size=eval_batch_size, shuffle=False)
-        predictions, normal_sims, max_defect_sims, all_class_sims = hdc_sys.predict(
-            ld, threshold=PREDICT_THRESHOLD, margin=PREDICT_MARGIN
-        )
+        predictions, normal_sims, max_defect_sims, all_class_sims = hdc_sys.predict(ld)
         
         results_by_file = {}
         for idx, pred_row in enumerate(predictions):# 遍历每个样本的预测结果
@@ -619,7 +481,7 @@ def run_unified_test():
             y_pred_matrix, y_normal_sim_matrix, y_max_defect_sim_matrix, y_class_sims_dict = \
                 process_prediction_results(# 处理预测结果，生成预测矩阵和相似度矩阵
                     predictions, normal_sims, max_defect_sims, all_class_sims,
-                    ds.file_info, df_hdc, CHANNELS
+                    ds.file_info, df_hdc, CHANNELS, file_name=file_name
                 )
             
             pred_csv_path = data_dir / f"{base_name}_predicted_label.csv"# 预测结果的CSV文件路径
@@ -640,7 +502,7 @@ def run_unified_test():
                 convert_predicted_csv_to_json(pred_csv_path, original_json, output_json, hdc_file, # 转换预测结果CSV为JSON文件
                                              channel_ids=CHANNELS)
 
-            if calc_metrics and label_file.exists():
+            if label_file.exists():
                 df_label = pd.read_csv(label_file)
                 label_cols = [f'label_{ch}' for ch in CHANNELS]
                 
@@ -649,17 +511,33 @@ def run_unified_test():
                                         on='encoding', how='left').fillna(0)
                     y_true_matrix = df_merged[label_cols].values
                     
-                    metrics = calculate_metrics(y_true_matrix, y_pred_matrix)# 计算分类指标
-                    all_y_true.append(y_true_matrix)
-                    all_y_pred.append(y_pred_matrix)
+                    metrics = calculate_metrics(y_true_matrix, y_pred_matrix)
+                    split_true[label].append(y_true_matrix)
+                    split_pred[label].append(y_pred_matrix)
                     
-                    print(f"  文件: {file_name} -> P: {metrics['precision']:.4f}, R: {metrics['recall']:.4f}, F1: {metrics['f1']:.4f}")
+                    print(f"  文件: {file_name} -> P: {metrics['precision']:.4f}, "
+                          f"R: {metrics['recall']:.4f}, F1: {metrics['f1']:.4f}, "
+                          f"true={metrics['total_true']}, pred={metrics['total_pred']}")
 
-    if all_y_true:
-        final_y_true = np.vstack(all_y_true)
-        final_y_pred = np.vstack(all_y_pred)
-        total_metrics = calculate_metrics(final_y_true, final_y_pred)# 计算最终分类指标
-        generate_report(total_metrics, MODEL_PATH, RESULTS_DIR, CHANNELS)
+    for label in ("训练集", "测试集"):
+        if not split_true[label]:
+            continue
+        final_y_true = np.vstack(split_true[label])
+        final_y_pred = np.vstack(split_pred[label])
+        total_metrics = calculate_metrics(final_y_true, final_y_pred)
+        print(f"\n[{label}] P={total_metrics['precision']:.4f} "
+              f"R={total_metrics['recall']:.4f} F1={total_metrics['f1']:.4f} "
+              f"true={total_metrics['total_true']} pred={total_metrics['total_pred']} "
+              f"tp={total_metrics['tp']}")
+        if label == "测试集":
+            generate_report(total_metrics, MODEL_PATH, RESULTS_DIR, CHANNELS,
+                            split_name="测试集")
+    if not split_true["测试集"] and split_true["训练集"]:
+        # 没有测试标签时，至少把训练集结果落一份，避免“无报告”
+        total_metrics = calculate_metrics(np.vstack(split_true["训练集"]),
+                                          np.vstack(split_pred["训练集"]))
+        generate_report(total_metrics, MODEL_PATH, RESULTS_DIR, CHANNELS,
+                        split_name="训练集")
 
 
 def augment_data_by_beam_offset():
@@ -1277,14 +1155,33 @@ def run_cross_validation(k_folds=5):
 
 
 if __name__ == "__main__":
-    # 执行数据增强
-    # augment_data_by_beam_offset()
-    run_unified_test()
-    # 绘制相似度图表
-    from plot_similarity_charts import main as plot_similarity_charts_main
-    plot_similarity_charts_main()
-    # 直接运行点级相似度偏移测试
-    # run_point_similarity_offset_test()
-    # run_cross_validation(k_folds=5)
-    # 运行通道偏移测试
-    # run_channel_offset_test()
+    import argparse
+    ap = argparse.ArgumentParser(description="HDC 点级分类训练/评估")
+    ap.add_argument("--train-dir", help="训练数据目录（默认取 config）")
+    ap.add_argument("--test-dir", help="测试数据目录（默认取 config）")
+    ap.add_argument("--model", help="模型路径（默认取 config）")
+    ap.add_argument("--results-dir", help="报告输出目录（默认取 config）")
+    ap.add_argument("--channels", help="逗号分隔的 0-based 通道号，如 6,7,8（默认取 config）")
+    ap.add_argument("--z-threshold", type=float,
+                    help="伤损判据的 z 阈值（默认取 config，2.5σ）")
+    ap.add_argument("--force-retrain", action="store_true",
+                    help="忽略已有模型/学习记录，从零训练（换编码或修 bug 后必用）")
+    ap.add_argument("--no-plots", action="store_true", help="不生成相似度图表")
+    args = ap.parse_args()
+
+    chs = [int(x) for x in args.channels.split(",")] if args.channels else None
+    run_unified_test(
+        force_retrain=args.force_retrain,
+        train_dir=args.train_dir,
+        test_dir=args.test_dir,
+        model_path=args.model,
+        results_dir=args.results_dir,
+        channels=chs,
+        z_threshold=args.z_threshold,
+    )
+    if not args.no_plots:
+        try:
+            from plot_similarity_charts import main as plot_similarity_charts_main
+            plot_similarity_charts_main()
+        except Exception as e:
+            print(f"[WARN] 相似度图表生成失败（不影响主流程）: {e}")

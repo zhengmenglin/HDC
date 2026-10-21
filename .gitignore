@@ -86,3 +86,8 @@ tools/_cache/
 # ===== 大体积二进制（安装包等）=====
 docs/*.exe
 docs/*.msi
+# HDC 运行产物（预测结果/中间编码/旧模型归档）
+data/**/*_predicted_label.csv
+data/**/*_predicted.json
+data/**/*_encoding.csv
+models/_archive/

@@ -37,10 +37,12 @@ class Config:
             
             # HDC模型配置
             "model": {
-                "dimensions": 10000,  # 超维空间维度
+                "dimensions": 8192,  # 超维空间维度（与 hdc_point_level_classifier.DIMENSIONS 对齐）
                 "vsa_type": "MAP",  # VSA类型: MAP, HRR, FHRR等
-                "classifier": "OnlineHD",  # 分类器类型
-                "learning_method": "onlinehd",  # 学习方式: onlinehd, ridge, neuralhd
+                "classifier": "Centroid",  # 分类器类型
+                "learning_method": "centroid",  # centroid（推荐）/ onlinehd / ridge
+                "num_levels": 64,  # Level 级数（256 超出 8192 维分辨力，见可行性分析）
+                "input_mode": "window_z",  # raw / window_z（窗内标准化，去公共分量）
                 "learning_rate": 0.05,  # 学习率
                 "ridge_alpha": 1.0,  # 岭回归正则化参数
                 "epochs": 1,  # 训练轮数
@@ -77,8 +79,9 @@ class Config:
             "test": {
                 "results_dir": "hdc_test_results",  # 测试结果保存目录
                 "train_strategy": "all",  # 训练策略: damage_only, mixed, all
-                "predict_threshold": 0.0,  # 预测时的阈值
-                "predict_margin": 0.000  # 预测时的margin
+                "predict_threshold": 0.0,  # 旧判据阈值（仅在无 score_stats 时生效）
+                "predict_margin": 0.000,  # 旧判据 margin（仅在无 score_stats 时生效）
+                "z_threshold": 2.75,  # 新判据：(md-ns-mu)/sigma 超过该值判伤损（2.5σ 偏召回）
             }
         }
     
